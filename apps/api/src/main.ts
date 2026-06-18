@@ -26,9 +26,11 @@ async function bootstrap() {
   app.use(helmet());
   app.use(compression());
 
-  // CORS
+  // CORS — CORS_ORIGIN supports comma-separated values for multiple allowed origins
+  const rawOrigins = configService.get<string>('CORS_ORIGIN', 'http://localhost:3000');
+  const corsOrigins = rawOrigins.split(',').map((o) => o.trim());
   app.enableCors({
-    origin: configService.get<string>('CORS_ORIGIN', 'http://localhost:3000'),
+    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
