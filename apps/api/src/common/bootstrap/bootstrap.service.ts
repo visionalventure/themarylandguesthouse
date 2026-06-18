@@ -9,6 +9,14 @@ export class BootstrapService implements OnApplicationBootstrap {
   constructor(private readonly prisma: PrismaService) {}
 
   async onApplicationBootstrap() {
+    try {
+      await this.seed();
+    } catch (err: any) {
+      this.logger.error('Bootstrap failed (server will still start):', err?.message ?? err);
+    }
+  }
+
+  private async seed() {
     const existing = await this.prisma.user.findFirst({
       where: { email: 'admin@marylandguesthouse.com' },
     });
