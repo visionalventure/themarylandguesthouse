@@ -1,0 +1,113 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: mgh-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mgh_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mgh_secure_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-maryland_guesthouse}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-mgh_user}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mgh-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: mgh-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-mgh_redis_pass}
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mgh-network
+
+  # NestJS API
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: mgh-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mgh_user}:${POSTGRES_PASSWORD:-mgh_secure_pass}@postgres:5432/${POSTGRES_DB:-maryland_guesthouse}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-mgh_redis_pass}@redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      PORT: 3001
+      CORS_ORIGIN: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mgh-network
+
+  # Next.js Web App
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: mgh-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001/api}
+    ports:
+      - '3000:3000'
+    depends_on:
+      - api
+    networks:
+      - mgh-network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: mgh-nginx
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - web
+      - api
+    networks:
+      - mgh-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  mgh-network:
+    driver: bridge

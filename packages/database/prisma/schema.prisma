@@ -1,0 +1,1762 @@
+// Maryland Guesthouse ERP - Comprehensive Prisma Schema
+// Version: 1.0.0
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  FRONT_DESK
+  ACCOUNTANT
+  HOUSEKEEPING
+  MAINTENANCE
+  RESTAURANT_STAFF
+  HR_MANAGER
+  PROCUREMENT_OFFICER
+  GUEST
+}
+
+enum PropertyType {
+  GUESTHOUSE
+  HOTEL
+  LODGE
+  RESORT
+  APARTMENT
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+  MAINTENANCE
+  OUT_OF_ORDER
+}
+
+enum RoomType {
+  SINGLE
+  DOUBLE
+  TWIN
+  TRIPLE
+  SUITE
+  EXECUTIVE_SUITE
+  PRESIDENTIAL_SUITE
+  FAMILY_ROOM
+  CONFERENCE_ROOM
+}
+
+enum ReservationStatus {
+  PENDING
+  RESERVED
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+  WAITLISTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  VISA
+  MASTERCARD
+  PAYPAL
+  STRIPE
+  ORANGE_MONEY
+  MTN_MOBILE_MONEY
+  BANK_TRANSFER
+  CHECK
+  LOYALTY_POINTS
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+  VOID
+}
+
+enum BillStatus {
+  DRAFT
+  APPROVED
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum JournalEntryStatus {
+  DRAFT
+  POSTED
+  VOID
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+  TERMINATED
+  SUSPENDED
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  MATERNITY
+  PATERNITY
+  UNPAID
+  COMPASSIONATE
+  STUDY
+}
+
+enum MaintenanceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  ON_HOLD
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ProcurementStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  ORDERED
+  RECEIVED
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+  VOID
+}
+
+enum LoyaltyTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+  VIP
+}
+
+enum DocumentCategory {
+  CONTRACT
+  LICENSE
+  STAFF_FILE
+  PROCUREMENT
+  FINANCIAL
+  LEGAL
+  INSURANCE
+  OTHER
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  IMPORT
+  APPROVE
+  REJECT
+  VOID
+}
+
+enum TransactionType {
+  DEBIT
+  CREDIT
+}
+
+enum BudgetPeriod {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum AssetStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_MAINTENANCE
+  DISPOSED
+  LOST
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================================
+// MULTI-TENANT: TENANTS / PROPERTIES
+// ============================================================
+
+model Tenant {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  logo        String?
+  website     String?
+  email       String
+  phone       String?
+  address     String?
+  city        String?
+  country     String       @default("Liberia")
+  currency    String       @default("USD")
+  timezone    String       @default("Africa/Monrovia")
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  properties  Property[]
+  users       User[]
+  subscription Subscription?
+
+  @@map("tenants")
+}
+
+model Subscription {
+  id          String    @id @default(cuid())
+  tenantId    String    @unique
+  plan        String    @default("starter")
+  status      String    @default("active")
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@map("subscriptions")
+}
+
+model Property {
+  id           String       @id @default(cuid())
+  tenantId     String
+  name         String
+  code         String
+  type         PropertyType @default(GUESTHOUSE)
+  description  String?
+  address      String?
+  city         String?
+  country      String       @default("Liberia")
+  phone        String?
+  email        String?
+  starRating   Int?
+  checkInTime  String       @default("14:00")
+  checkOutTime String       @default("12:00")
+  logoUrl      String?
+  coverImageUrl String?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+
+  rooms        Room[]
+  reservations Reservation[]
+  inventory    InventoryItem[]
+  employees    Employee[]
+  maintenanceAssets Asset[]
+  accounts     Account[]
+  bankAccounts BankAccount[]
+  budgets      Budget[]
+  documents    Document[]
+  restaurants  Restaurant[]
+  housekeepingTasks HousekeepingTask[]
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([tenantId, code])
+  @@map("properties")
+}
+
+// ============================================================
+// USERS & AUTH
+// ============================================================
+
+model User {
+  id                String    @id @default(cuid())
+  tenantId          String
+  email             String
+  passwordHash      String
+  firstName         String
+  lastName          String
+  phone             String?
+  avatarUrl         String?
+  role              UserRole  @default(FRONT_DESK)
+  isActive          Boolean   @default(true)
+  emailVerified     Boolean   @default(false)
+  twoFactorEnabled  Boolean   @default(false)
+  twoFactorSecret   String?
+  lastLoginAt       DateTime?
+  passwordChangedAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant            Tenant        @relation(fields: [tenantId], references: [id])
+  refreshTokens     RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  auditLogs         AuditLog[]
+  employee          Employee?
+  createdReservations Reservation[] @relation("CreatedBy")
+  assignedHousekeeping HousekeepingTask[] @relation("AssignedTo")
+  createdJournalEntries JournalEntry[] @relation("JournalCreatedBy")
+  approvedPurchaseOrders PurchaseOrder[] @relation("POApprovedBy")
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id          String    @id @default(cuid())
+  userId      String
+  token       String    @unique
+  expiresAt   DateTime
+  isRevoked   Boolean   @default(false)
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+// ============================================================
+// GUEST CRM
+// ============================================================
+
+model Guest {
+  id              String    @id @default(cuid())
+  tenantId        String
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String?
+  nationalId      String?
+  passportNumber  String?
+  passportExpiry  DateTime?
+  nationality     String?
+  dateOfBirth     DateTime?
+  gender          String?
+  address         String?
+  city            String?
+  country         String?
+  company         String?
+  jobTitle        String?
+  dietaryPrefs    String?
+  roomPreferences String?
+  notes           String?
+  blacklisted     Boolean   @default(false)
+  blacklistReason String?
+  totalStays      Int       @default(0)
+  totalSpent      Decimal   @default(0) @db.Decimal(12,2)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  reservations    Reservation[]
+  loyaltyAccount  LoyaltyAccount?
+  invoices        Invoice[]
+
+  @@unique([tenantId, email])
+  @@map("guests")
+}
+
+// ============================================================
+// LOYALTY PROGRAM
+// ============================================================
+
+model LoyaltyAccount {
+  id              String      @id @default(cuid())
+  guestId         String      @unique
+  tier            LoyaltyTier @default(BRONZE)
+  points          Int         @default(0)
+  lifetimePoints  Int         @default(0)
+  memberNumber    String      @unique
+  memberSince     DateTime    @default(now())
+  tierExpiresAt   DateTime?
+  updatedAt       DateTime    @updatedAt
+
+  guest           Guest       @relation(fields: [guestId], references: [id])
+  transactions    LoyaltyTransaction[]
+  redemptions     LoyaltyRedemption[]
+
+  @@map("loyalty_accounts")
+}
+
+model LoyaltyTransaction {
+  id              String   @id @default(cuid())
+  loyaltyAccountId String
+  points          Int
+  type            String   // EARN | REDEEM | EXPIRE | ADJUST | BONUS
+  description     String
+  referenceId     String?
+  referenceType   String?
+  expiresAt       DateTime?
+  createdAt       DateTime @default(now())
+
+  account         LoyaltyAccount @relation(fields: [loyaltyAccountId], references: [id])
+
+  @@map("loyalty_transactions")
+}
+
+model LoyaltyRedemption {
+  id               String   @id @default(cuid())
+  loyaltyAccountId String
+  rewardType       String   // DISCOUNT | ROOM_UPGRADE | FREE_NIGHT | F&B_CREDIT
+  pointsUsed       Int
+  valueAmount      Decimal  @db.Decimal(10,2)
+  reservationId    String?
+  status           String   @default("PENDING")
+  createdAt        DateTime @default(now())
+
+  account          LoyaltyAccount @relation(fields: [loyaltyAccountId], references: [id])
+
+  @@map("loyalty_redemptions")
+}
+
+model LoyaltyRule {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  type        String   // STAY | SPEND | REFERRAL | BIRTHDAY | SIGNUP
+  pointsValue Int
+  minSpend    Decimal? @db.Decimal(10,2)
+  multiplier  Decimal  @default(1) @db.Decimal(5,2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("loyalty_rules")
+}
+
+// ============================================================
+// ROOMS
+// ============================================================
+
+model RoomCategory {
+  id           String   @id @default(cuid())
+  propertyId   String
+  name         String
+  type         RoomType
+  description  String?
+  basePrice    Decimal  @db.Decimal(10,2)
+  maxOccupancy Int
+  bedCount     Int      @default(1)
+  amenities    String[] @default([])
+  images       String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  rooms        Room[]
+
+  @@map("room_categories")
+}
+
+model Room {
+  id            String     @id @default(cuid())
+  propertyId    String
+  categoryId    String
+  roomNumber    String
+  floor         Int?
+  status        RoomStatus @default(AVAILABLE)
+  isActive      Boolean    @default(true)
+  notes         String?
+  lastCleaned   DateTime?
+  lastInspected DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  property      Property      @relation(fields: [propertyId], references: [id])
+  category      RoomCategory  @relation(fields: [categoryId], references: [id])
+  reservations  ReservationRoom[]
+  housekeepingTasks HousekeepingTask[]
+  maintenanceWorkOrders WorkOrder[]
+  roomPricing   RoomPricing[]
+
+  @@unique([propertyId, roomNumber])
+  @@map("rooms")
+}
+
+model RoomPricing {
+  id          String   @id @default(cuid())
+  roomId      String
+  name        String
+  pricePerNight Decimal @db.Decimal(10,2)
+  startDate   DateTime?
+  endDate     DateTime?
+  isDefault   Boolean  @default(false)
+  minNights   Int      @default(1)
+  createdAt   DateTime @default(now())
+
+  room        Room     @relation(fields: [roomId], references: [id])
+
+  @@map("room_pricing")
+}
+
+model RoomAmenity {
+  id          String  @id @default(cuid())
+  name        String
+  icon        String?
+  category    String?
+
+  @@map("room_amenities")
+}
+
+// ============================================================
+// RESERVATIONS
+// ============================================================
+
+model Reservation {
+  id              String            @id @default(cuid())
+  propertyId      String
+  guestId         String
+  createdById     String?
+  reservationNo   String            @unique
+  status          ReservationStatus @default(PENDING)
+  checkIn         DateTime
+  checkOut        DateTime
+  adults          Int               @default(1)
+  children        Int               @default(0)
+  source          String?           // DIRECT | OTA | WALK_IN | CORPORATE | ONLINE
+  channelId       String?
+  corporateId     String?
+  groupId         String?
+  specialRequests String?
+  arrivalTime     String?
+  depositAmount   Decimal           @default(0) @db.Decimal(10,2)
+  depositPaid     Boolean           @default(false)
+  totalAmount     Decimal           @db.Decimal(12,2)
+  discountAmount  Decimal           @default(0) @db.Decimal(10,2)
+  taxAmount       Decimal           @default(0) @db.Decimal(10,2)
+  couponCode      String?
+  notes           String?
+  checkedInAt     DateTime?
+  checkedOutAt    DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  noShowAt        DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  property        Property          @relation(fields: [propertyId], references: [id])
+  guest           Guest             @relation(fields: [guestId], references: [id])
+  createdBy       User?             @relation("CreatedBy", fields: [createdById], references: [id])
+  rooms           ReservationRoom[]
+  payments        Payment[]
+  invoices        Invoice[]
+  charges         ReservationCharge[]
+  corporateAccount CorporateAccount? @relation(fields: [corporateId], references: [id])
+  group           GroupBooking?     @relation(fields: [groupId], references: [id])
+
+  @@map("reservations")
+}
+
+model ReservationRoom {
+  id            String      @id @default(cuid())
+  reservationId String
+  roomId        String
+  ratePerNight  Decimal     @db.Decimal(10,2)
+  totalNights   Int
+  totalAmount   Decimal     @db.Decimal(12,2)
+
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+  room          Room        @relation(fields: [roomId], references: [id])
+
+  @@unique([reservationId, roomId])
+  @@map("reservation_rooms")
+}
+
+model ReservationCharge {
+  id            String      @id @default(cuid())
+  reservationId String
+  description   String
+  amount        Decimal     @db.Decimal(10,2)
+  chargeType    String      // ROOM | F&B | MINIBAR | LAUNDRY | SPA | TELEPHONE | OTHER
+  quantity      Int         @default(1)
+  unitPrice     Decimal     @db.Decimal(10,2)
+  taxRate       Decimal     @default(0) @db.Decimal(5,2)
+  orderId       String?
+  createdAt     DateTime    @default(now())
+
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+
+  @@map("reservation_charges")
+}
+
+model GroupBooking {
+  id            String   @id @default(cuid())
+  tenantId      String
+  groupName     String
+  contactName   String
+  contactEmail  String?
+  contactPhone  String?
+  totalRooms    Int
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  reservations  Reservation[]
+
+  @@map("group_bookings")
+}
+
+model CorporateAccount {
+  id              String   @id @default(cuid())
+  tenantId        String
+  companyName     String
+  contactName     String
+  contactEmail    String?
+  contactPhone    String?
+  address         String?
+  discountRate    Decimal  @default(0) @db.Decimal(5,2)
+  creditLimit     Decimal  @default(0) @db.Decimal(12,2)
+  paymentTermDays Int      @default(30)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  reservations    Reservation[]
+  invoices        Invoice[]
+
+  @@map("corporate_accounts")
+}
+
+model Coupon {
+  id            String    @id @default(cuid())
+  tenantId      String
+  code          String    @unique
+  description   String?
+  discountType  String    // PERCENTAGE | FIXED
+  discountValue Decimal   @db.Decimal(10,2)
+  minStay       Int?
+  maxUses       Int?
+  usedCount     Int       @default(0)
+  validFrom     DateTime
+  validTo       DateTime
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+
+  @@map("coupons")
+}
+
+// ============================================================
+// PAYMENTS & INVOICING
+// ============================================================
+
+model Payment {
+  id              String        @id @default(cuid())
+  tenantId        String
+  reservationId   String?
+  invoiceId       String?
+  guestId         String?
+  amount          Decimal       @db.Decimal(12,2)
+  currency        String        @default("USD")
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  transactionId   String?
+  gatewayResponse Json?
+  receiptUrl      String?
+  notes           String?
+  processedAt     DateTime?
+  refundedAt      DateTime?
+  refundAmount    Decimal?      @db.Decimal(12,2)
+  refundReason    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  reservation     Reservation?  @relation(fields: [reservationId], references: [id])
+  invoice         Invoice?      @relation(fields: [invoiceId], references: [id])
+
+  @@map("payments")
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  tenantId        String
+  invoiceNumber   String        @unique
+  propertyId      String?
+  guestId         String?
+  corporateId     String?
+  reservationId   String?
+  status          InvoiceStatus @default(DRAFT)
+  issueDate       DateTime      @default(now())
+  dueDate         DateTime
+  subtotal        Decimal       @db.Decimal(12,2)
+  taxAmount       Decimal       @default(0) @db.Decimal(12,2)
+  discountAmount  Decimal       @default(0) @db.Decimal(12,2)
+  totalAmount     Decimal       @db.Decimal(12,2)
+  paidAmount      Decimal       @default(0) @db.Decimal(12,2)
+  notes           String?
+  terms           String?
+  pdfUrl          String?
+  sentAt          DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  guest           Guest?        @relation(fields: [guestId], references: [id])
+  corporate       CorporateAccount? @relation(fields: [corporateId], references: [id])
+  reservation     Reservation?  @relation(fields: [reservationId], references: [id])
+  lineItems       InvoiceLineItem[]
+  payments        Payment[]
+
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Decimal  @db.Decimal(10,3)
+  unitPrice   Decimal  @db.Decimal(10,2)
+  taxRate     Decimal  @default(0) @db.Decimal(5,2)
+  total       Decimal  @db.Decimal(12,2)
+  accountId   String?
+
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+
+  @@map("invoice_line_items")
+}
+
+// ============================================================
+// HOUSEKEEPING
+// ============================================================
+
+model HousekeepingTask {
+  id            String     @id @default(cuid())
+  propertyId    String
+  roomId        String
+  assignedToId  String?
+  taskType      String     // CHECKOUT_CLEAN | STAYOVER_CLEAN | DEEP_CLEAN | INSPECTION | TURNDOWN
+  status        TaskStatus @default(PENDING)
+  priority      String     @default("NORMAL")
+  scheduledAt   DateTime?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  notes         String?
+  checklistData Json?
+  inspectedBy   String?
+  inspectionNotes String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  property      Property   @relation(fields: [propertyId], references: [id])
+  room          Room       @relation(fields: [roomId], references: [id])
+  assignedTo    User?      @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  @@map("housekeeping_tasks")
+}
+
+model HousekeepingChecklist {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  taskType    String
+  items       Json
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@map("housekeeping_checklists")
+}
+
+// ============================================================
+// RESTAURANT & BAR POS
+// ============================================================
+
+model Restaurant {
+  id          String   @id @default(cuid())
+  propertyId  String
+  name        String
+  type        String   @default("RESTAURANT") // RESTAURANT | BAR | CAFE | POOL_BAR
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  property    Property @relation(fields: [propertyId], references: [id])
+  tables      RestaurantTable[]
+  menuItems   MenuItem[]
+  orders      RestaurantOrder[]
+
+  @@map("restaurants")
+}
+
+model RestaurantTable {
+  id           String     @id @default(cuid())
+  restaurantId String
+  tableNumber  String
+  capacity     Int
+  status       String     @default("AVAILABLE") // AVAILABLE | OCCUPIED | RESERVED
+  location     String?
+  createdAt    DateTime   @default(now())
+
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  orders       RestaurantOrder[]
+
+  @@unique([restaurantId, tableNumber])
+  @@map("restaurant_tables")
+}
+
+model MenuCategory {
+  id          String     @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+
+  items       MenuItem[]
+
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id           String       @id @default(cuid())
+  restaurantId String
+  categoryId   String?
+  name         String
+  description  String?
+  price        Decimal      @db.Decimal(10,2)
+  costPrice    Decimal?     @db.Decimal(10,2)
+  imageUrl     String?
+  isAvailable  Boolean      @default(true)
+  preparationTime Int?
+  allergens    String[]     @default([])
+  isVegetarian Boolean      @default(false)
+  isVegan      Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id])
+  category     MenuCategory? @relation(fields: [categoryId], references: [id])
+  orderItems   OrderItem[]
+
+  @@map("menu_items")
+}
+
+model RestaurantOrder {
+  id            String       @id @default(cuid())
+  restaurantId  String
+  tableId       String?
+  reservationId String?
+  guestName     String?
+  roomNumber    String?
+  orderNumber   String       @unique
+  status        OrderStatus  @default(PENDING)
+  orderType     String       @default("DINE_IN") // DINE_IN | ROOM_SERVICE | TAKEAWAY | BAR
+  subtotal      Decimal      @db.Decimal(10,2)
+  taxAmount     Decimal      @default(0) @db.Decimal(10,2)
+  totalAmount   Decimal      @db.Decimal(10,2)
+  chargeToRoom  Boolean      @default(false)
+  notes         String?
+  preparedAt    DateTime?
+  servedAt      DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  restaurant    Restaurant   @relation(fields: [restaurantId], references: [id])
+  table         RestaurantTable? @relation(fields: [tableId], references: [id])
+  items         OrderItem[]
+
+  @@map("restaurant_orders")
+}
+
+model OrderItem {
+  id          String          @id @default(cuid())
+  orderId     String
+  menuItemId  String
+  quantity    Int
+  unitPrice   Decimal         @db.Decimal(10,2)
+  totalPrice  Decimal         @db.Decimal(10,2)
+  notes       String?
+  status      String          @default("PENDING")
+
+  order       RestaurantOrder @relation(fields: [orderId], references: [id])
+  menuItem    MenuItem        @relation(fields: [menuItemId], references: [id])
+
+  @@map("order_items")
+}
+
+// ============================================================
+// INVENTORY MANAGEMENT
+// ============================================================
+
+model InventoryCategory {
+  id          String          @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  parentId    String?
+
+  parent      InventoryCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    InventoryCategory[] @relation("CategoryHierarchy")
+  items       InventoryItem[]
+
+  @@map("inventory_categories")
+}
+
+model InventoryItem {
+  id              String    @id @default(cuid())
+  propertyId      String
+  categoryId      String?
+  sku             String
+  name            String
+  description     String?
+  unit            String    // PCS | KG | LITRE | BOX | DOZEN
+  currentStock    Decimal   @default(0) @db.Decimal(12,3)
+  minimumStock    Decimal   @default(0) @db.Decimal(12,3)
+  maximumStock    Decimal?  @db.Decimal(12,3)
+  reorderPoint    Decimal   @default(0) @db.Decimal(12,3)
+  unitCost        Decimal   @default(0) @db.Decimal(10,2)
+  totalValue      Decimal   @default(0) @db.Decimal(12,2)
+  location        String?
+  supplierId      String?
+  barcode         String?
+  expiryTracking  Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  property        Property  @relation(fields: [propertyId], references: [id])
+  category        InventoryCategory? @relation(fields: [categoryId], references: [id])
+  supplier        Supplier? @relation(fields: [supplierId], references: [id])
+  transactions    InventoryTransaction[]
+  purchaseOrderItems POLineItem[]
+
+  @@unique([propertyId, sku])
+  @@map("inventory_items")
+}
+
+model InventoryTransaction {
+  id              String    @id @default(cuid())
+  itemId          String
+  type            String    // STOCK_IN | STOCK_OUT | TRANSFER | ADJUSTMENT | WASTAGE | RETURN
+  quantity        Decimal   @db.Decimal(12,3)
+  unitCost        Decimal?  @db.Decimal(10,2)
+  totalCost       Decimal?  @db.Decimal(12,2)
+  referenceId     String?
+  referenceType   String?
+  expiryDate      DateTime?
+  batchNumber     String?
+  reason          String?
+  notes           String?
+  performedBy     String?
+  createdAt       DateTime  @default(now())
+
+  item            InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@map("inventory_transactions")
+}
+
+// ============================================================
+// PROCUREMENT
+// ============================================================
+
+model Supplier {
+  id              String    @id @default(cuid())
+  tenantId        String
+  name            String
+  code            String
+  contactName     String?
+  email           String?
+  phone           String?
+  address         String?
+  city            String?
+  country         String?
+  taxId           String?
+  bankName        String?
+  bankAccount     String?
+  paymentTerms    Int       @default(30)
+  creditLimit     Decimal?  @db.Decimal(12,2)
+  rating          Int?
+  isActive        Boolean   @default(true)
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  inventoryItems  InventoryItem[]
+  purchaseOrders  PurchaseOrder[]
+  supplierBills   SupplierBill[]
+  quotations      Quotation[]
+
+  @@unique([tenantId, code])
+  @@map("suppliers")
+}
+
+model Quotation {
+  id              String    @id @default(cuid())
+  tenantId        String
+  supplierId      String
+  quotationNumber String    @unique
+  validUntil      DateTime?
+  status          String    @default("PENDING") // PENDING | ACCEPTED | REJECTED | EXPIRED
+  totalAmount     Decimal   @db.Decimal(12,2)
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  supplier        Supplier  @relation(fields: [supplierId], references: [id])
+  items           QuotationItem[]
+
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id            String    @id @default(cuid())
+  quotationId   String
+  description   String
+  quantity      Decimal   @db.Decimal(12,3)
+  unitPrice     Decimal   @db.Decimal(10,2)
+  total         Decimal   @db.Decimal(12,2)
+
+  quotation     Quotation @relation(fields: [quotationId], references: [id])
+
+  @@map("quotation_items")
+}
+
+model PurchaseRequest {
+  id              String            @id @default(cuid())
+  tenantId        String
+  propertyId      String?
+  requestNumber   String            @unique
+  requestedById   String?
+  status          ProcurementStatus @default(DRAFT)
+  urgency         String            @default("NORMAL")
+  notes           String?
+  approvedById    String?
+  approvedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  items           PurchaseRequestItem[]
+
+  @@map("purchase_requests")
+}
+
+model PurchaseRequestItem {
+  id          String          @id @default(cuid())
+  requestId   String
+  itemName    String
+  quantity    Decimal         @db.Decimal(12,3)
+  unit        String
+  estimatedCost Decimal?      @db.Decimal(10,2)
+  notes       String?
+
+  request     PurchaseRequest @relation(fields: [requestId], references: [id])
+
+  @@map("purchase_request_items")
+}
+
+model PurchaseOrder {
+  id              String            @id @default(cuid())
+  propertyId      String
+  supplierId      String
+  poNumber        String            @unique
+  status          ProcurementStatus @default(DRAFT)
+  orderDate       DateTime          @default(now())
+  expectedDate    DateTime?
+  receivedDate    DateTime?
+  subtotal        Decimal           @db.Decimal(12,2)
+  taxAmount       Decimal           @default(0) @db.Decimal(12,2)
+  shippingCost    Decimal           @default(0) @db.Decimal(10,2)
+  totalAmount     Decimal           @db.Decimal(12,2)
+  notes           String?
+  approvedById    String?
+  approvedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  property        Property          @relation(fields: [propertyId], references: [id])
+  supplier        Supplier          @relation(fields: [supplierId], references: [id])
+  approvedBy      User?             @relation("POApprovedBy", fields: [approvedById], references: [id])
+  lineItems       POLineItem[]
+  goodsReceipts   GoodsReceipt[]
+  supplierBills   SupplierBill[]
+
+  @@map("purchase_orders")
+}
+
+model POLineItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  inventoryItemId String?
+  description     String
+  quantity        Decimal       @db.Decimal(12,3)
+  unitPrice       Decimal       @db.Decimal(10,2)
+  taxRate         Decimal       @default(0) @db.Decimal(5,2)
+  total           Decimal       @db.Decimal(12,2)
+  receivedQty     Decimal       @default(0) @db.Decimal(12,3)
+
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+
+  @@map("po_line_items")
+}
+
+model GoodsReceipt {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  receiptNumber   String        @unique
+  receivedDate    DateTime      @default(now())
+  receivedById    String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  items           GoodsReceiptItem[]
+
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptItem {
+  id            String       @id @default(cuid())
+  receiptId     String
+  poLineItemId  String?
+  description   String
+  quantityOrdered Decimal    @db.Decimal(12,3)
+  quantityReceived Decimal   @db.Decimal(12,3)
+  unitCost      Decimal      @db.Decimal(10,2)
+  batchNumber   String?
+  expiryDate    DateTime?
+  notes         String?
+
+  receipt       GoodsReceipt @relation(fields: [receiptId], references: [id])
+
+  @@map("goods_receipt_items")
+}
+
+model SupplierBill {
+  id              String     @id @default(cuid())
+  tenantId        String
+  supplierId      String
+  purchaseOrderId String?
+  billNumber      String     @unique
+  supplierRef     String?
+  status          BillStatus @default(DRAFT)
+  billDate        DateTime
+  dueDate         DateTime
+  subtotal        Decimal    @db.Decimal(12,2)
+  taxAmount       Decimal    @default(0) @db.Decimal(12,2)
+  totalAmount     Decimal    @db.Decimal(12,2)
+  paidAmount      Decimal    @default(0) @db.Decimal(12,2)
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  supplier        Supplier   @relation(fields: [supplierId], references: [id])
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  lineItems       BillLineItem[]
+  payments        BillPayment[]
+
+  @@map("supplier_bills")
+}
+
+model BillLineItem {
+  id          String       @id @default(cuid())
+  billId      String
+  accountId   String?
+  description String
+  quantity    Decimal      @db.Decimal(12,3)
+  unitPrice   Decimal      @db.Decimal(10,2)
+  taxRate     Decimal      @default(0) @db.Decimal(5,2)
+  total       Decimal      @db.Decimal(12,2)
+
+  bill        SupplierBill @relation(fields: [billId], references: [id])
+
+  @@map("bill_line_items")
+}
+
+model BillPayment {
+  id          String       @id @default(cuid())
+  billId      String
+  amount      Decimal      @db.Decimal(12,2)
+  method      PaymentMethod
+  reference   String?
+  paidAt      DateTime     @default(now())
+  notes       String?
+
+  bill        SupplierBill @relation(fields: [billId], references: [id])
+
+  @@map("bill_payments")
+}
+
+// ============================================================
+// HUMAN RESOURCES
+// ============================================================
+
+model Department {
+  id          String     @id @default(cuid())
+  tenantId    String
+  name        String
+  code        String
+  managerId   String?
+  description String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+
+  employees   Employee[]
+
+  @@unique([tenantId, code])
+  @@map("departments")
+}
+
+model Employee {
+  id              String         @id @default(cuid())
+  userId          String?        @unique
+  propertyId      String
+  departmentId    String?
+  employeeNumber  String         @unique
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String?
+  nationalId      String?
+  dateOfBirth     DateTime?
+  gender          String?
+  address         String?
+  emergencyContact String?
+  emergencyPhone  String?
+  position        String
+  employmentType  String         @default("FULL_TIME") // FULL_TIME | PART_TIME | CONTRACT | CASUAL
+  startDate       DateTime
+  endDate         DateTime?
+  status          EmployeeStatus @default(ACTIVE)
+  baseSalary      Decimal        @db.Decimal(12,2)
+  bankName        String?
+  bankAccount     String?
+  bankBranch      String?
+  avatarUrl       String?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user            User?          @relation(fields: [userId], references: [id])
+  property        Property       @relation(fields: [propertyId], references: [id])
+  department      Department?    @relation(fields: [departmentId], references: [id])
+  attendances     Attendance[]
+  leaveRequests   LeaveRequest[]
+  payrolls        PayrollRecord[]
+  performanceReviews PerformanceReview[]
+
+  @@map("employees")
+}
+
+model Attendance {
+  id          String    @id @default(cuid())
+  employeeId  String
+  date        DateTime  @db.Date
+  clockIn     DateTime?
+  clockOut    DateTime?
+  hoursWorked Decimal?  @db.Decimal(5,2)
+  status      String    @default("PRESENT") // PRESENT | ABSENT | LATE | HALF_DAY | ON_LEAVE
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, date])
+  @@map("attendances")
+}
+
+model LeaveRequest {
+  id            String      @id @default(cuid())
+  employeeId    String
+  leaveType     LeaveType
+  status        LeaveStatus @default(PENDING)
+  startDate     DateTime    @db.Date
+  endDate       DateTime    @db.Date
+  totalDays     Int
+  reason        String?
+  approvedById  String?
+  approvedAt    DateTime?
+  rejectionNote String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  employee      Employee    @relation(fields: [employeeId], references: [id])
+
+  @@map("leave_requests")
+}
+
+model LeaveBalance {
+  id          String    @id @default(cuid())
+  employeeId  String
+  year        Int
+  leaveType   LeaveType
+  entitled    Int
+  taken       Int       @default(0)
+  remaining   Int
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([employeeId, year, leaveType])
+  @@map("leave_balances")
+}
+
+model PayrollRecord {
+  id              String    @id @default(cuid())
+  employeeId      String
+  periodStart     DateTime  @db.Date
+  periodEnd       DateTime  @db.Date
+  baseSalary      Decimal   @db.Decimal(12,2)
+  allowances      Decimal   @default(0) @db.Decimal(12,2)
+  overtime        Decimal   @default(0) @db.Decimal(12,2)
+  deductions      Decimal   @default(0) @db.Decimal(12,2)
+  tax             Decimal   @default(0) @db.Decimal(12,2)
+  netPay          Decimal   @db.Decimal(12,2)
+  status          String    @default("DRAFT") // DRAFT | APPROVED | PAID
+  paymentMethod   PaymentMethod @default(BANK_TRANSFER)
+  paidAt          DateTime?
+  notes           String?
+  payslipUrl      String?
+  createdAt       DateTime  @default(now())
+
+  employee        Employee  @relation(fields: [employeeId], references: [id])
+
+  @@map("payroll_records")
+}
+
+model PerformanceReview {
+  id            String    @id @default(cuid())
+  employeeId    String
+  reviewerId    String?
+  reviewPeriod  String
+  overallRating Int       // 1-5
+  goals         Json?
+  feedback      String?
+  improvements  String?
+  status        String    @default("DRAFT")
+  reviewedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  employee      Employee  @relation(fields: [employeeId], references: [id])
+
+  @@map("performance_reviews")
+}
+
+// ============================================================
+// MAINTENANCE MANAGEMENT
+// ============================================================
+
+model Asset {
+  id              String      @id @default(cuid())
+  propertyId      String
+  assetNumber     String      @unique
+  name            String
+  category        String      // AC | GENERATOR | FURNITURE | ELECTRONICS | PLUMBING | OTHER
+  brand           String?
+  model           String?
+  serialNumber    String?
+  purchaseDate    DateTime?
+  purchasePrice   Decimal?    @db.Decimal(12,2)
+  currentValue    Decimal?    @db.Decimal(12,2)
+  location        String?
+  status          AssetStatus @default(ACTIVE)
+  warrantyExpiry  DateTime?
+  lastServiced    DateTime?
+  nextServiceDate DateTime?
+  notes           String?
+  imageUrl        String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  property        Property    @relation(fields: [propertyId], references: [id])
+  workOrders      WorkOrder[]
+  maintenanceSchedules MaintenanceSchedule[]
+
+  @@map("assets")
+}
+
+model WorkOrder {
+  id              String              @id @default(cuid())
+  assetId         String?
+  roomId          String?
+  tenantId        String
+  workOrderNumber String              @unique
+  title           String
+  description     String
+  status          MaintenanceStatus   @default(PENDING)
+  priority        MaintenancePriority @default(MEDIUM)
+  assignedToId    String?
+  reportedById    String?
+  scheduledDate   DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  estimatedHours  Decimal?            @db.Decimal(5,2)
+  actualHours     Decimal?            @db.Decimal(5,2)
+  laborCost       Decimal?            @db.Decimal(10,2)
+  partsCost       Decimal?            @db.Decimal(10,2)
+  totalCost       Decimal?            @db.Decimal(10,2)
+  resolution      String?
+  notes           String?
+  images          String[]            @default([])
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  asset           Asset?              @relation(fields: [assetId], references: [id])
+  room            Room?               @relation(fields: [roomId], references: [id])
+
+  @@map("work_orders")
+}
+
+model MaintenanceSchedule {
+  id              String    @id @default(cuid())
+  assetId         String
+  title           String
+  description     String?
+  frequency       String    // DAILY | WEEKLY | MONTHLY | QUARTERLY | ANNUAL
+  lastPerformed   DateTime?
+  nextDueDate     DateTime
+  estimatedCost   Decimal?  @db.Decimal(10,2)
+  assignedToId    String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  asset           Asset     @relation(fields: [assetId], references: [id])
+
+  @@map("maintenance_schedules")
+}
+
+// ============================================================
+// ACCOUNTING SYSTEM (XERO-STYLE)
+// ============================================================
+
+model Account {
+  id              String      @id @default(cuid())
+  propertyId      String
+  code            String
+  name            String
+  type            AccountType
+  parentId        String?
+  description     String?
+  isSystem        Boolean     @default(false)
+  isActive        Boolean     @default(true)
+  normalBalance   TransactionType @default(DEBIT)
+  currentBalance  Decimal     @default(0) @db.Decimal(15,2)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  property        Property    @relation(fields: [propertyId], references: [id])
+  parent          Account?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children        Account[]   @relation("AccountHierarchy")
+  journalLines    JournalLine[]
+
+  @@unique([propertyId, code])
+  @@map("accounts")
+}
+
+model JournalEntry {
+  id              String             @id @default(cuid())
+  tenantId        String
+  entryNumber     String             @unique
+  status          JournalEntryStatus @default(DRAFT)
+  date            DateTime           @db.Date
+  description     String
+  reference       String?
+  referenceType   String?
+  createdById     String?
+  postedAt        DateTime?
+  voidedAt        DateTime?
+  voidReason      String?
+  totalDebit      Decimal            @db.Decimal(15,2)
+  totalCredit     Decimal            @db.Decimal(15,2)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  createdBy       User?              @relation("JournalCreatedBy", fields: [createdById], references: [id])
+  lines           JournalLine[]
+
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id              String       @id @default(cuid())
+  journalEntryId  String
+  accountId       String
+  type            TransactionType
+  amount          Decimal      @db.Decimal(15,2)
+  description     String?
+  currency        String       @default("USD")
+
+  journalEntry    JournalEntry @relation(fields: [journalEntryId], references: [id])
+  account         Account      @relation(fields: [accountId], references: [id])
+
+  @@map("journal_lines")
+}
+
+model BankAccount {
+  id              String    @id @default(cuid())
+  propertyId      String
+  accountId       String?
+  bankName        String
+  accountName     String
+  accountNumber   String
+  routingNumber   String?
+  swiftCode       String?
+  currency        String    @default("USD")
+  currentBalance  Decimal   @default(0) @db.Decimal(15,2)
+  isDefault       Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  property        Property  @relation(fields: [propertyId], references: [id])
+  reconciliations BankReconciliation[]
+  transactions    BankTransaction[]
+
+  @@map("bank_accounts")
+}
+
+model BankTransaction {
+  id              String      @id @default(cuid())
+  bankAccountId   String
+  date            DateTime    @db.Date
+  description     String
+  amount          Decimal     @db.Decimal(15,2)
+  type            TransactionType
+  reference       String?
+  isReconciled    Boolean     @default(false)
+  reconciledAt    DateTime?
+  journalEntryId  String?
+  createdAt       DateTime    @default(now())
+
+  bankAccount     BankAccount @relation(fields: [bankAccountId], references: [id])
+
+  @@map("bank_transactions")
+}
+
+model BankReconciliation {
+  id              String      @id @default(cuid())
+  bankAccountId   String
+  statementDate   DateTime    @db.Date
+  openingBalance  Decimal     @db.Decimal(15,2)
+  closingBalance  Decimal     @db.Decimal(15,2)
+  reconciledBalance Decimal   @db.Decimal(15,2)
+  difference      Decimal     @default(0) @db.Decimal(15,2)
+  status          String      @default("IN_PROGRESS")
+  completedAt     DateTime?
+  createdAt       DateTime    @default(now())
+
+  bankAccount     BankAccount @relation(fields: [bankAccountId], references: [id])
+
+  @@map("bank_reconciliations")
+}
+
+model Budget {
+  id              String       @id @default(cuid())
+  propertyId      String
+  name            String
+  period          BudgetPeriod
+  startDate       DateTime     @db.Date
+  endDate         DateTime     @db.Date
+  status          String       @default("DRAFT")
+  notes           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  property        Property     @relation(fields: [propertyId], references: [id])
+  lines           BudgetLine[]
+
+  @@map("budgets")
+}
+
+model BudgetLine {
+  id          String    @id @default(cuid())
+  budgetId    String
+  accountId   String?
+  accountName String
+  month       Int?
+  amount      Decimal   @db.Decimal(15,2)
+  actual      Decimal   @default(0) @db.Decimal(15,2)
+  variance    Decimal   @default(0) @db.Decimal(15,2)
+
+  budget      Budget    @relation(fields: [budgetId], references: [id])
+
+  @@map("budget_lines")
+}
+
+model TaxRate {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  code        String
+  rate        Decimal   @db.Decimal(5,2)
+  type        String    // GST | VAT | WITHHOLDING | SALES | OTHER
+  isDefault   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  @@unique([tenantId, code])
+  @@map("tax_rates")
+}
+
+// ============================================================
+// DOCUMENT MANAGEMENT
+// ============================================================
+
+model Document {
+  id              String           @id @default(cuid())
+  propertyId      String?
+  tenantId        String
+  name            String
+  description     String?
+  category        DocumentCategory
+  fileUrl         String
+  fileName        String
+  fileSize        Int
+  mimeType        String
+  version         Int              @default(1)
+  tags            String[]         @default([])
+  uploadedById    String?
+  isPublic        Boolean          @default(false)
+  expiryDate      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  property        Property?        @relation(fields: [propertyId], references: [id])
+  versions        DocumentVersion[]
+
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id          String    @id @default(cuid())
+  documentId  String
+  version     Int
+  fileUrl     String
+  fileName    String
+  fileSize    Int
+  notes       String?
+  uploadedById String?
+  createdAt   DateTime  @default(now())
+
+  document    Document  @relation(fields: [documentId], references: [id])
+
+  @@map("document_versions")
+}
+
+// ============================================================
+// AUDIT LOGS
+// ============================================================
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  tenantId    String
+  userId      String?
+  action      AuditAction
+  entity      String
+  entityId    String?
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  description String?
+  createdAt   DateTime    @default(now())
+
+  user        User?       @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, entity, entityId])
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id          String    @id @default(cuid())
+  tenantId    String
+  userId      String?
+  title       String
+  body        String
+  type        String    // INFO | WARNING | ERROR | SUCCESS
+  channel     String    // IN_APP | EMAIL | SMS | WHATSAPP
+  isRead      Boolean   @default(false)
+  readAt      DateTime?
+  referenceId String?
+  referenceType String?
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId, userId])
+  @@map("notifications")
+}
+
+model ReportSchedule {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  reportType  String
+  frequency   String    // DAILY | WEEKLY | MONTHLY
+  recipients  String[]
+  channels    String[]  @default(["EMAIL"])
+  parameters  Json?
+  isActive    Boolean   @default(true)
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("report_schedules")
+}

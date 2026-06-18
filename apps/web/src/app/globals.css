@@ -1,0 +1,168 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── Light / Day Mode ─────────────────────────────────────────────────── */
+  :root {
+    --background:         40 33% 96%;   /* Warm Ivory #F6F1E7 */
+    --foreground:         240 4% 8%;    /* Deep Charcoal */
+    --card:               0 0% 100%;
+    --card-foreground:    240 4% 8%;
+    --popover:            0 0% 100%;
+    --popover-foreground: 240 4% 8%;
+    --primary:            38 87% 38%;   /* Gold Dark #B8860B — readable on light */
+    --primary-foreground: 0 0% 100%;
+    --secondary:          40 20% 92%;
+    --secondary-foreground: 240 4% 20%;
+    --muted:              40 20% 92%;
+    --muted-foreground:   20 5% 40%;
+    --accent:             45 62% 52%;   /* Gold Main */
+    --accent-foreground:  240 4% 8%;
+    --destructive:        2 64% 57%;    /* Ruby #D9534F */
+    --destructive-foreground: 0 0% 100%;
+    --border:             40 20% 85%;
+    --input:              40 20% 85%;
+    --ring:               38 87% 38%;
+    --radius:             0.75rem;
+    --chart-1:            38 87% 38%;
+    --chart-2:            142 39% 37%;  /* Emerald */
+    --chart-3:            38 87% 61%;   /* Amber */
+    --chart-4:            2 64% 57%;    /* Ruby */
+    --chart-5:            240 4% 55%;
+  }
+
+  /* ── Dark / Luxury Gold Mode ─────────────────────────────────────────── */
+  .dark {
+    --background:         240 4% 8%;    /* Deep Charcoal #121214 */
+    --foreground:         40 33% 93%;   /* Warm Ivory #F6F1E7 */
+    --card:               240 4% 11%;   /* Slightly lighter charcoal */
+    --card-foreground:    40 33% 93%;
+    --popover:            240 4% 13%;
+    --popover-foreground: 40 33% 93%;
+    --primary:            45 62% 52%;   /* Gold #D4AF37 */
+    --primary-foreground: 240 4% 8%;    /* Dark text on gold */
+    --secondary:          24 31% 13%;   /* Rich Brown #2B1F16 */
+    --secondary-foreground: 40 33% 93%;
+    --muted:              240 5% 18%;
+    --muted-foreground:   0 0% 55%;     /* Soft Gray #8D8D8D */
+    --accent:             47 79% 60%;   /* Gold Hover #E2BE4D */
+    --accent-foreground:  240 4% 8%;
+    --destructive:        2 64% 57%;    /* Ruby #D9534F */
+    --destructive-foreground: 0 0% 100%;
+    --border:             240 5% 18%;
+    --input:              240 5% 18%;
+    --ring:               45 62% 52%;   /* Gold ring */
+    --radius:             0.75rem;
+    --chart-1:            45 62% 52%;   /* Gold */
+    --chart-2:            142 39% 45%;  /* Emerald */
+    --chart-3:            38 87% 61%;   /* Amber */
+    --chart-4:            2 64% 57%;    /* Ruby */
+    --chart-5:            240 4% 55%;   /* Neutral */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+}
+
+/* ── Glassmorphism Utilities ──────────────────────────────────────────────── */
+.glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+.glass-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(212, 175, 55, 0.12);
+}
+
+.gold-glow {
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.25);
+}
+
+.gold-glow-lg {
+  box-shadow: 0 0 40px rgba(212, 175, 55, 0.35);
+}
+
+.gold-text {
+  background: linear-gradient(135deg, #D4AF37, #E2BE4D);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, #D4AF37 0%, #E2BE4D 100%);
+}
+
+.gold-border {
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.15);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.3);
+}
+
+/* ── Keyframe Animations ─────────────────────────────────────────────────── */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+@keyframes gold-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
+  50%       { box-shadow: 0 0 20px 4px rgba(212, 175, 55, 0.3); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-4px); }
+}
+
+.animate-slide-in   { animation: slide-in-right 0.3s ease-out; }
+.animate-fade-in    { animation: fade-in 0.3s ease-out; }
+.animate-gold-pulse { animation: gold-pulse 2s ease-in-out infinite; }
+.animate-float      { animation: float 3s ease-in-out infinite; }
