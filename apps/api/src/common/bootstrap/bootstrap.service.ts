@@ -8,12 +8,12 @@ export class BootstrapService implements OnApplicationBootstrap {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async onApplicationBootstrap() {
-    try {
-      await this.seed();
-    } catch (err: any) {
-      this.logger.error('Bootstrap failed (server will still start):', err?.message ?? err);
-    }
+  onApplicationBootstrap() {
+    // Run in background — do NOT await so app.listen() proceeds immediately
+    // and Railway's health check can succeed before seeding completes.
+    this.seed().catch((err: any) =>
+      this.logger.error('Bootstrap seed failed:', err?.message ?? err),
+    );
   }
 
   private async seed() {
