@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -75,7 +75,7 @@ const monthlyData = [
   { month: 'Dec', revenue: 170000, expenses: 105500 },
 ];
 
-export default function AccountingPage() {
+function AccountingContent() {
   usePageTitle('Accounting');
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab');
@@ -591,5 +591,13 @@ export default function AccountingPage() {
         </TabsContent>
       </Tabs>
     </FadeIn>
+  );
+}
+
+export default function AccountingPage() {
+  return (
+    <Suspense fallback={null}>
+      <AccountingContent />
+    </Suspense>
   );
 }
