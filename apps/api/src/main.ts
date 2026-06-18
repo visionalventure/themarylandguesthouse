@@ -1,21 +1,26 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { join } from 'path';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const compression = require('compression');
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log', 'debug'],
   });
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3001);
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
+
+  // Serve uploaded files statically at /uploads
+  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
 
   // Security
   app.use(helmet());

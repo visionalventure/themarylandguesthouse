@@ -241,6 +241,20 @@ export const documentsApi = {
   update: (id: string, data: any) => api.put(`/v1/documents/${id}`, data),
   delete: (id: string) => api.delete(`/v1/documents/${id}`),
   versions: (id: string) => api.get(`/v1/documents/${id}/versions`),
+  compliance: (propertyId: string) => api.get('/v1/documents/compliance', { params: { propertyId } }),
+  upload: (file: File, onProgress?: (pct: number) => void) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post('/v1/documents/upload', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (e) => {
+        if (onProgress && e.total) onProgress(Math.round((e.loaded / e.total) * 100));
+      },
+    });
+  },
+  getCategories: (propertyId: string) => api.get('/v1/documents/categories', { params: { propertyId } }),
+  createCategory: (data: any) => api.post('/v1/documents/categories', data),
+  deleteCategory: (id: string) => api.delete(`/v1/documents/categories/${id}`),
 };
 
 export const reportsExportApi = {

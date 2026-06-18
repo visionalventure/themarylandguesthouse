@@ -316,6 +316,7 @@ model Property {
   bankAccounts BankAccount[]
   budgets      Budget[]
   documents    Document[]
+  documentCustomCategories DocumentCustomCategory[]
   restaurants  Restaurant[]
   housekeepingTasks HousekeepingTask[]
   purchaseOrders PurchaseOrder[]
@@ -1663,6 +1664,7 @@ model Document {
   name            String
   description     String?
   category        DocumentCategory
+  customCategory  String?
   fileUrl         String
   fileName        String
   fileSize        Int
@@ -1679,6 +1681,19 @@ model Document {
   versions        DocumentVersion[]
 
   @@map("documents")
+}
+
+model DocumentCustomCategory {
+  id         String   @id @default(cuid())
+  propertyId String
+  name       String
+  color      String   @default("slate")
+  createdAt  DateTime @default(now())
+
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  @@unique([propertyId, name])
+  @@map("document_custom_categories")
 }
 
 model DocumentVersion {
