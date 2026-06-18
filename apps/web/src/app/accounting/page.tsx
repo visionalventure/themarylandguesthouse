@@ -1,19 +1,22 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
   BookOpen, TrendingUp, TrendingDown, DollarSign,
   FileText, Building2, Receipt, BarChart3, Plus, ChevronRight,
-  CreditCard, Loader2,
+  CreditCard, Loader2, Download,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { accountingApi } from '@/lib/api';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { accountingApi, reportsExportApi } from '@/lib/api';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
@@ -78,6 +81,7 @@ const monthlyData = [
 function AccountingContent() {
   usePageTitle('Accounting');
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialTab = searchParams.get('tab');
   const [tab, setTab] = useState(
     initialTab && ['overview', 'accounts', 'trial', 'journal', 'banking', 'receivables'].includes(initialTab)
@@ -85,6 +89,30 @@ function AccountingContent() {
   );
   const [selectedBankAccountId, setSelectedBankAccountId] = useState<string | null>(null);
   const propertyId = useAuthStore((s) => s.propertyId);
+
+  const triggerDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExport = async (type: string) => {
+    if (type === 'chart-of-accounts') {
+      const csvRows = [
+        ['Code', 'Name', 'Type', 'Balance'],
+        ...(Array.isArray(accounts) ? accounts : demoAccounts).map((a: any) => [
+          a.code, a.name, a.type, Number(a.currentBalance ?? 0).toFixed(2),
+        ]),
+      ];
+      const csv = csvRows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+      triggerDownload(new Blob([csv], { type: 'text/csv' }), 'chart-of-accounts.csv');
+    } else {
+      const res = await reportsExportApi.export({ type, propertyId: propertyId ?? '' });
+      const blob = await res.blob();
+      triggerDownload(blob, `${type}-report.csv`);
+    }
+  };
   const TENANT_ID = 'demo-tenant-id';
   const chartColors = useChartColors();
 
@@ -151,11 +179,29 @@ function AccountingContent() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <FileText className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport('chart-of-accounts')}>
+                <FileText className="w-4 h-4 mr-2" /> Chart of Accounts (CSV)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('revenue')}>
+                <TrendingUp className="w-4 h-4 mr-2" /> P&L Report (CSV)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('guests')}>
+                <Receipt className="w-4 h-4 mr-2" /> Guest Revenue (CSV)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            onClick={() => router.push('/accounting/journal-entries')}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Journal Entry
           </Button>

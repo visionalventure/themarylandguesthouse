@@ -81,6 +81,13 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 
+/* Light mode: glass becomes a proper frosted panel */
+:root:not(.dark) .glass {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
 .glass-light {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(20px);
@@ -96,6 +103,55 @@
   transform: translateY(-2px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(212, 175, 55, 0.12);
 }
+
+/* ── Light Mode: Fix dark-only white-opacity patterns in content areas ─────── */
+/*
+ * The app uses white-opacity Tailwind utilities (bg-white/[0.02], border-white/[0.08], etc.)
+ * designed for dark mode surfaces. In light mode these are near-invisible.
+ * These overrides flip them to dark-opacity so they render correctly on light backgrounds.
+ * The sidebar/header are always dark-bg so these overrides have negligible effect there.
+ */
+
+/* Surface backgrounds */
+:root:not(.dark) .bg-white\/\[0\.02\]  { background-color: rgba(0, 0, 0, 0.025) !important; }
+:root:not(.dark) .bg-white\/\[0\.03\]  { background-color: rgba(0, 0, 0, 0.035) !important; }
+:root:not(.dark) .bg-white\/\[0\.04\]  { background-color: rgba(0, 0, 0, 0.04)  !important; }
+:root:not(.dark) .bg-white\/\[0\.05\]  { background-color: rgba(0, 0, 0, 0.05)  !important; }
+:root:not(.dark) .bg-white\/\[0\.07\]  { background-color: rgba(0, 0, 0, 0.05)  !important; }
+:root:not(.dark) .bg-white\/5          { background-color: rgba(0, 0, 0, 0.04)  !important; }
+
+/* Hover surface backgrounds */
+:root:not(.dark) .hover\:bg-white\/\[0\.02\]:hover { background-color: rgba(0, 0, 0, 0.03)  !important; }
+:root:not(.dark) .hover\:bg-white\/\[0\.03\]:hover { background-color: rgba(0, 0, 0, 0.04)  !important; }
+:root:not(.dark) .hover\:bg-white\/\[0\.04\]:hover { background-color: rgba(0, 0, 0, 0.05)  !important; }
+:root:not(.dark) .hover\:bg-white\/\[0\.05\]:hover { background-color: rgba(0, 0, 0, 0.05)  !important; }
+:root:not(.dark) .hover\:bg-white\/\[0\.07\]:hover { background-color: rgba(0, 0, 0, 0.06)  !important; }
+
+/* Borders */
+:root:not(.dark) .border-white\/\[0\.04\] { border-color: rgba(0, 0, 0, 0.07) !important; }
+:root:not(.dark) .border-white\/\[0\.06\] { border-color: rgba(0, 0, 0, 0.09) !important; }
+:root:not(.dark) .border-white\/\[0\.08\] { border-color: rgba(0, 0, 0, 0.11) !important; }
+:root:not(.dark) .border-white\/\[0\.10\] { border-color: rgba(0, 0, 0, 0.12) !important; }
+:root:not(.dark) .border-white\/10        { border-color: rgba(0, 0, 0, 0.10) !important; }
+
+/* Text — only override in main content context (not sidebar which has dark bg) */
+:root:not(.dark) main .text-white\/25 { color: rgba(0, 0, 0, 0.40) !important; }
+:root:not(.dark) main .text-white\/30 { color: rgba(0, 0, 0, 0.45) !important; }
+:root:not(.dark) main .text-white\/35 { color: rgba(0, 0, 0, 0.50) !important; }
+:root:not(.dark) main .text-white\/40 { color: rgba(0, 0, 0, 0.55) !important; }
+:root:not(.dark) main .text-white\/45 { color: rgba(0, 0, 0, 0.55) !important; }
+:root:not(.dark) main .text-white\/50 { color: rgba(0, 0, 0, 0.60) !important; }
+:root:not(.dark) main .text-white\/60 { color: rgba(0, 0, 0, 0.65) !important; }
+:root:not(.dark) main .text-white\/80 { color: rgba(0, 0, 0, 0.80) !important; }
+:root:not(.dark) main .text-white\/90 { color: rgba(0, 0, 0, 0.85) !important; }
+
+/* Hover text in main content */
+:root:not(.dark) main .hover\:text-white\/80:hover { color: rgba(0, 0, 0, 0.80) !important; }
+:root:not(.dark) main .hover\:text-white\/90:hover { color: rgba(0, 0, 0, 0.85) !important; }
+
+/* Foreground-based opacity utilities used in content */
+:root:not(.dark) .text-foreground\/80 { color: rgba(20, 20, 22, 0.80); }
+:root:not(.dark) .text-foreground\/70 { color: rgba(20, 20, 22, 0.70); }
 
 .gold-glow {
   box-shadow: 0 0 20px rgba(212, 175, 55, 0.25);

@@ -105,7 +105,7 @@ export function Header({ onMenuToggle, title }: HeaderProps) {
   };
 
   return (
-    <header className="h-16 bg-luxury-charcoal/90 backdrop-blur-glass border-b border-white/[0.06] flex items-center justify-between px-4 gap-4">
+    <header className="h-16 bg-[rgba(18,18,20,0.92)] backdrop-blur-glass border-b border-[rgba(255,255,255,0.07)] flex items-center justify-between px-4 gap-4">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={onMenuToggle}>
           <Menu className="w-5 h-5" />

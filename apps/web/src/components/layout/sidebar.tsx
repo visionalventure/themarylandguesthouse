@@ -109,13 +109,13 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
     <aside
       className={cn(
         'flex flex-col h-full transition-all duration-300',
-        'bg-luxury-charcoal/98 backdrop-blur-glass border-r border-white/[0.06]',
+        'bg-[#121214] backdrop-blur-glass border-r border-[rgba(255,255,255,0.07)]',
         collapsed ? 'w-16' : 'w-72',
       )}
     >
       {/* ── Logo ──────────────────────────────────────────── */}
       <div className={cn(
-        'flex items-center gap-3 border-b border-white/[0.06]',
+        'flex items-center gap-3 border-b border-[rgba(255,255,255,0.07)]',
         collapsed ? 'px-3 py-5 justify-center' : 'px-5 py-5',
       )}>
         <div className="flex-shrink-0 w-9 h-9 gold-gradient rounded-xl flex items-center justify-center shadow-gold-glow">
@@ -123,27 +123,27 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         </div>
         {!collapsed && (
           <div className="overflow-hidden min-w-0">
-            <p className="text-sm font-bold text-foreground leading-tight truncate">Maryland</p>
-            <p className="text-[11px] text-gold-main/80 font-medium tracking-wide">Guesthouse ERP</p>
+            <p className="text-sm font-bold text-white leading-tight truncate">Maryland</p>
+            <p className="text-[11px] text-gold-main font-medium tracking-wide">Guesthouse ERP</p>
           </div>
         )}
       </div>
 
       {/* ── Property Selector ─────────────────────────────── */}
       {!collapsed && (
-        <div className="relative px-3 py-2.5 border-b border-white/[0.06]">
+        <div className="relative px-3 py-2.5 border-b border-[rgba(255,255,255,0.07)]">
           <button
             onClick={() => setPropertyOpen((o) => !o)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.06] transition-colors text-left"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.09)] border border-[rgba(255,255,255,0.08)] transition-colors text-left"
           >
             <Building2 className="w-3.5 h-3.5 text-gold-main/70 flex-shrink-0" />
-            <span className="flex-1 text-xs font-medium text-foreground/80 truncate min-w-0">
+            <span className="flex-1 text-xs font-medium text-white/75 truncate min-w-0">
               {currentProperty?.name ?? 'Maryland Guesthouse'}
             </span>
-            <ChevronDown className={cn('w-3.5 h-3.5 text-white/30 flex-shrink-0 transition-transform', propertyOpen && 'rotate-180')} />
+            <ChevronDown className={cn('w-3.5 h-3.5 text-white/40 flex-shrink-0 transition-transform', propertyOpen && 'rotate-180')} />
           </button>
           {propertyOpen && properties.length > 0 && (
-            <div className="absolute left-3 right-3 top-full mt-1 z-50 glass border border-white/[0.08] rounded-xl overflow-hidden">
+            <div className="absolute left-3 right-3 top-full mt-1 z-50 bg-[#1a1a1e] border border-[rgba(255,255,255,0.10)] rounded-xl overflow-hidden shadow-lg">
               {properties.map((p) => (
                 <button
                   key={p.id}
@@ -152,7 +152,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                     'w-full text-left px-3 py-2 text-xs transition-colors',
                     p.id === propertyId
                       ? 'bg-gold-main/15 text-gold-main font-semibold'
-                      : 'text-foreground/70 hover:bg-white/[0.05] hover:text-foreground',
+                      : 'text-white/65 hover:bg-[rgba(255,255,255,0.06)] hover:text-white/90',
                   )}
                 >
                   {p.name}
@@ -168,7 +168,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         {navSections.map((section) => (
           <div key={section.label}>
             {!collapsed && (
-              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/25 select-none">
+              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/40 select-none">
                 {section.label}
               </p>
             )}
@@ -189,7 +189,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                           'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
                           active || isParentActive
                             ? 'border-l-2 border-gold-main bg-gold-main/10 text-gold-main pl-[10px]'
-                            : 'text-white/45 hover:bg-white/[0.04] hover:text-white/90',
+                            : 'text-white/60 hover:bg-[rgba(255,255,255,0.06)] hover:text-white/95',
                           collapsed && 'justify-center px-2',
                         )}
                       >
@@ -210,7 +210,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                           'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
                           active
                             ? 'border-l-2 border-gold-main bg-gold-main/10 text-gold-main pl-[10px]'
-                            : 'text-white/45 hover:bg-white/[0.04] hover:text-white/90',
+                            : 'text-white/60 hover:bg-[rgba(255,255,255,0.06)] hover:text-white/95',
                           collapsed && 'justify-center px-2',
                         )}
                       >
@@ -220,7 +220,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                     )}
 
                     {hasChildren && isExpanded && !collapsed && (
-                      <div className="ml-7 mt-0.5 space-y-0.5 border-l border-white/[0.06] pl-3">
+                      <div className="ml-7 mt-0.5 space-y-0.5 border-l border-[rgba(255,255,255,0.08)] pl-3">
                         {'children' in item && item.children!.map((child) => (
                           <Link
                             key={child.href}
@@ -229,7 +229,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                               'block px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-150',
                               pathname === child.href
                                 ? 'text-gold-main bg-gold-main/10'
-                                : 'text-white/35 hover:text-white/80 hover:bg-white/[0.03]',
+                                : 'text-white/50 hover:text-white/85 hover:bg-[rgba(255,255,255,0.05)]',
                             )}
                           >
                             {child.name}
@@ -248,7 +248,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
       {/* ── Footer ────────────────────────────────────────── */}
       {!collapsed && (
         <div className="px-4 py-3 border-t border-white/[0.06]">
-          <p className="text-[11px] text-white/20 font-medium">MGH ERP v1.0.0</p>
+          <p className="text-[11px] text-white/35 font-medium">MGH ERP v1.0.0</p>
         </div>
       )}
     </aside>

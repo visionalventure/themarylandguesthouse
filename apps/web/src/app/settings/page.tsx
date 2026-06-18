@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { format } from 'date-fns';
-import { Loader2, Plus, Shield, ClipboardList } from 'lucide-react';
+import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { FadeIn } from '@/components/ui/fade-in';
-import { settingsApi } from '@/lib/api';
+import { settingsApi, documentsApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -32,13 +32,39 @@ const ROLE_COLORS: Record<string, string> = {
 function PropertyTab() {
   const propertyId = useAuthStore((s) => s.propertyId);
   const { toast } = useToast();
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoDragOver, setLogoDragOver] = useState(false);
+
   const { data, isLoading } = useQuery({
     queryKey: ['settings-property', propertyId],
     queryFn: () => settingsApi.getProperty(propertyId).then(r => r.data),
   });
 
-  const { register, handleSubmit, reset } = useForm({ defaultValues: data ?? {} });
+  const { register, handleSubmit, reset, watch, setValue } = useForm({ defaultValues: data ?? {} });
   useEffect(() => { if (data) reset(data); }, [data, reset]);
+
+  const logoValue = watch('logo');
+
+  const handleLogoFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({ variant: 'destructive', title: 'Please select an image file (PNG, JPG, SVG)' });
+      return;
+    }
+    setLogoUploading(true);
+    try {
+      const res = await documentsApi.upload(file);
+      const fileUrl: string = res.data?.fileUrl ?? res.data?.url ?? '';
+      if (fileUrl) {
+        setValue('logo', fileUrl, { shouldDirty: true });
+        toast({ title: 'Logo uploaded' });
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Logo upload failed' });
+    } finally {
+      setLogoUploading(false);
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: (values: any) => settingsApi.updateProperty(propertyId, values),
@@ -81,10 +107,72 @@ function PropertyTab() {
               <Input {...register('timezone')} placeholder="America/New_York" />
             </div>
           </div>
+
+          {/* Logo upload */}
           <div className="space-y-2">
-            <Label>Logo URL</Label>
-            <Input {...register('logo')} placeholder="https://..." />
+            <Label>Property Logo</Label>
+            <div className="flex items-start gap-3">
+              {/* Preview */}
+              <div className="flex-shrink-0 w-16 h-16 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
+                {logoValue ? (
+                  <img src={logoValue} alt="Logo" className="w-full h-full object-contain" />
+                ) : (
+                  <ImageIcon className="w-6 h-6 text-muted-foreground/40" />
+                )}
+              </div>
+              {/* Upload zone */}
+              <div className="flex-1 space-y-2">
+                <div
+                  className={cn(
+                    'relative border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors',
+                    logoDragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50',
+                  )}
+                  onClick={() => logoInputRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); setLogoDragOver(true); }}
+                  onDragLeave={() => setLogoDragOver(false)}
+                  onDrop={e => {
+                    e.preventDefault(); setLogoDragOver(false);
+                    const file = e.dataTransfer.files[0];
+                    if (file) handleLogoFile(file);
+                  }}
+                >
+                  {logoUploading ? (
+                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Uploading…
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Upload className="w-4 h-4" />
+                      <span>Click or drag to upload logo</span>
+                    </div>
+                  )}
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoFile(f); }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground">or paste URL</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                <div className="flex gap-2">
+                  <Input {...register('logo')} placeholder="https://example.com/logo.png" className="text-xs" />
+                  {logoValue && (
+                    <Button type="button" variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0"
+                      onClick={() => setValue('logo', '', { shouldDirty: true })}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">PNG, JPG, SVG — recommended 200×200px or larger</p>
+              </div>
+            </div>
           </div>
+
           <Button type="submit" disabled={mutation.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
             {mutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Save Changes
