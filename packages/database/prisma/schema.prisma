@@ -299,9 +299,10 @@ model Property {
   starRating   Int?
   checkInTime  String       @default("14:00")
   checkOutTime String       @default("12:00")
-  logoUrl      String?
-  coverImageUrl String?
-  isActive     Boolean      @default(true)
+  logoUrl         String?
+  coverImageUrl   String?
+  invoiceTemplate Json?
+  isActive        Boolean      @default(true)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 

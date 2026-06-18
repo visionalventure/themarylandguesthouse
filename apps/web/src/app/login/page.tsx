@@ -161,7 +161,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-slate-500 text-sm mt-6">
-          © 2024 Maryland Guesthouse ERP. All rights reserved.
+          © 2026 Maryland Guesthouse ERP. All rights reserved.
         </p>
       </div>
     </div>

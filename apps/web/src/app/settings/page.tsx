@@ -4,13 +4,14 @@ import { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { format } from 'date-fns';
-import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon } from 'lucide-react';
+import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { FadeIn } from '@/components/ui/fade-in';
@@ -484,6 +485,217 @@ function AuditLogTab() {
   );
 }
 
+const DEFAULT_TEMPLATE = {
+  companyHeader: '',
+  tagline: '',
+  primaryColor: '#D4AF37',
+  defaultTerms: 'Payment is due within 30 days of the invoice date.',
+  footerNote: 'Thank you for choosing Maryland Guesthouse!',
+  bankName: '',
+  bankAccount: '',
+  swiftCode: '',
+};
+
+function InvoiceTemplateTab() {
+  const propertyId = useAuthStore((s) => s.propertyId);
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+
+  const { data: propData } = useQuery({
+    queryKey: ['settings-property', propertyId],
+    queryFn: () => settingsApi.getProperty(propertyId).then(r => r.data),
+  });
+
+  const [tmpl, setTmpl] = useState(DEFAULT_TEMPLATE);
+  useEffect(() => {
+    if (propData?.invoiceTemplate) {
+      setTmpl({ ...DEFAULT_TEMPLATE, ...(propData.invoiceTemplate as any) });
+    } else if (propData) {
+      setTmpl(t => ({ ...t, companyHeader: propData.name || '' }));
+    }
+  }, [propData]);
+
+  const set = (k: keyof typeof DEFAULT_TEMPLATE, v: string) =>
+    setTmpl(prev => ({ ...prev, [k]: v }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await settingsApi.updateProperty(propertyId, { invoiceTemplate: tmpl });
+      toast({ title: 'Invoice template saved' });
+    } catch {
+      toast({ variant: 'destructive', title: 'Failed to save template' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const accent = tmpl.primaryColor || '#D4AF37';
+
+  return (
+    <div className="mt-4 grid grid-cols-1 lg:grid-cols-5 gap-6">
+      {/* ── Form ───────────────────────────────────── */}
+      <div className="lg:col-span-2 space-y-4">
+        <Card>
+          <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Building className="w-4 h-4" />Company</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Company Header</Label>
+              <Input value={tmpl.companyHeader} onChange={e => set('companyHeader', e.target.value)}
+                placeholder={propData?.name || 'Maryland Guesthouse'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tagline / Subtitle</Label>
+              <Input value={tmpl.tagline} onChange={e => set('tagline', e.target.value)}
+                placeholder="Premier Guesthouse in Monrovia, Liberia" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Brand Colour</Label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={accent} onChange={e => set('primaryColor', e.target.value)}
+                  className="h-9 w-12 cursor-pointer rounded border border-border p-0.5 bg-background" />
+                <Input value={accent} onChange={e => set('primaryColor', e.target.value)}
+                  placeholder="#D4AF37" className="flex-1 font-mono text-xs" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-sm flex items-center gap-2"><CreditCard className="w-4 h-4" />Payment Details</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Bank Name</Label>
+              <Input value={tmpl.bankName} onChange={e => set('bankName', e.target.value)} placeholder="Ecobank Liberia" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Account Number</Label>
+              <Input value={tmpl.bankAccount} onChange={e => set('bankAccount', e.target.value)} placeholder="1234567890" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">SWIFT / Routing Code</Label>
+              <Input value={tmpl.swiftCode} onChange={e => set('swiftCode', e.target.value)} placeholder="ECOCLRLM" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-sm flex items-center gap-2"><FileText className="w-4 h-4" />Text</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Default Payment Terms</Label>
+              <Textarea rows={2} value={tmpl.defaultTerms} onChange={e => set('defaultTerms', e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Footer Note</Label>
+              <Textarea rows={2} value={tmpl.footerNote} onChange={e => set('footerNote', e.target.value)} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Button onClick={handleSave} disabled={saving} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+          {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          Save Template
+        </Button>
+      </div>
+
+      {/* ── Live Preview ────────────────────────────── */}
+      <div className="lg:col-span-3">
+        <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">Preview</p>
+        <div className="border border-border rounded-xl overflow-hidden bg-white text-[#111] shadow-md text-[11px]">
+          {/* Header bar */}
+          <div className="px-6 py-4 flex items-start justify-between" style={{ backgroundColor: accent }}>
+            <div>
+              {propData?.logoUrl && (
+                <img src={propData.logoUrl} alt="Logo" className="h-8 mb-1 object-contain" />
+              )}
+              <p className="font-bold text-white text-sm leading-tight">
+                {tmpl.companyHeader || propData?.name || 'Maryland Guesthouse'}
+              </p>
+              {tmpl.tagline && <p className="text-white/80 text-[10px]">{tmpl.tagline}</p>}
+            </div>
+            <div className="text-right text-white">
+              <p className="text-lg font-black tracking-widest">INVOICE</p>
+              <p className="text-white/80 text-[10px]">INV-2026-0001</p>
+              <p className="text-white/70 text-[10px]">Due: 30 Jul 2026</p>
+            </div>
+          </div>
+
+          {/* Bill to + details */}
+          <div className="px-6 py-3 grid grid-cols-2 gap-4 border-b border-gray-100">
+            <div>
+              <p className="text-[9px] uppercase font-semibold text-gray-400 mb-1">Bill To</p>
+              <p className="font-semibold">James Wilson</p>
+              <p className="text-gray-500">james.wilson@example.com</p>
+              <p className="text-gray-500">+231 880 123 456</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[9px] uppercase font-semibold text-gray-400 mb-1">Property</p>
+              <p className="font-semibold">{propData?.name || 'Maryland Guesthouse'}</p>
+              <p className="text-gray-500">{propData?.address || '14 Broad Street, Sinkor'}</p>
+              <p className="text-gray-500">{propData?.phone || '+231 777 123 456'}</p>
+            </div>
+          </div>
+
+          {/* Line items */}
+          <div className="px-6 py-3">
+            <table className="w-full text-[10px]">
+              <thead>
+                <tr style={{ backgroundColor: accent + '18' }}>
+                  <th className="text-left py-1 px-2 font-semibold">Description</th>
+                  <th className="text-right py-1 px-2 font-semibold">Qty</th>
+                  <th className="text-right py-1 px-2 font-semibold">Price</th>
+                  <th className="text-right py-1 px-2 font-semibold">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-100">
+                  <td className="py-1.5 px-2">Room Charge — Deluxe Double (3 nights)</td>
+                  <td className="text-right py-1.5 px-2">3</td>
+                  <td className="text-right py-1.5 px-2">$120.00</td>
+                  <td className="text-right py-1.5 px-2 font-medium">$360.00</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 px-2 text-gray-500">Breakfast (×3)</td>
+                  <td className="text-right py-1.5 px-2 text-gray-500">3</td>
+                  <td className="text-right py-1.5 px-2 text-gray-500">$12.00</td>
+                  <td className="text-right py-1.5 px-2 text-gray-500">$36.00</td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="flex justify-end mt-2 gap-8 pr-2">
+              <div className="text-right space-y-0.5">
+                <p className="text-gray-500">Subtotal</p>
+                <p className="text-gray-500">Tax (10%)</p>
+                <p className="font-bold" style={{ color: accent }}>Total Due</p>
+              </div>
+              <div className="text-right space-y-0.5">
+                <p>$396.00</p>
+                <p>$39.60</p>
+                <p className="font-bold">$435.60</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 space-y-1.5">
+            {(tmpl.bankName || tmpl.bankAccount) && (
+              <div>
+                <p className="text-[9px] uppercase font-semibold text-gray-400">Payment Details</p>
+                <p className="text-gray-600">{tmpl.bankName}{tmpl.bankAccount ? ` · Acct: ${tmpl.bankAccount}` : ''}{tmpl.swiftCode ? ` · SWIFT: ${tmpl.swiftCode}` : ''}</p>
+              </div>
+            )}
+            {tmpl.defaultTerms && <p className="text-gray-500 text-[9px]">{tmpl.defaultTerms}</p>}
+            {tmpl.footerNote && (
+              <p className="text-center text-[9px] font-medium" style={{ color: accent }}>{tmpl.footerNote}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   usePageTitle('Settings');
   return (
@@ -501,11 +713,13 @@ export default function SettingsPage() {
           <TabsTrigger value="property">Property</TabsTrigger>
           <TabsTrigger value="users">Users & Roles</TabsTrigger>
           <TabsTrigger value="tax">Tax Rates</TabsTrigger>
+          <TabsTrigger value="invoice">Invoice Template</TabsTrigger>
           <TabsTrigger value="audit">Audit Log</TabsTrigger>
         </TabsList>
         <TabsContent value="property"><PropertyTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="tax"><TaxRatesTab /></TabsContent>
+        <TabsContent value="invoice"><InvoiceTemplateTab /></TabsContent>
         <TabsContent value="audit"><AuditLogTab /></TabsContent>
       </Tabs>
     </FadeIn>

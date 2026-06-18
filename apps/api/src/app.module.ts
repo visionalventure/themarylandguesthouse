@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BootstrapService } from './common/bootstrap/bootstrap.service';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
@@ -22,6 +23,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
+  providers: [BootstrapService],
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),

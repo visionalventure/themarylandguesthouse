@@ -167,7 +167,7 @@ export class ProcurementService {
         tenantId: dto.tenantId,
         supplierId: dto.supplierId,
         billNumber,
-        supplierReference: dto.supplierReference,
+        supplierRef: dto.supplierReference,
         status: 'DRAFT',
         billDate: dto.billDate ? new Date(dto.billDate) : new Date(),
         dueDate: dto.dueDate ? new Date(dto.dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -182,7 +182,7 @@ export class ProcurementService {
             quantity: Number(l.quantity),
             unitPrice: Number(l.unitPrice),
             taxRate: Number(l.taxRate ?? 0),
-            amount: Number(l.quantity) * Number(l.unitPrice),
+            total: Number(l.quantity) * Number(l.unitPrice),
           })),
         },
       },
@@ -207,8 +207,7 @@ export class ProcurementService {
         data: {
           billId: id,
           amount: Number(dto.amount),
-          paymentDate: new Date(),
-          paymentMethod: dto.method ?? 'CASH',
+          method: (dto.method ?? 'CASH') as any,
           reference: dto.reference,
         },
       });
