@@ -62,7 +62,7 @@ export default function GuestsPage() {
 
   const { data } = useQuery({
     queryKey: ['guests', debouncedSearch, page],
-    queryFn: () => guestsApi.list({ search: debouncedSearch, limit: 24, page }).then((r) => r.data),
+    queryFn: () => guestsApi.list({ tenantId: propertyId, search: debouncedSearch, limit: 24, page }).then((r) => r.data),
     placeholderData: { data: demoGuests, total: 4 },
   });
 

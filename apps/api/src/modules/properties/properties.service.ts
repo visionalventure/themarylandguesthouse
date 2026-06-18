@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
@@ -27,7 +27,16 @@ export class PropertiesService {
     return this.prisma.property.create({ data: dto });
   }
 
-  async update(id: string, dto: any) {
-    return this.prisma.property.update({ where: { id }, data: dto });
+  async update(id: string, dto: any, tenantId?: string) {
+    try {
+      return await this.prisma.property.update({
+        where: { id, ...(tenantId && { tenantId }) },
+        data: dto,
+      });
+    } catch (e: any) {
+      if (e?.code === 'P2025') throw new NotFoundException('Property not found');
+      if (e?.code === 'P2002') throw new BadRequestException('A property with that code already exists');
+      throw e;
+    }
   }
 }

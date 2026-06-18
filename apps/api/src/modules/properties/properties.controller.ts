@@ -30,7 +30,7 @@ export class PropertiesController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Update property' })
-  update(@Param('id') id: string, @Body() dto: any) {
-    return this.service.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.update(id, dto, req.user.tenantId);
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { GuestsService } from './guests.service';
@@ -12,8 +12,8 @@ export class GuestsController {
 
   @Get()
   @ApiOperation({ summary: 'List guests with search and filters' })
-  findAll(@Query() query: any) {
-    return this.service.findAll(query.tenantId, query);
+  findAll(@Query() query: any, @Request() req: any) {
+    return this.service.findAll(req.user.tenantId, query);
   }
 
   @Get(':id')
@@ -24,8 +24,8 @@ export class GuestsController {
 
   @Post()
   @ApiOperation({ summary: 'Create guest profile' })
-  create(@Body() dto: any) {
-    return this.service.create(dto);
+  create(@Body() dto: any, @Request() req: any) {
+    return this.service.create({ ...dto, tenantId: req.user.tenantId });
   }
 
   @Put(':id')
