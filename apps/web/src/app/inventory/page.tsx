@@ -79,6 +79,7 @@ export default function InventoryPage() {
 
   const autoPRMutation = useMutation({
     mutationFn: (item: any) => procurementApi.createPR({
+      tenantId: propertyId,
       propertyId: propertyId,
       title: `Auto-reorder: ${item.name}`,
       description: `Stock below reorder point (${item.currentStock} < ${item.reorderPoint}). Requested ${item.reorderPoint * 2} ${item.unit}.`,

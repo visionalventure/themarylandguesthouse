@@ -121,6 +121,10 @@ export const accountingApi = {
     api.get(`/v1/accounting/bank-accounts?propertyId=${propertyId}`),
   bankTransactions: (bankAccountId: string, params?: any) =>
     api.get(`/v1/accounting/bank-accounts/${bankAccountId}/transactions`, { params }),
+  invoices: (params: any) => api.get('/v1/accounting/invoices', { params }),
+  createInvoice: (data: any) => api.post('/v1/accounting/invoices', data),
+  sendInvoice: (id: string) => api.patch(`/v1/accounting/invoices/${id}/send`, {}),
+  markInvoicePaid: (id: string, data: any) => api.patch(`/v1/accounting/invoices/${id}/mark-paid`, data),
 };
 
 export const hrApi = {
@@ -200,6 +204,10 @@ export const procurementApi = {
   createPO: (data: any) => api.post('/v1/procurement/purchase-orders', data),
   updatePO: (id: string, data: any) => api.patch(`/v1/procurement/purchase-orders/${id}`, data),
   createReceipt: (data: any) => api.post('/v1/procurement/goods-receipts', data),
+  bills: (params: any) => api.get('/v1/procurement/bills', { params }),
+  createBill: (data: any) => api.post('/v1/procurement/bills', data),
+  approveBill: (id: string) => api.patch(`/v1/procurement/bills/${id}/approve`, {}),
+  markBillPaid: (id: string, data: any) => api.patch(`/v1/procurement/bills/${id}/mark-paid`, data),
 };
 
 export const loyaltyApi = {

@@ -139,6 +139,88 @@ export class ProcurementService {
     });
   }
 
+  // ── Supplier Bills ─────────────────────────────────────────────────────────
+
+  async getBills(tenantId: string, query: any = {}) {
+    const { page = 1, limit = 20, status } = query;
+    const where: any = { tenantId };
+    if (status && status !== 'ALL') where.status = status;
+    const [data, total] = await Promise.all([
+      this.prisma.supplierBill.findMany({
+        where, skip: (Number(page) - 1) * Number(limit), take: Number(limit),
+        orderBy: { billDate: 'desc' },
+        include: { supplier: { select: { name: true } } },
+      }),
+      this.prisma.supplierBill.count({ where }),
+    ]);
+    return { data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) };
+  }
+
+  async createBill(dto: any) {
+    const billNumber = await this.generateBillNumber(dto.tenantId);
+    const subtotal = dto.lineItems?.reduce((s: number, l: any) => s + Number(l.quantity) * Number(l.unitPrice), 0) ?? 0;
+    const taxAmount = dto.lineItems?.reduce((s: number, l: any) => s + Number(l.quantity) * Number(l.unitPrice) * (Number(l.taxRate ?? 0) / 100), 0) ?? 0;
+    const totalAmount = subtotal + taxAmount;
+
+    return this.prisma.supplierBill.create({
+      data: {
+        tenantId: dto.tenantId,
+        supplierId: dto.supplierId,
+        billNumber,
+        supplierReference: dto.supplierReference,
+        status: 'DRAFT',
+        billDate: dto.billDate ? new Date(dto.billDate) : new Date(),
+        dueDate: dto.dueDate ? new Date(dto.dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        notes: dto.notes,
+        subtotal,
+        taxAmount,
+        totalAmount,
+        paidAmount: 0,
+        lineItems: {
+          create: (dto.lineItems ?? []).map((l: any) => ({
+            description: l.description,
+            quantity: Number(l.quantity),
+            unitPrice: Number(l.unitPrice),
+            taxRate: Number(l.taxRate ?? 0),
+            amount: Number(l.quantity) * Number(l.unitPrice),
+          })),
+        },
+      },
+      include: { supplier: { select: { name: true } }, lineItems: true },
+    });
+  }
+
+  async approveBill(id: string) {
+    const bill = await this.prisma.supplierBill.findUnique({ where: { id } });
+    if (!bill) throw new NotFoundException();
+    return this.prisma.supplierBill.update({ where: { id }, data: { status: 'APPROVED' } });
+  }
+
+  async markBillPaid(id: string, dto: { amount: number; method?: string; reference?: string }) {
+    const bill = await this.prisma.supplierBill.findUnique({ where: { id } });
+    if (!bill) throw new NotFoundException();
+    const newPaid = Number(bill.paidAmount) + Number(dto.amount);
+    const status = newPaid >= Number(bill.totalAmount) ? 'PAID' : 'PARTIALLY_PAID';
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.billPayment.create({
+        data: {
+          billId: id,
+          amount: Number(dto.amount),
+          paymentDate: new Date(),
+          paymentMethod: dto.method ?? 'CASH',
+          reference: dto.reference,
+        },
+      });
+      return tx.supplierBill.update({ where: { id }, data: { paidAmount: newPaid, status } });
+    });
+  }
+
+  private async generateBillNumber(tenantId: string): Promise<string> {
+    const count = await this.prisma.supplierBill.count({ where: { tenantId } });
+    return `BILL-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
+  }
+
   async createGoodsReceipt(dto: any) {
     const { purchaseOrderId, items, receivedById, notes } = dto;
     return this.prisma.goodsReceipt.create({

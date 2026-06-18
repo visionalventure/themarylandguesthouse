@@ -218,8 +218,88 @@ export class AccountingService {
     });
   }
 
+  // Invoices
+  async getInvoices(propertyId: string, query: any = {}) {
+    const { page = 1, limit = 20, status, search } = query;
+    const where: any = { tenantId: propertyId };
+    if (status && status !== 'ALL') where.status = status;
+    if (search) {
+      where.OR = [
+        { invoiceNumber: { contains: search, mode: 'insensitive' } },
+        { guest: { firstName: { contains: search, mode: 'insensitive' } } },
+        { guest: { lastName: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+    const [data, total] = await Promise.all([
+      this.prisma.invoice.findMany({
+        where, skip: (Number(page) - 1) * Number(limit), take: Number(limit),
+        orderBy: { issueDate: 'desc' },
+        include: { guest: { select: { firstName: true, lastName: true, email: true } } },
+      }),
+      this.prisma.invoice.count({ where }),
+    ]);
+    return { data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) };
+  }
+
+  async createInvoice(dto: any) {
+    const invoiceNumber = await this.generateInvoiceNumber(dto.propertyId ?? dto.tenantId);
+    const subtotal = dto.lineItems?.reduce((s: number, l: any) => s + Number(l.quantity) * Number(l.unitPrice), 0) ?? 0;
+    const taxAmount = dto.lineItems?.reduce((s: number, l: any) => s + Number(l.quantity) * Number(l.unitPrice) * (Number(l.taxRate ?? 0) / 100), 0) ?? 0;
+    const totalAmount = subtotal + taxAmount;
+
+    return this.prisma.invoice.create({
+      data: {
+        tenantId: dto.propertyId ?? dto.tenantId,
+        invoiceNumber,
+        guestId: dto.guestId,
+        status: 'DRAFT',
+        issueDate: dto.issueDate ? new Date(dto.issueDate) : new Date(),
+        dueDate: dto.dueDate ? new Date(dto.dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        notes: dto.notes,
+        terms: dto.terms,
+        subtotal,
+        taxAmount,
+        totalAmount,
+        paidAmount: 0,
+        lineItems: {
+          create: (dto.lineItems ?? []).map((l: any) => ({
+            description: l.description,
+            quantity: Number(l.quantity),
+            unitPrice: Number(l.unitPrice),
+            taxRate: Number(l.taxRate ?? 0),
+            amount: Number(l.quantity) * Number(l.unitPrice),
+          })),
+        },
+      },
+      include: { guest: { select: { firstName: true, lastName: true } }, lineItems: true },
+    });
+  }
+
+  async sendInvoice(id: string) {
+    const invoice = await this.prisma.invoice.findUnique({ where: { id } });
+    if (!invoice) throw new NotFoundException();
+    if (invoice.status !== 'DRAFT') throw new BadRequestException('Only DRAFT invoices can be sent');
+    return this.prisma.invoice.update({ where: { id }, data: { status: 'SENT', sentAt: new Date() } });
+  }
+
+  async markInvoicePaid(id: string, dto: { amount: number }) {
+    const invoice = await this.prisma.invoice.findUnique({ where: { id } });
+    if (!invoice) throw new NotFoundException();
+    const newPaid = Number(invoice.paidAmount) + Number(dto.amount);
+    const status = newPaid >= Number(invoice.totalAmount) ? 'PAID' : 'PARTIALLY_PAID';
+    return this.prisma.invoice.update({
+      where: { id },
+      data: { paidAmount: newPaid, status, ...(status === 'PAID' ? { paidAt: new Date() } : {}) },
+    });
+  }
+
   private async generateEntryNumber(tenantId: string): Promise<string> {
     const count = await this.prisma.journalEntry.count({ where: { tenantId } });
     return `JE-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;
+  }
+
+  private async generateInvoiceNumber(tenantId: string): Promise<string> {
+    const count = await this.prisma.invoice.count({ where: { tenantId } });
+    return `INV-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
   }
 }

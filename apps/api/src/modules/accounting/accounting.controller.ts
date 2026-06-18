@@ -64,6 +64,30 @@ export class AccountingController {
     return this.service.getAgedReceivables(req.user.tenantId);
   }
 
+  @Get('invoices')
+  @ApiOperation({ summary: 'List invoices' })
+  getInvoices(@Query('propertyId') propertyId: string, @Query() query: any) {
+    return this.service.getInvoices(propertyId, query);
+  }
+
+  @Post('invoices')
+  @ApiOperation({ summary: 'Create invoice' })
+  createInvoice(@Body() dto: any, @Request() req: any) {
+    return this.service.createInvoice({ ...dto, propertyId: dto.propertyId ?? req.user.tenantId });
+  }
+
+  @Patch('invoices/:id/send')
+  @ApiOperation({ summary: 'Send invoice to guest' })
+  sendInvoice(@Param('id') id: string) {
+    return this.service.sendInvoice(id);
+  }
+
+  @Patch('invoices/:id/mark-paid')
+  @ApiOperation({ summary: 'Record payment against invoice' })
+  markInvoicePaid(@Param('id') id: string, @Body() dto: any) {
+    return this.service.markInvoicePaid(id, dto);
+  }
+
   @Get('bank-accounts')
   @ApiOperation({ summary: 'List bank accounts' })
   getBankAccounts(@Query('propertyId') propertyId: string) {

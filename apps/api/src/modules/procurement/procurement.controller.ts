@@ -69,4 +69,28 @@ export class ProcurementController {
   createGoodsReceipt(@Body() dto: any) {
     return this.service.createGoodsReceipt(dto);
   }
+
+  @Get('bills')
+  @ApiOperation({ summary: 'List supplier bills' })
+  getBills(@Query('propertyId') propertyId: string, @Query() query: any, @Request() req: any) {
+    return this.service.getBills(propertyId ?? req.user.tenantId, query);
+  }
+
+  @Post('bills')
+  @ApiOperation({ summary: 'Create supplier bill' })
+  createBill(@Body() dto: any, @Request() req: any) {
+    return this.service.createBill({ ...dto, tenantId: dto.tenantId ?? req.user.tenantId });
+  }
+
+  @Patch('bills/:id/approve')
+  @ApiOperation({ summary: 'Approve supplier bill' })
+  approveBill(@Param('id') id: string) {
+    return this.service.approveBill(id);
+  }
+
+  @Patch('bills/:id/mark-paid')
+  @ApiOperation({ summary: 'Record payment against bill' })
+  markBillPaid(@Param('id') id: string, @Body() dto: any) {
+    return this.service.markBillPaid(id, dto);
+  }
 }
