@@ -1,0 +1,7 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "turbo run build --filter=@mgh/web",
+  "outputDirectory": "apps/web/.next",
+  "installCommand": "npm install",
+  "devCommand": "turbo run dev --filter=@mgh/web"
+}
