@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     domains: ['images.unsplash.com', 'avatars.githubusercontent.com'],
   },
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts', '@radix-ui/react-icons'],
+    optimizePackageImports: ['lucide-react', 'recharts'],
   },
 };
 
