@@ -48,5 +48,4 @@ USER nestjs
 ENV PORT=3001
 EXPOSE 3001
 
-# Run migrations then start — if migrate fails, container exits (safe)
-CMD ["sh", "-c", "echo '[start] running migrations' && npx prisma migrate deploy --schema ./prisma/schema.prisma 2>&1 && echo '[start] starting node' && node dist/main 2>&1; echo '[start] process exited with code' $?"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema ./prisma/schema.prisma && node dist/main"]

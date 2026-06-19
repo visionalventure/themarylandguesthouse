@@ -11,12 +11,9 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  console.log('[startup] Node.js', process.version, '| PORT env:', process.env.PORT, '| NODE_ENV:', process.env.NODE_ENV);
-  console.log('[startup] Creating NestJS application...');
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug'],
+    logger: ['error', 'warn', 'log'],
   });
-  console.log('[startup] NestJS app created');
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3001);
