@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { format } from 'date-fns';
-import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard } from 'lucide-react';
+import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -533,6 +533,7 @@ const DEFAULT_TEMPLATE = {
   companyHeader: '',
   tagline: '',
   primaryColor: '#D4AF37',
+  logoAlign: 'left' as 'left' | 'center' | 'right',
   defaultTerms: 'Payment is due within 30 days of the invoice date.',
   footerNote: 'Thank you for choosing Maryland Guesthouse!',
   bankName: '',
@@ -560,7 +561,7 @@ function InvoiceTemplateTab() {
   }, [propData]);
 
   const set = (k: keyof typeof DEFAULT_TEMPLATE, v: string) =>
-    setTmpl(prev => ({ ...prev, [k]: v }));
+    setTmpl(prev => ({ ...prev, [k]: v as any }));
 
   const handleSave = async () => {
     setSaving(true);
@@ -601,6 +602,47 @@ function InvoiceTemplateTab() {
                 <Input value={accent} onChange={e => set('primaryColor', e.target.value)}
                   placeholder="#D4AF37" className="flex-1 font-mono text-xs" />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Logo on Invoice</Label>
+              {(propData?.logo || propData?.logoUrl) ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-2 rounded-lg border border-border bg-muted/30">
+                    <img
+                      src={propData.logo || propData.logoUrl}
+                      alt="Property logo"
+                      className="h-10 w-auto max-w-[80px] object-contain rounded"
+                    />
+                    <span className="text-xs text-muted-foreground">From Property settings</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground mr-1">Alignment:</span>
+                    {(['left', 'center', 'right'] as const).map((align) => {
+                      const Icon = align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight;
+                      return (
+                        <button
+                          key={align}
+                          type="button"
+                          onClick={() => set('logoAlign', align)}
+                          className={cn(
+                            'flex items-center justify-center w-8 h-8 rounded border text-xs transition-colors',
+                            tmpl.logoAlign === align
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'border-border hover:bg-muted'
+                          )}
+                          title={align.charAt(0).toUpperCase() + align.slice(1)}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">
+                  No logo uploaded yet. Go to the <strong>Property</strong> tab to upload one.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -648,20 +690,33 @@ function InvoiceTemplateTab() {
         <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">Preview</p>
         <div className="border border-border rounded-xl overflow-hidden bg-white text-[#111] shadow-md text-[11px]">
           {/* Header bar */}
-          <div className="px-6 py-4 flex items-start justify-between" style={{ backgroundColor: accent }}>
-            <div>
-              {propData?.logoUrl && (
-                <img src={propData.logoUrl} alt="Logo" className="h-8 mb-1 object-contain" />
-              )}
-              <p className="font-bold text-white text-sm leading-tight">
-                {tmpl.companyHeader || propData?.name || 'Maryland Guesthouse'}
-              </p>
-              {tmpl.tagline && <p className="text-white/80 text-[10px]">{tmpl.tagline}</p>}
-            </div>
-            <div className="text-right text-white">
-              <p className="text-lg font-black tracking-widest">INVOICE</p>
-              <p className="text-white/80 text-[10px]">INV-2026-0001</p>
-              <p className="text-white/70 text-[10px]">Due: 30 Jul 2026</p>
+          <div className="px-6 py-4" style={{ backgroundColor: accent }}>
+            {/* Logo row — full width, respects alignment */}
+            {(propData?.logo || propData?.logoUrl) && (
+              <div className={cn(
+                'mb-2 flex',
+                tmpl.logoAlign === 'center' ? 'justify-center' : tmpl.logoAlign === 'right' ? 'justify-end' : 'justify-start'
+              )}>
+                <img
+                  src={propData.logo || propData.logoUrl}
+                  alt="Logo"
+                  className="h-10 max-w-[120px] object-contain"
+                />
+              </div>
+            )}
+            {/* Company name + invoice number row */}
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="font-bold text-white text-sm leading-tight">
+                  {tmpl.companyHeader || propData?.name || 'Maryland Guesthouse'}
+                </p>
+                {tmpl.tagline && <p className="text-white/80 text-[10px]">{tmpl.tagline}</p>}
+              </div>
+              <div className="text-right text-white">
+                <p className="text-lg font-black tracking-widest">INVOICE</p>
+                <p className="text-white/80 text-[10px]">INV-2026-0001</p>
+                <p className="text-white/70 text-[10px]">Due: 30 Jul 2026</p>
+              </div>
             </div>
           </div>
 
