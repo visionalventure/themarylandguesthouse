@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
   ArrowLeft, Plus, CreditCard, Printer, LogOut,
-  Loader2, Trash2,
+  Loader2, Trash2, FileText,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { api, reservationsApi } from '@/lib/api';
+import { api, accountingApi, reservationsApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -94,6 +94,27 @@ export default function FolioPage() {
     onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message ?? 'Check-out failed' }),
   });
 
+  const generateInvoiceMutation = useMutation({
+    mutationFn: () => {
+      const folio = data!;
+      return accountingApi.createInvoice({
+        propertyId,
+        guestId: folio.reservation.guestId,
+        notes: `Invoice for reservation ${folio.reservation.reservationNo}`,
+        lineItems: folio.charges.map((c: any) => ({
+          description: c.description,
+          quantity: c.quantity ?? 1,
+          unitPrice: Number(c.unitPrice ?? c.amount),
+          taxRate: Number(c.taxRate ?? 0),
+        })),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Invoice generated', description: 'View it in Accounting → Invoices' });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message ?? 'Invoice generation failed' }),
+  });
+
   if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin" /></div>;
   if (!data) return <div className="p-6">Folio not found</div>;
 
@@ -152,6 +173,14 @@ export default function FolioPage() {
         </Button>
         <Button size="sm" variant="outline" onClick={() => window.print()}>
           <Printer className="w-4 h-4 mr-1" /> Print Folio
+        </Button>
+        <Button
+          size="sm" variant="outline"
+          onClick={() => generateInvoiceMutation.mutate()}
+          disabled={generateInvoiceMutation.isPending || !data?.charges?.length}
+        >
+          {generateInvoiceMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <FileText className="w-4 h-4 mr-1" />}
+          Generate Invoice
         </Button>
         {status === 'CHECKED_IN' && (
           <Button

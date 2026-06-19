@@ -1,7 +1,8 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { X, Mail, Phone, Globe, Calendar, DollarSign, Star, FileText, Shield, MapPin, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { X, Mail, Phone, Globe, Calendar, DollarSign, Star, FileText, Shield, MapPin, Loader2, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,7 @@ interface GuestDrawerProps {
 
 export function GuestDrawer({ guestId, onClose }: GuestDrawerProps) {
   const isOpen = !!guestId;
+  const router = useRouter();
 
   const { data: guest, isLoading } = useQuery({
     queryKey: ['guest-detail', guestId],
@@ -207,6 +209,15 @@ export function GuestDrawer({ guestId, onClose }: GuestDrawerProps) {
                 </div>
               </>
             )}
+
+            {/* Full profile link */}
+            <hr className="border-border" />
+            <Button
+              variant="outline" size="sm" className="w-full"
+              onClick={() => { onClose(); router.push(`/guests/${guestId}`); }}
+            >
+              <ExternalLink className="w-3.5 h-3.5 mr-1" /> View Full Profile
+            </Button>
           </div>
         ) : null}
       </div>
