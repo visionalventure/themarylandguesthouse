@@ -64,11 +64,20 @@ export class RoomsService {
   }
 
   async create(dto: any) {
-    return this.prisma.room.create({ data: dto, include: { category: true } });
+    const { propertyId, categoryId, roomNumber, floor, notes } = dto;
+    return this.prisma.room.create({
+      data: { propertyId, categoryId, roomNumber, floor, ...(notes ? { notes } : {}) },
+      include: { category: true },
+    });
   }
 
   async update(id: string, dto: any) {
-    return this.prisma.room.update({ where: { id }, data: dto, include: { category: true } });
+    const allowed = ['categoryId', 'roomNumber', 'floor', 'status', 'notes', 'isActive', 'lastCleaned', 'lastInspected'];
+    const data: any = {};
+    for (const key of allowed) {
+      if (key in dto) data[key] = dto[key];
+    }
+    return this.prisma.room.update({ where: { id }, data, include: { category: true } });
   }
 
   async getCategories(propertyId: string) {

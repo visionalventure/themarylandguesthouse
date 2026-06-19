@@ -58,15 +58,25 @@ export class ReservationsService {
 
   async create(dto: any, createdById: string) {
     const reservationNo = await this.generateReservationNo(dto.propertyId);
-    const nights = this.calculateNights(dto.checkIn, dto.checkOut);
-    
+    const { rooms, checkIn, checkOut, propertyId, guestId, adults, children,
+            source, status, totalAmount, specialRequests, notes } = dto;
+
     return this.prisma.reservation.create({
       data: {
-        ...dto,
+        propertyId,
+        guestId,
         reservationNo,
         createdById,
-        checkIn: new Date(dto.checkIn),
-        checkOut: new Date(dto.checkOut),
+        checkIn: new Date(checkIn),
+        checkOut: new Date(checkOut),
+        adults: Number(adults ?? 1),
+        children: Number(children ?? 0),
+        source: source ?? 'DIRECT',
+        status: status ?? 'RESERVED',
+        totalAmount: totalAmount ?? 0,
+        ...(specialRequests ? { specialRequests } : {}),
+        ...(notes ? { notes } : {}),
+        ...(rooms ? { rooms } : {}),
       },
       include: { guest: true, rooms: true },
     });

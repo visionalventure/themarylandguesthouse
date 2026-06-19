@@ -117,7 +117,8 @@ export default function ReservationsPage() {
   });
 
   // Fall back to demo data when DB is empty so the Gantt has something to show
-  const rooms: any[] = (roomsData?.data?.length ? roomsData.data : null) ?? DEMO_ROOMS;
+  const roomsArray: any[] = roomsData?.data ?? (Array.isArray(roomsData) ? roomsData : []);
+  const rooms: any[] = roomsArray.length ? roomsArray : DEMO_ROOMS;
   const rawCalendar: any[] = Array.isArray(calendarData) ? calendarData : [];
 
   // Normalise calendar entries: real data uses rooms[].roomId, demo uses rooms[].roomId

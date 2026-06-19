@@ -20,6 +20,10 @@ export class BootstrapService implements OnApplicationBootstrap {
     const existing = await this.prisma.user.findFirst({
       where: { email: 'admin@marylandguesthouse.com' },
     });
+
+    // Always ensure rooms exist, even if admin was already seeded
+    await this.seedRooms();
+
     if (existing) return;
 
     this.logger.log('No admin user found — bootstrapping database...');
@@ -126,5 +130,44 @@ export class BootstrapService implements OnApplicationBootstrap {
     this.logger.log(
       'Bootstrap complete ✓  admin@marylandguesthouse.com / Admin@123!',
     );
+  }
+
+  private async seedRooms() {
+    const property = await this.prisma.property.findUnique({ where: { id: 'demo-property-id' } });
+    if (!property) return; // property not created yet, full seed will handle rooms
+
+    const catSeeds = [
+      { id: 'cat-standard', name: 'Standard Room', type: 'SINGLE',      basePrice: 80,  maxOccupancy: 2, bedCount: 1 },
+      { id: 'cat-double',   name: 'Double Room',   type: 'DOUBLE',      basePrice: 120, maxOccupancy: 2, bedCount: 2 },
+      { id: 'cat-twin',     name: 'Twin Room',     type: 'TWIN',        basePrice: 110, maxOccupancy: 2, bedCount: 2 },
+      { id: 'cat-suite',    name: 'Suite',         type: 'SUITE',       basePrice: 200, maxOccupancy: 3, bedCount: 1 },
+      { id: 'cat-family',   name: 'Family Room',   type: 'FAMILY_ROOM', basePrice: 180, maxOccupancy: 4, bedCount: 2 },
+    ];
+    for (const cat of catSeeds) {
+      await this.prisma.roomCategory.upsert({
+        where: { id: cat.id },
+        update: {},
+        create: { id: cat.id, propertyId: property.id, name: cat.name, type: cat.type as any, basePrice: cat.basePrice, maxOccupancy: cat.maxOccupancy, bedCount: cat.bedCount },
+      });
+    }
+
+    const roomSeeds = [
+      { id: 'room-101', roomNumber: '101', floor: 1, categoryId: 'cat-standard' },
+      { id: 'room-102', roomNumber: '102', floor: 1, categoryId: 'cat-standard' },
+      { id: 'room-103', roomNumber: '103', floor: 1, categoryId: 'cat-double'   },
+      { id: 'room-201', roomNumber: '201', floor: 2, categoryId: 'cat-twin'     },
+      { id: 'room-202', roomNumber: '202', floor: 2, categoryId: 'cat-double'   },
+      { id: 'room-301', roomNumber: '301', floor: 3, categoryId: 'cat-suite'    },
+      { id: 'room-302', roomNumber: '302', floor: 3, categoryId: 'cat-family'   },
+    ];
+    for (const room of roomSeeds) {
+      await this.prisma.room.upsert({
+        where: { id: room.id },
+        update: {},
+        create: { id: room.id, propertyId: property.id, roomNumber: room.roomNumber, floor: room.floor, categoryId: room.categoryId },
+      });
+    }
+
+    this.logger.log('Room seed complete ✓  7 rooms across 5 categories');
   }
 }

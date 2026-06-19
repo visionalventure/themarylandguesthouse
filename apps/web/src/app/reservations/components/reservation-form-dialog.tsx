@@ -63,7 +63,7 @@ export function ReservationFormDialog({ open, onOpenChange, propertyId, initialD
   });
 
   const guests: any[] = guestsData?.data ?? [];
-  const rooms: any[] = roomsData?.data ?? [];
+  const rooms: any[] = roomsData?.data ?? (Array.isArray(roomsData) ? roomsData : []);
 
   const blankDefaults = {
     guestId: '', roomId: '', checkIn: '', checkOut: '',
