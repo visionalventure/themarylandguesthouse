@@ -24,6 +24,7 @@ import {
   Building2,
   Hotel,
   Moon,
+  Search,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -174,6 +175,22 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Search / Cmd+K hint ──────────────────────────── */}
+      {!collapsed && (
+        <div className="px-3 py-2 border-b border-[rgba(255,255,255,0.07)]">
+          <button
+            onClick={() => {
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }));
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.06)] transition-colors text-left"
+          >
+            <Search className="w-3.5 h-3.5 text-white/30 flex-shrink-0" />
+            <span className="flex-1 text-xs text-white/30">Search…</span>
+            <span className="text-[10px] text-white/20 bg-white/5 px-1.5 py-0.5 rounded font-mono">⌘K</span>
+          </button>
         </div>
       )}
 

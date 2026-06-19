@@ -48,6 +48,13 @@ enum RoomStatus {
   BLOCKED       // Manually blocked
 }
 
+enum GuestPrivacyType {
+  STANDARD
+  PRIVATE
+  VIP
+  CONFIDENTIAL
+}
+
 enum RoomType {
   SINGLE
   DOUBLE
@@ -308,6 +315,11 @@ model Property {
   timezone        String       @default("Africa/Monrovia")
   invoiceTemplate Json?
   isActive        Boolean      @default(true)
+  // Privacy & Identification Policy
+  requireIdentification Boolean @default(true)
+  requireAddress        Boolean @default(false)
+  requirePhone          Boolean @default(false)
+  allowAnonymousWalkIn  Boolean @default(false)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -422,16 +434,19 @@ model Guest {
   dietaryPrefs    String?
   roomPreferences String?
   notes           String?
-  blacklisted     Boolean   @default(false)
+  blacklisted     Boolean          @default(false)
   blacklistReason String?
-  totalStays      Int       @default(0)
-  totalSpent      Decimal   @default(0) @db.Decimal(12,2)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  privacyType     GuestPrivacyType @default(STANDARD)
+  alias           String?
+  totalStays      Int              @default(0)
+  totalSpent      Decimal          @default(0) @db.Decimal(12,2)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   reservations    Reservation[]
   loyaltyAccount  LoyaltyAccount?
   invoices        Invoice[]
+  privacyLogs     GuestPrivacyLog[]
 
   @@unique([tenantId, email])
   @@map("guests")
@@ -1815,4 +1830,22 @@ model NightAudit {
 
   @@unique([propertyId, auditDate])
   @@map("night_audits")
+}
+
+// ============================================================
+// PRIVACY & AUDIT LOGS
+// ============================================================
+
+model GuestPrivacyLog {
+  id         String   @id @default(cuid())
+  guestId    String
+  viewedBy   String
+  viewedAt   DateTime @default(now())
+  reason     String?
+  ipAddress  String?
+  action     String   // VIEW_IDENTITY | EDIT_IDENTITY | EXPORT
+
+  guest      Guest    @relation(fields: [guestId], references: [id])
+
+  @@map("guest_privacy_logs")
 }

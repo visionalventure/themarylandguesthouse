@@ -110,6 +110,7 @@ export const guestsApi = {
   create: (data: any) => api.post('/v1/guests', data),
   update: (id: string, data: any) => api.put(`/v1/guests/${id}`, data),
   stayHistory: (id: string) => api.get(`/v1/guests/${id}/stay-history`),
+  revealIdentity: (id: string, reason?: string) => api.post(`/v1/guests/${id}/reveal-identity`, { reason }),
 };
 
 export const roomsApi = {
@@ -298,4 +299,14 @@ export const notificationsApi = {
     api.get('/v1/notifications', { params }),
   markRead: (id: string) => api.patch(`/v1/notifications/${id}/read`, {}),
   markAllRead: () => api.post('/v1/notifications/mark-all-read', {}),
+};
+
+export const searchApi = {
+  global: (q: string, types: string, propertyId: string) =>
+    api.get('/v1/search', { params: { q, types, propertyId } }),
+};
+
+export const assistantApi = {
+  chat: (message: string, context?: { page?: string }) =>
+    api.post('/v1/assistant/chat', { message, context }),
 };

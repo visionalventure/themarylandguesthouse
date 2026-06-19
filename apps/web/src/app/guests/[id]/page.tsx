@@ -11,7 +11,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { guestsApi } from '@/lib/api';
+import { useAuthStore } from '@/store/auth';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { displayName, canRevealIdentity, PRIVACY_TYPE_LABELS, PRIVACY_TYPE_COLORS } from '@/lib/guest-privacy';
 
 const STATUS_COLORS: Record<string, string> = {
   RESERVED:    'bg-amber-100 text-amber-800',
@@ -25,6 +28,9 @@ const STATUS_COLORS: Record<string, string> = {
 export default function GuestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useAuthStore();
+  const { toast } = useToast();
+  const role = user?.role ?? 'FRONT_DESK';
 
   const { data: guest, isLoading } = useQuery({
     queryKey: ['guest', id],
@@ -35,9 +41,21 @@ export default function GuestDetailPage() {
   if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin" /></div>;
   if (!guest) return <div className="p-6 text-muted-foreground">Guest not found</div>;
 
+  const guestName     = displayName(guest, role);
+  const privacyType   = guest.privacyType ?? 'STANDARD';
+  const isRestricted  = privacyType === 'PRIVATE' || privacyType === 'CONFIDENTIAL';
   const totalStays    = (guest.reservations ?? []).filter((r: any) => r.status === 'CHECKED_OUT').length;
   const activeBooking = (guest.reservations ?? []).find((r: any) => ['RESERVED', 'CONFIRMED', 'CHECKED_IN'].includes(r.status));
   const loyaltyPts    = guest.loyaltyAccount?.pointsBalance ?? 0;
+
+  const handleReveal = async () => {
+    try {
+      await guestsApi.revealIdentity(id, 'Authorized identity check');
+      toast({ title: 'Identity revealed', description: 'An audit log has been created.' });
+    } catch {
+      toast({ variant: 'destructive', title: 'Could not reveal identity' });
+    }
+  };
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -49,16 +67,27 @@ export default function GuestDetailPage() {
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary flex-shrink-0">
-              {guest.firstName?.[0]}{guest.lastName?.[0]}
+              {isRestricted && !canRevealIdentity(role) ? '🔒' : `${guest.firstName?.[0] ?? ''}${guest.lastName?.[0] ?? ''}`}
             </div>
             <div>
-              <h1 className="text-xl font-bold">{guest.firstName} {guest.lastName}</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-bold">{guestName}</h1>
+                {privacyType !== 'STANDARD' && (
+                  <Badge className={cn('text-xs', PRIVACY_TYPE_COLORS[privacyType])}>
+                    {PRIVACY_TYPE_LABELS[privacyType]}
+                  </Badge>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">
                 Guest #{guest.guestNo ?? id.slice(-6).toUpperCase()}
-                {guest.vipStatus && <span className="ml-2 text-amber-600 font-medium">⭐ VIP</span>}
               </p>
             </div>
           </div>
+          {isRestricted && canRevealIdentity(role) && (
+            <Button size="sm" variant="outline" onClick={handleReveal} className="text-amber-700 border-amber-300 hover:bg-amber-50">
+              Reveal Identity
+            </Button>
+          )}
         </div>
         {activeBooking && (
           <Button size="sm" onClick={() => router.push(`/reservations/${activeBooking.id}`)}>

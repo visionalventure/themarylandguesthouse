@@ -23,6 +23,8 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { FolioModule } from './modules/folio/folio.module';
 import { NightAuditModule } from './modules/nightaudit/nightaudit.module';
+import { SearchModule } from './modules/search/search.module';
+import { AssistantModule } from './modules/assistant/assistant.module';
 
 @Module({
   providers: [BootstrapService],
@@ -50,6 +52,8 @@ import { NightAuditModule } from './modules/nightaudit/nightaudit.module';
     NotificationsModule,
     FolioModule,
     NightAuditModule,
+    SearchModule,
+    AssistantModule,
   ],
 })
 export class AppModule {}

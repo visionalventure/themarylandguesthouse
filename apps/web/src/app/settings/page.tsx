@@ -823,6 +823,108 @@ function InvoiceTemplateTab() {
   );
 }
 
+function PrivacyTab() {
+  const propertyId = useAuthStore((s) => s.propertyId);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: prop } = useQuery({
+    queryKey: ['settings-property', propertyId],
+    queryFn: () => settingsApi.getProperty(propertyId).then(r => r.data),
+  });
+
+  const [policy, setPolicy] = useState({
+    requireIdentification: true,
+    requireAddress: false,
+    requirePhone: false,
+    allowAnonymousWalkIn: false,
+  });
+
+  useEffect(() => {
+    if (prop) {
+      setPolicy({
+        requireIdentification: prop.requireIdentification ?? true,
+        requireAddress: prop.requireAddress ?? false,
+        requirePhone: prop.requirePhone ?? false,
+        allowAnonymousWalkIn: prop.allowAnonymousWalkIn ?? false,
+      });
+    }
+  }, [prop]);
+
+  const saveMutation = useMutation({
+    mutationFn: () => settingsApi.updateProperty(propertyId, policy),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-property', propertyId] });
+      toast({ title: 'Privacy settings saved' });
+    },
+    onError: () => toast({ variant: 'destructive', title: 'Failed to save privacy settings' }),
+  });
+
+  const toggle = (key: keyof typeof policy) =>
+    setPolicy(p => ({ ...p, [key]: !p[key] }));
+
+  const rows: { key: keyof typeof policy; label: string; description: string }[] = [
+    { key: 'requireIdentification', label: 'Require Identification', description: 'Guest must present a valid passport or national ID at check-in' },
+    { key: 'requireAddress',        label: 'Require Address',        description: 'Collect guest home address during reservation or check-in' },
+    { key: 'requirePhone',          label: 'Require Phone Number',   description: 'Phone number is mandatory for all guest profiles' },
+    { key: 'allowAnonymousWalkIn',  label: 'Allow Anonymous Walk-In', description: 'Allow reservations without collecting guest personal information' },
+  ];
+
+  return (
+    <div className="pt-6 space-y-6 max-w-2xl">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Shield className="w-4 h-4" /> Identification Policy
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {rows.map(({ key, label, description }) => (
+            <div key={key} className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id={key}
+                checked={policy[key]}
+                onChange={() => toggle(key)}
+                className="mt-0.5 h-4 w-4 rounded border accent-primary cursor-pointer"
+              />
+              <label htmlFor={key} className="cursor-pointer">
+                <p className="text-sm font-medium">{label}</p>
+                <p className="text-xs text-muted-foreground">{description}</p>
+              </label>
+            </div>
+          ))}
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="mt-2">
+            {saveMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Save Privacy Settings
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ClipboardList className="w-4 h-4" /> Guest Privacy Types
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {[
+            { type: 'Standard', color: 'bg-slate-100 text-slate-700', desc: 'Default — full name and contact details visible to all authorized staff' },
+            { type: 'Private',  color: 'bg-blue-100 text-blue-800',   desc: 'Name hidden from housekeeping and maintenance; alias shown instead' },
+            { type: 'VIP',      color: 'bg-amber-100 text-amber-800', desc: 'Elevated service tier; full name visible to Front Desk and above' },
+            { type: 'Confidential', color: 'bg-red-100 text-red-800', desc: 'Alias only — identity visible to Manager and above with audit trail' },
+          ].map(({ type, color, desc }) => (
+            <div key={type} className="flex items-start gap-3 py-1">
+              <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0', color)}>{type}</span>
+              <p className="text-muted-foreground text-xs">{desc}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   usePageTitle('Settings');
   return (
@@ -842,12 +944,14 @@ export default function SettingsPage() {
           <TabsTrigger value="tax">Tax Rates</TabsTrigger>
           <TabsTrigger value="invoice">Invoice Template</TabsTrigger>
           <TabsTrigger value="audit">Audit Log</TabsTrigger>
+          <TabsTrigger value="privacy">Privacy</TabsTrigger>
         </TabsList>
         <TabsContent value="property"><PropertyTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="tax"><TaxRatesTab /></TabsContent>
         <TabsContent value="invoice"><InvoiceTemplateTab /></TabsContent>
         <TabsContent value="audit"><AuditLogTab /></TabsContent>
+        <TabsContent value="privacy"><PrivacyTab /></TabsContent>
       </Tabs>
     </FadeIn>
   );

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from './sidebar';
 import { Header } from './header';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { CommandBar } from '@/components/command-bar/command-bar';
+import { AssistantButton } from '@/components/assistant/assistant-button';
 import { cn } from '@/lib/utils';
 
 interface AppShellProps {
@@ -13,6 +15,18 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandOpen(o => !o);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -59,6 +73,8 @@ export function AppShell({ children }: AppShellProps) {
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>
+      <CommandBar open={commandOpen} onOpenChange={setCommandOpen} />
+      <AssistantButton />
     </div>
   );
 }

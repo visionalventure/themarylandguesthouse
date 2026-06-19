@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { guestsApi } from '@/lib/api';
+import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
+import { displayName, PRIVACY_TYPE_LABELS, PRIVACY_TYPE_COLORS } from '@/lib/guest-privacy';
 
 const TIER_COLORS: Record<string, string> = {
   BRONZE: 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400',
@@ -26,6 +28,8 @@ interface GuestDrawerProps {
 export function GuestDrawer({ guestId, onClose }: GuestDrawerProps) {
   const isOpen = !!guestId;
   const router = useRouter();
+  const { user } = useAuthStore();
+  const role = user?.role ?? 'FRONT_DESK';
 
   const { data: guest, isLoading } = useQuery({
     queryKey: ['guest-detail', guestId],
@@ -69,13 +73,20 @@ export function GuestDrawer({ guestId, onClose }: GuestDrawerProps) {
             <div className="flex items-start gap-4">
               <Avatar className="h-14 w-14 shrink-0">
                 <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
-                  {guest.firstName?.[0]}{guest.lastName?.[0]}
+                  {(guest.privacyType === 'PRIVATE' || guest.privacyType === 'CONFIDENTIAL') && !['SUPER_ADMIN','ADMIN','MANAGER'].includes(role) ? '🔒' : `${guest.firstName?.[0] ?? ''}${guest.lastName?.[0] ?? ''}`}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <h3 className="text-lg font-bold text-foreground truncate">
-                  {guest.firstName} {guest.lastName}
-                </h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-lg font-bold text-foreground truncate">
+                    {displayName(guest, role)}
+                  </h3>
+                  {guest.privacyType && guest.privacyType !== 'STANDARD' && (
+                    <Badge className={cn('text-[10px] px-1.5 py-0', PRIVACY_TYPE_COLORS[guest.privacyType])}>
+                      {PRIVACY_TYPE_LABELS[guest.privacyType]}
+                    </Badge>
+                  )}
+                </div>
                 {guest.loyaltyAccount?.tier && (
                   <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', TIER_COLORS[guest.loyaltyAccount.tier] ?? TIER_COLORS.BRONZE)}>
                     {guest.loyaltyAccount.tier}

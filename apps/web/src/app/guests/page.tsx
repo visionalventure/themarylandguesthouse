@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { guestsApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { displayName, PRIVACY_TYPE_LABELS } from '@/lib/guest-privacy';
 import { FadeIn } from '@/components/ui/fade-in';
 import { StaggerGrid, StaggerItem } from '@/components/ui/stagger-grid';
 import { AnimatedCounter } from '@/components/ui/animated-counter';
@@ -58,6 +59,7 @@ export default function GuestsPage() {
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [nationality, setNationality] = useState('');
+  const [privacyType, setPrivacyType] = useState('STANDARD');
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const { data } = useQuery({
@@ -74,7 +76,7 @@ export default function GuestsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (values: any) => guestsApi.create({ ...values, nationality, propertyId }),
+    mutationFn: (values: any) => guestsApi.create({ ...values, nationality, privacyType, propertyId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['guests'] });
       toast({ title: 'Guest added successfully' });
@@ -183,7 +185,7 @@ export default function GuestsPage() {
       <GuestDrawer guestId={selectedGuestId} onClose={() => setSelectedGuestId(null)} />
 
       {/* Add Guest Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) { reset(); setNationality(''); } }}>
+      <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) { reset(); setNationality(''); setPrivacyType('STANDARD'); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Add New Guest</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
@@ -219,6 +221,20 @@ export default function GuestsPage() {
             <div className="space-y-1.5">
               <Label>Passport / ID Number</Label>
               <Input placeholder="A12345678" {...register('passportNumber')} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Privacy Level</Label>
+              <Select value={privacyType} onValueChange={setPrivacyType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PRIVACY_TYPE_LABELS).map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {privacyType !== 'STANDARD' && (
+                <p className="text-xs text-muted-foreground">An alias will be auto-generated to protect the guest's identity.</p>
+              )}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>

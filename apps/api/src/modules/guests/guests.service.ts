@@ -1,15 +1,86 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+
+const FULL_ACCESS_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
+const FRONT_DESK_ROLES  = ['FRONT_DESK'];
+const HOUSEKEEPER_ROLES = ['HOUSEKEEPING'];
+const ACCOUNTANT_ROLES  = ['ACCOUNTANT'];
 
 @Injectable()
 export class GuestsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(tenantId: string, query: any = {}) {
+  // ── Privacy Helpers ─────────────────────────────────────────
+
+  private maskGuestData(guest: any, role: string): any {
+    if (!guest) return guest;
+    const privacyType: string = guest.privacyType ?? 'STANDARD';
+    const alias: string = guest.alias ?? `PRIVATE-${guest.id?.slice(-4).toUpperCase()}`;
+    const isRestricted = privacyType === 'PRIVATE' || privacyType === 'CONFIDENTIAL';
+
+    if (FULL_ACCESS_ROLES.includes(role)) return guest;
+
+    if (ACCOUNTANT_ROLES.includes(role)) {
+      return {
+        id: guest.id,
+        alias,
+        privacyType,
+        totalSpent: guest.totalSpent,
+        reservations: guest.reservations,
+        invoices: guest.invoices,
+      };
+    }
+
+    if (HOUSEKEEPER_ROLES.includes(role)) {
+      return {
+        id: guest.id,
+        displayName: isRestricted ? alias : `${guest.firstName} ${guest.lastName}`,
+        privacyType,
+        alias,
+        roomPreferences: guest.roomPreferences,
+        dietaryPrefs: guest.dietaryPrefs,
+      };
+    }
+
+    // FRONT_DESK and everyone else: full data for STANDARD/VIP, alias for PRIVATE/CONFIDENTIAL
+    if (isRestricted && FRONT_DESK_ROLES.includes(role)) {
+      return {
+        id: guest.id,
+        firstName: alias,
+        lastName: '',
+        alias,
+        privacyType,
+        loyaltyAccount: guest.loyaltyAccount,
+        reservations: guest.reservations,
+        invoices: guest.invoices,
+        totalStays: guest.totalStays,
+        totalSpent: guest.totalSpent,
+        createdAt: guest.createdAt,
+      };
+    }
+
+    return guest;
+  }
+
+  private async generateAlias(privacyType: string): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix =
+      privacyType === 'CONFIDENTIAL' ? 'CONFIDENTIAL'
+      : privacyType === 'VIP'        ? 'VIP'
+      : 'PRIVATE';
+    const count = await this.prisma.guest.count({
+      where: { privacyType: privacyType as any },
+    });
+    return `${prefix}-${year}-${String(count + 1).padStart(3, '0')}`;
+  }
+
+  // ── Core CRUD ──────────────────────────────────────────────
+
+  async findAll(tenantId: string, query: any = {}, role = 'FRONT_DESK') {
     const { search, page = 1, limit = 20, blacklisted } = query;
     const skip = (Number(page) - 1) * Number(limit);
     const where: any = { tenantId };
-    
+
     if (search) {
       where.OR = [
         { firstName: { contains: search, mode: 'insensitive' } },
@@ -17,6 +88,7 @@ export class GuestsService {
         { email: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search, mode: 'insensitive' } },
         { passportNumber: { contains: search, mode: 'insensitive' } },
+        { alias: { contains: search, mode: 'insensitive' } },
       ];
     }
     if (blacklisted !== undefined) where.blacklisted = blacklisted === 'true';
@@ -33,10 +105,11 @@ export class GuestsService {
       this.prisma.guest.count({ where }),
     ]);
 
-    return { data, total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) };
+    const masked = data.map((g) => this.maskGuestData(g, role));
+    return { data: masked, total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, role = 'FRONT_DESK') {
     const guest = await this.prisma.guest.findUnique({
       where: { id },
       include: {
@@ -50,17 +123,41 @@ export class GuestsService {
       },
     });
     if (!guest) throw new NotFoundException('Guest not found');
+    return this.maskGuestData(guest, role);
+  }
+
+  async revealIdentity(id: string, viewedBy: string, reason: string | undefined, ipAddress: string | undefined) {
+    const guest = await this.prisma.guest.findUnique({ where: { id } });
+    if (!guest) throw new NotFoundException('Guest not found');
+
+    await this.prisma.guestPrivacyLog.create({
+      data: { guestId: id, viewedBy, action: 'VIEW_IDENTITY', reason, ipAddress },
+    });
+
     return guest;
   }
 
   async create(dto: any) {
-    // Strip non-Guest fields the frontend may include (e.g. propertyId)
     const { propertyId: _p, ...data } = dto;
+    if (data.privacyType && data.privacyType !== 'STANDARD' && !data.alias) {
+      data.alias = await this.generateAlias(data.privacyType);
+    }
     return this.prisma.guest.create({ data });
   }
 
   async update(id: string, dto: any) {
-    return this.prisma.guest.update({ where: { id }, data: dto });
+    const existing = await this.prisma.guest.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Guest not found');
+    const data: any = { ...dto };
+    if (
+      data.privacyType &&
+      data.privacyType !== 'STANDARD' &&
+      !data.alias &&
+      !existing.alias
+    ) {
+      data.alias = await this.generateAlias(data.privacyType);
+    }
+    return this.prisma.guest.update({ where: { id }, data });
   }
 
   async getStayHistory(guestId: string) {
