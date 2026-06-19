@@ -1,6 +1,7 @@
 import {
   Controller, Get, Post, Put, Delete, Body, Param, Query,
   UseGuards, Request, UseInterceptors, UploadedFile, Res,
+  BadRequestException, InternalServerErrorException, Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -8,10 +9,16 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { DocumentsService } from './documents.service';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { v4 as uuid } from 'uuid';
 
+const UPLOAD_DIR = join(process.cwd(), 'uploads');
+if (!existsSync(UPLOAD_DIR)) {
+  mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
 const multerStorage = diskStorage({
-  destination: join(process.cwd(), 'uploads'),
+  destination: UPLOAD_DIR,
   filename: (_, file, cb) => {
     const ext = extname(file.originalname);
     cb(null, `${uuid()}${ext}`);
@@ -23,6 +30,7 @@ const multerStorage = diskStorage({
 @UseGuards(JwtAuthGuard)
 @Controller({ path: 'documents', version: '1' })
 export class DocumentsController {
+  private readonly logger = new Logger(DocumentsController.name);
   constructor(private readonly service: DocumentsService) {}
 
   @Get()
@@ -41,15 +49,16 @@ export class DocumentsController {
   @ApiOperation({ summary: 'Upload a file and return its URL' })
   @UseInterceptors(FileInterceptor('file', { storage: multerStorage }))
   uploadFile(@UploadedFile() file: Express.Multer.File, @Request() req: any) {
-    const host = req.headers.host || `localhost:3001`;
-    const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const fileUrl = `${protocol}://${host}/uploads/${file.filename}`;
-    return {
-      fileUrl,
-      fileName: file.originalname,
-      fileSize: file.size,
-      mimeType: file.mimetype,
-    };
+    if (!file) throw new BadRequestException('No file received');
+    try {
+      const host = req.headers.host || `localhost:3001`;
+      const protocol = req.headers['x-forwarded-proto'] || 'http';
+      const fileUrl = `${protocol}://${host}/uploads/${file.filename}`;
+      return { fileUrl, fileName: file.originalname, fileSize: file.size, mimeType: file.mimetype };
+    } catch (err) {
+      this.logger.error('Upload failed', err);
+      throw new InternalServerErrorException('Upload failed');
+    }
   }
 
   @Get('categories')
