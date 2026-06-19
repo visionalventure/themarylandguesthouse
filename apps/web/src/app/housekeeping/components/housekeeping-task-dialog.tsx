@@ -1,19 +1,42 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { housekeepingApi, roomsApi, hrApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
-const TASK_TYPES = ['CHECKOUT_CLEAN', 'STAYOVER_CLEAN', 'DEEP_CLEAN', 'TURNDOWN', 'INSPECTION'];
+const BUILT_IN_TASK_TYPES = [
+  'CHECKOUT_CLEAN',
+  'STAYOVER_CLEAN',
+  'DEEP_CLEAN',
+  'TURNDOWN',
+  'INSPECTION',
+];
+
+const STORAGE_KEY = 'mgh-custom-task-types';
+
+function loadCustomTypes(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomTypes(types: string[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(types));
+}
+
 const PRIORITIES = ['HIGH', 'NORMAL', 'LOW'];
 
 interface Props {
@@ -25,6 +48,13 @@ interface Props {
 export function HousekeepingTaskDialog({ open, onOpenChange, propertyId }: Props) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [customTypes, setCustomTypes] = useState<string[]>([]);
+  const [addingCustom, setAddingCustom] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+
+  useEffect(() => {
+    setCustomTypes(loadCustomTypes());
+  }, []);
 
   const { data: roomsData } = useQuery({
     queryKey: ['rooms', propertyId],
@@ -38,8 +68,11 @@ export function HousekeepingTaskDialog({ open, onOpenChange, propertyId }: Props
     enabled: open,
   });
 
-  const rooms: any[] = roomsData?.data ?? [];
-  const staff: any[] = staffData?.data ?? [];
+  // Rooms API returns a plain array; guests returns { data: [] }
+  const rooms: any[] = roomsData?.data ?? (Array.isArray(roomsData) ? roomsData : []);
+  const staff: any[] = staffData?.data ?? (Array.isArray(staffData) ? staffData : []);
+
+  const allTaskTypes = [...BUILT_IN_TASK_TYPES, ...customTypes];
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
     defaultValues: { roomId: '', taskType: 'CHECKOUT_CLEAN', priority: 'NORMAL', assignedToId: '', scheduledAt: '', notes: '' },
@@ -48,6 +81,24 @@ export function HousekeepingTaskDialog({ open, onOpenChange, propertyId }: Props
   useEffect(() => {
     if (open) reset({ roomId: '', taskType: 'CHECKOUT_CLEAN', priority: 'NORMAL', assignedToId: '', scheduledAt: '', notes: '' });
   }, [open, reset]);
+
+  function handleAddCustomType() {
+    const name = newTypeName.trim().toUpperCase().replace(/\s+/g, '_');
+    if (!name || allTaskTypes.includes(name)) return;
+    const updated = [...customTypes, name];
+    setCustomTypes(updated);
+    saveCustomTypes(updated);
+    setValue('taskType', name);
+    setNewTypeName('');
+    setAddingCustom(false);
+  }
+
+  function handleRemoveCustomType(type: string) {
+    const updated = customTypes.filter(t => t !== type);
+    setCustomTypes(updated);
+    saveCustomTypes(updated);
+    if (watch('taskType') === type) setValue('taskType', 'CHECKOUT_CLEAN');
+  }
 
   const mutation = useMutation({
     mutationFn: (values: any) =>
@@ -71,34 +122,83 @@ export function HousekeepingTaskDialog({ open, onOpenChange, propertyId }: Props
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>New Housekeeping Task</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
+            {/* Room */}
             <div className="space-y-2">
               <Label>Room *</Label>
               <Select value={watch('roomId')} onValueChange={v => setValue('roomId', v)}>
-                <SelectTrigger><SelectValue placeholder="Select room" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select room" />
+                </SelectTrigger>
                 <SelectContent>
+                  {rooms.length === 0 && (
+                    <div className="px-2 py-3 text-sm text-muted-foreground text-center">No rooms found</div>
+                  )}
                   {rooms.map(r => (
-                    <SelectItem key={r.id} value={r.id}>Room {r.roomNumber}</SelectItem>
+                    <SelectItem key={r.id} value={r.id}>
+                      Room {r.roomNumber}{r.category?.name ? ` — ${r.category.name}` : ''}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Task Type */}
             <div className="space-y-2">
-              <Label>Task Type</Label>
+              <div className="flex items-center justify-between">
+                <Label>Task Type</Label>
+                <button
+                  type="button"
+                  onClick={() => setAddingCustom(v => !v)}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" /> Add type
+                </button>
+              </div>
               <Select value={watch('taskType')} onValueChange={v => setValue('taskType', v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {TASK_TYPES.map(t => (
+                  {allTaskTypes.map(t => (
                     <SelectItem key={t} value={t}>{t.replace(/_/g, ' ')}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Custom type input */}
+              {addingCustom && (
+                <div className="flex gap-1">
+                  <Input
+                    autoFocus
+                    placeholder="e.g. PEST CONTROL"
+                    value={newTypeName}
+                    onChange={e => setNewTypeName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustomType(); } }}
+                    className="h-8 text-xs uppercase"
+                  />
+                  <Button type="button" size="sm" className="h-8 px-2" onClick={handleAddCustomType}>Add</Button>
+                  <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={() => { setAddingCustom(false); setNewTypeName(''); }}>
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Custom type badges (removable) */}
+              {customTypes.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {customTypes.map(t => (
+                    <Badge key={t} variant="secondary" className="text-xs gap-1 cursor-pointer pr-1" onClick={() => handleRemoveCustomType(t)}>
+                      {t.replace(/_/g, ' ')}
+                      <X className="w-2.5 h-2.5" />
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
