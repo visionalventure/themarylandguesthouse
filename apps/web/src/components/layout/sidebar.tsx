@@ -122,12 +122,18 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         'flex items-center gap-3 border-b border-[rgba(255,255,255,0.07)]',
         collapsed ? 'px-3 py-5 justify-center' : 'px-5 py-5',
       )}>
-        <div className="flex-shrink-0 w-9 h-9 gold-gradient rounded-xl flex items-center justify-center shadow-gold-glow">
-          <span className="text-luxury-charcoal font-bold text-base leading-none">M</span>
+        <div className="flex-shrink-0 w-9 h-9 gold-gradient rounded-xl flex items-center justify-center shadow-gold-glow overflow-hidden">
+          {currentProperty?.logoUrl ? (
+            <img src={currentProperty.logoUrl} alt={currentProperty.name} className="w-full h-full object-contain" />
+          ) : (
+            <span className="text-luxury-charcoal font-bold text-base leading-none">M</span>
+          )}
         </div>
         {!collapsed && (
           <div className="overflow-hidden min-w-0">
-            <p className="text-sm font-bold text-white leading-tight truncate">Maryland</p>
+            <p className="text-sm font-bold text-white leading-tight truncate">
+              {currentProperty?.name?.split(' ')[0] ?? 'Maryland'}
+            </p>
             <p className="text-[11px] text-gold-main font-medium tracking-wide">Guesthouse ERP</p>
           </div>
         )}
@@ -140,7 +146,11 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
             onClick={() => setPropertyOpen((o) => !o)}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.09)] border border-[rgba(255,255,255,0.08)] transition-colors text-left"
           >
-            <Building2 className="w-3.5 h-3.5 text-gold-main/70 flex-shrink-0" />
+            {currentProperty?.logoUrl ? (
+              <img src={currentProperty.logoUrl} alt="" className="w-4 h-4 rounded object-contain flex-shrink-0 bg-white/10" />
+            ) : (
+              <Building2 className="w-3.5 h-3.5 text-gold-main/70 flex-shrink-0" />
+            )}
             <span className="flex-1 text-xs font-medium text-white/75 truncate min-w-0">
               {currentProperty?.name ?? 'Maryland Guesthouse'}
             </span>
