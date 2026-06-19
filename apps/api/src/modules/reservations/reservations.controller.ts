@@ -57,4 +57,16 @@ export class ReservationsController {
   cancel(@Param('id') id: string, @Body() body: { reason?: string }) {
     return this.service.cancel(id, body.reason);
   }
+
+  @Post('hold')
+  @ApiOperation({ summary: 'Place a temporary hold on a room' })
+  holdRoom(@Body() dto: any, @Request() req: any) {
+    return this.service.holdRoom(dto, req.user.sub);
+  }
+
+  @Post('release-holds')
+  @ApiOperation({ summary: 'Release all expired holds (called automatically before availability check)' })
+  releaseExpiredHolds() {
+    return this.service.releaseExpiredHolds();
+  }
 }

@@ -1,0 +1,5 @@
+export const FEATURES = {
+  ONLINE_BOOKING:  process.env.NEXT_PUBLIC_ENABLE_ONLINE_BOOKING  === 'true',
+  CUSTOMER_PORTAL: process.env.NEXT_PUBLIC_ENABLE_CUSTOMER_PORTAL === 'true',
+  LOYALTY_PORTAL:  process.env.NEXT_PUBLIC_ENABLE_LOYALTY_PORTAL  === 'true',
+};

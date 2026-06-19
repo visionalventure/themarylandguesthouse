@@ -50,4 +50,10 @@ export class DashboardController {
   getRecentActivity(@Request() req: any, @Query('propertyId') propertyId: string) {
     return this.dashboardService.getRecentActivity(req.user.tenantId, propertyId);
   }
+
+  @Get('front-desk')
+  @ApiOperation({ summary: 'Front desk summary — arrivals, departures, room status, balances' })
+  getFrontDeskSummary(@Query('propertyId') propertyId: string) {
+    return this.dashboardService.getFrontDeskSummary(propertyId);
+  }
 }

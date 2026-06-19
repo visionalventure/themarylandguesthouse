@@ -22,6 +22,8 @@ import {
   ChevronRight,
   ChevronDown,
   Building2,
+  Hotel,
+  Moon,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -32,6 +34,7 @@ const navSections = [
   {
     label: 'Operations',
     items: [
+      { name: 'Front Desk',     href: '/front-desk',   icon: Hotel },
       { name: 'Dashboard',      href: '/dashboard',    icon: LayoutDashboard },
       { name: 'Reservations',   href: '/reservations', icon: CalendarDays },
       { name: 'Guests / CRM',   href: '/guests',       icon: Users },
@@ -39,6 +42,7 @@ const navSections = [
       { name: 'Housekeeping',   href: '/housekeeping', icon: Sparkles },
       { name: 'Restaurant & Bar', href: '/restaurant', icon: UtensilsCrossed },
       { name: 'Maintenance',    href: '/maintenance',  icon: Wrench },
+      { name: 'Night Audit',    href: '/nightaudit',   icon: Moon },
     ],
   },
   {

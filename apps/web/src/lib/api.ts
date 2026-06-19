@@ -75,6 +75,22 @@ export const dashboardApi = {
     api.get(`/v1/dashboard/revenue-by-category?propertyId=${propertyId}`),
   getRecentActivity: (propertyId: string) =>
     api.get(`/v1/dashboard/recent-activity?propertyId=${propertyId}`),
+  frontDesk: (propertyId: string) => api.get('/v1/dashboard/front-desk', { params: { propertyId } }),
+};
+
+export const folioApi = {
+  get:            (reservationId: string) => api.get(`/v1/folio/${reservationId}`),
+  postCharge:     (reservationId: string, data: any) => api.post(`/v1/folio/${reservationId}/charges`, data),
+  voidCharge:     (reservationId: string, chargeId: string) => api.delete(`/v1/folio/${reservationId}/charges/${chargeId}`),
+  collectPayment: (reservationId: string, data: any) => api.post(`/v1/folio/${reservationId}/payments`, data),
+  getReceipt:     (reservationId: string, paymentId: string) => api.get(`/v1/folio/${reservationId}/receipt/${paymentId}`),
+};
+
+export const nightAuditApi = {
+  run:     (data: { propertyId: string; auditDate: string }) => api.post('/v1/nightaudit/run', data),
+  history: (propertyId: string) => api.get('/v1/nightaudit/history', { params: { propertyId } }),
+  get:     (id: string) => api.get(`/v1/nightaudit/${id}`),
+  close:   (id: string) => api.patch(`/v1/nightaudit/${id}/close`),
 };
 
 export const reservationsApi = {

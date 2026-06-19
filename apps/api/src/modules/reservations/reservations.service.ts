@@ -59,7 +59,8 @@ export class ReservationsService {
   async create(dto: any, createdById: string) {
     const reservationNo = await this.generateReservationNo(dto.propertyId);
     const { checkIn, checkOut, propertyId, guestId, adults, children,
-            source, status, totalAmount, specialRequests, notes } = dto;
+            source, status, totalAmount, specialRequests, notes,
+            depositAmount, depositMethod, tenantId } = dto;
 
     const totalNights = this.calculateNights(checkIn, checkOut);
 
@@ -80,7 +81,7 @@ export class ReservationsService {
 
     const computedTotal = roomsCreate.reduce((sum, r) => sum + Number(r.totalAmount), 0);
 
-    return this.prisma.reservation.create({
+    const reservation = await this.prisma.reservation.create({
       data: {
         propertyId,
         guestId,
@@ -99,6 +100,30 @@ export class ReservationsService {
       },
       include: { guest: true, rooms: true },
     });
+
+    // If a deposit was provided, collect it immediately
+    if (depositAmount && Number(depositAmount) > 0 && depositMethod) {
+      const year = new Date().getFullYear();
+      const count = await this.prisma.payment.count({ where: { receiptNumber: { startsWith: `RCP-${year}-` } } });
+      const receiptNumber = `RCP-${year}-${String(count + 1).padStart(6, '0')}`;
+
+      await this.prisma.payment.create({
+        data: {
+          reservationId: reservation.id,
+          guestId,
+          tenantId: tenantId ?? null,
+          receiptNumber,
+          amount: Number(depositAmount),
+          method: depositMethod,
+          currency: 'USD',
+          status: 'COMPLETED',
+          processedAt: new Date(),
+          notes: 'Deposit collected at booking',
+        },
+      });
+    }
+
+    return reservation;
   }
 
   async update(id: string, dto: any) {
@@ -151,7 +176,7 @@ export class ReservationsService {
       for (const roomRes of reservation.rooms) {
         await tx.room.update({
           where: { id: roomRes.roomId },
-          data: { status: 'CLEANING' },
+          data: { status: 'VACANT_DIRTY' },
         });
 
         await tx.housekeepingTask.create({
@@ -230,6 +255,42 @@ export class ReservationsService {
         guest: { select: { firstName: true, lastName: true } },
         rooms: { include: { room: { select: { roomNumber: true } } } },
       },
+    });
+  }
+
+  async holdRoom(dto: { roomId: string; propertyId: string; guestId?: string; notes?: string; holdMinutes?: number }, createdById: string) {
+    await this.releaseExpiredHolds();
+    const holdMinutes = dto.holdMinutes ?? 60;
+    const holdExpiresAt = new Date(Date.now() + holdMinutes * 60 * 1000);
+    const checkIn = new Date();
+    const checkOut = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const reservationNo = await this.generateReservationNo(dto.propertyId);
+
+    return this.prisma.reservation.create({
+      data: {
+        propertyId: dto.propertyId,
+        guestId: dto.guestId ?? null,
+        reservationNo,
+        createdById,
+        checkIn,
+        checkOut,
+        adults: 1,
+        children: 0,
+        source: 'WALK_IN',
+        status: 'PENDING',
+        totalAmount: 0,
+        holdExpiresAt,
+        ...(dto.notes ? { notes: dto.notes } : {}),
+        rooms: { create: [{ roomId: dto.roomId, ratePerNight: 0, totalNights: 1, totalAmount: 0 }] },
+      },
+      include: { rooms: true },
+    });
+  }
+
+  async releaseExpiredHolds() {
+    await this.prisma.reservation.updateMany({
+      where: { status: 'PENDING', holdExpiresAt: { lte: new Date() } },
+      data: { status: 'CANCELLED', cancelReason: 'Hold expired' },
     });
   }
 

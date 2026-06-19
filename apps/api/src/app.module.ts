@@ -21,6 +21,8 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { PropertiesModule } from './modules/properties/properties.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { FolioModule } from './modules/folio/folio.module';
+import { NightAuditModule } from './modules/nightaudit/nightaudit.module';
 
 @Module({
   providers: [BootstrapService],
@@ -46,6 +48,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     ReportsModule,
     SettingsModule,
     NotificationsModule,
+    FolioModule,
+    NightAuditModule,
   ],
 })
 export class AppModule {}

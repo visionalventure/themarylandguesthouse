@@ -1,19 +1,22 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import {
   addDays, format, startOfToday, differenceInDays,
   parseISO, isToday, isBefore, isAfter,
 } from 'date-fns';
-import { Plus, Search, Filter, ChevronLeft, ChevronRight, BedDouble, LayoutGrid, CalendarDays } from 'lucide-react';
+import { Plus, Search, Filter, ChevronLeft, ChevronRight, BedDouble, LayoutGrid, CalendarDays, LogIn, LogOut, FileText, Edit, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { reservationsApi, roomsApi } from '@/lib/api';
 import { FadeIn } from '@/components/ui/fade-in';
 import { cn } from '@/lib/utils';
 import { ReservationFormDialog } from './components/reservation-form-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 import { usePageTitle } from '@/hooks/use-page-title';
 import { useAuthStore } from '@/store/auth';
@@ -24,15 +27,31 @@ const CAT_H = 30;           // px per category header row
 const DATE_H = 56;          // px for the date header strip
 const ROOM_COL_W = 172;     // px for the left room-label column
 
-// Bar color classes by booking source
+// Bar color classes by reservation STATUS (primary) rather than source
 const BAR_COLORS: Record<string, string> = {
-  DIRECT:    'bg-primary border-primary/60 text-primary-foreground',
-  ONLINE:    'bg-[#5b9bd5] border-[#4a8ac4] text-white',
-  OTA:       'bg-[#8DD1B6] border-[#6abda2] text-gray-900',
-  WALK_IN:   'bg-amber-500 border-amber-600 text-white',
-  CORPORATE: 'bg-violet-500 border-violet-600 text-white',
+  RESERVED:     'bg-amber-500 border-amber-600 text-white',
+  CONFIRMED:    'bg-blue-500 border-blue-600 text-white',
+  CHECKED_IN:   'bg-green-600 border-green-700 text-white',
+  CHECKED_OUT:  'bg-slate-400 border-slate-500 text-white',
+  CANCELLED:    'bg-red-400 border-red-500 text-white opacity-60',
+  NO_SHOW:      'bg-red-600 border-red-700 text-white opacity-60',
+  PENDING:      'bg-yellow-400 border-yellow-500 text-gray-900',
+  WAITLISTED:   'bg-purple-400 border-purple-500 text-white',
 };
 const BAR_DEFAULT = 'bg-secondary border-border text-foreground';
+
+// Source label shortcodes for display in bars
+const SOURCE_LABELS: Record<string, string> = {
+  WALK_IN:      'Walk-In',
+  PHONE:        'Phone',
+  WHATSAPP:     'WhatsApp',
+  EMAIL:        'Email',
+  CORPORATE:    'Corp',
+  TRAVEL_AGENT: 'TA',
+  DIRECT:       'Direct',
+  OTA:          'OTA',
+  ONLINE:       'Online',
+};
 
 const PAYMENT_BADGE: Record<string, string> = {
   PAID:      'bg-green-500/25 text-green-400 border-green-500/40',
@@ -77,6 +96,9 @@ type RowEntry =
 export default function ReservationsPage() {
   usePageTitle('Reservations');
   const propertyId = useAuthStore((s) => s.propertyId);
+  const router = useRouter();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const today = startOfToday();
   const [viewMode, setViewMode] = useState<'gantt' | 'grid'>('gantt');
   const [windowOffset, setWindowOffset] = useState(-2);
@@ -84,6 +106,25 @@ export default function ReservationsPage() {
   const [showSearch, setShowSearch] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editReservation, setEditReservation] = useState<any>(null);
+  const [activePopover, setActivePopover] = useState<string | null>(null);
+
+  const checkInMutation = useMutation({
+    mutationFn: (id: string) => reservationsApi.checkIn(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['reservations-calendar'] }); toast({ title: 'Guest checked in' }); setActivePopover(null); },
+    onError: () => toast({ variant: 'destructive', title: 'Check-in failed' }),
+  });
+
+  const checkOutMutation = useMutation({
+    mutationFn: (id: string) => reservationsApi.checkOut(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['reservations-calendar'] }); toast({ title: 'Guest checked out' }); setActivePopover(null); },
+    onError: () => toast({ variant: 'destructive', title: 'Check-out failed' }),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (id: string) => reservationsApi.cancel(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['reservations-calendar'] }); toast({ title: 'Reservation cancelled' }); setActivePopover(null); },
+    onError: () => toast({ variant: 'destructive', title: 'Cancel failed' }),
+  });
 
   const windowStart = addDays(today, windowOffset);
   const windowEnd   = addDays(windowStart, DAYS_VISIBLE - 1);
@@ -209,7 +250,7 @@ export default function ReservationsPage() {
           width:        widthDays * CELL_W - 4,
           top:          roomY + 6,
           height:       ROOM_H - 12,
-          barClass:     BAR_COLORS[res.source] ?? BAR_DEFAULT,
+          barClass:     BAR_COLORS[res.status] ?? BAR_DEFAULT,
           paymentClass: PAYMENT_BADGE[res.paymentStatus] ?? PAYMENT_BADGE.UNPAID,
           startClipped: isBefore(checkIn, windowStart),
           endClipped:   isAfter(checkOut, windowEndExcl),
@@ -532,28 +573,28 @@ export default function ReservationsPage() {
 
               {/* ── Reservation bars ─────────────────────────────── */}
               {bars.map((bar) => (
-                <motion.div
-                  key={bar.id}
-                  initial={{ opacity: 0, scaleX: 0.88 }}
-                  animate={{ opacity: 1, scaleX: 1 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className={cn(
-                    'absolute flex items-center gap-1.5 px-2 rounded border overflow-hidden z-20',
-                    'text-xs font-medium select-none cursor-pointer',
-                    'hover:brightness-110 active:brightness-95 transition-[filter] duration-100',
-                    bar.barClass,
-                    bar.startClipped && 'rounded-l-none border-l-2',
-                    bar.endClipped   && 'rounded-r-none border-r-2',
-                  )}
-                  style={{
-                    left:   bar.left,
-                    width:  bar.width,
-                    top:    bar.top,
-                    height: bar.height,
-                  }}
-                  title={`${bar.res.guest.firstName} ${bar.res.guest.lastName} · ${bar.res.reservationNo}`}
-                  onClick={() => { setEditReservation(bar.res); setDialogOpen(true); }}
-                >
+                <Popover key={bar.id} open={activePopover === bar.id} onOpenChange={(o: boolean) => setActivePopover(o ? bar.id : null)}>
+                  <PopoverTrigger asChild>
+                    <motion.div
+                      initial={{ opacity: 0, scaleX: 0.88 }}
+                      animate={{ opacity: 1, scaleX: 1 }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      className={cn(
+                        'absolute flex items-center gap-1.5 px-2 rounded border overflow-hidden z-20',
+                        'text-xs font-medium select-none cursor-pointer',
+                        'hover:brightness-110 active:brightness-95 transition-[filter] duration-100',
+                        bar.barClass,
+                        bar.startClipped && 'rounded-l-none border-l-2',
+                        bar.endClipped   && 'rounded-r-none border-r-2',
+                      )}
+                      style={{
+                        left:   bar.left,
+                        width:  bar.width,
+                        top:    bar.top,
+                        height: bar.height,
+                      }}
+                      title={`${bar.res.guest.firstName} ${bar.res.guest.lastName} · ${bar.res.reservationNo}`}
+                    >
                   {/* Guest name */}
                   <span className="truncate font-semibold text-[11px]">
                     {bar.res.guest.firstName} {bar.res.guest.lastName}
@@ -562,7 +603,7 @@ export default function ReservationsPage() {
                   {/* Source label (only if wide enough) */}
                   {bar.width > 96 && (
                     <span className="opacity-60 text-[9px] truncate flex-shrink-0">
-                      {bar.res.source?.toLowerCase().replace('_', '-')}
+                      {SOURCE_LABELS[bar.res.source] ?? bar.res.source?.replace('_', '-')}
                     </span>
                   )}
 
@@ -581,20 +622,65 @@ export default function ReservationsPage() {
                         : 'Unpaid'}
                     </span>
                   )}
-                </motion.div>
+                    </motion.div>
+                  </PopoverTrigger>
+                  <PopoverContent side="top" align="start" className="w-48 p-1 z-50">
+                    <p className="text-xs font-semibold px-2 py-1 text-muted-foreground truncate">
+                      {bar.res.guest.firstName} {bar.res.guest.lastName}
+                    </p>
+                    <p className="text-[10px] px-2 pb-1 text-muted-foreground">{bar.res.reservationNo}</p>
+                    <div className="border-t my-1" />
+                    {['RESERVED', 'CONFIRMED'].includes(bar.res.status) && (
+                      <button
+                        className="w-full flex items-center gap-2 text-xs px-2 py-1.5 hover:bg-accent rounded cursor-pointer"
+                        onClick={() => checkInMutation.mutate(bar.res.id)}
+                      >
+                        <LogIn className="w-3.5 h-3.5 text-green-600" /> Check In
+                      </button>
+                    )}
+                    {bar.res.status === 'CHECKED_IN' && (
+                      <button
+                        className="w-full flex items-center gap-2 text-xs px-2 py-1.5 hover:bg-accent rounded cursor-pointer"
+                        onClick={() => router.push(`/reservations/${bar.res.id}/folio`)}
+                      >
+                        <LogOut className="w-3.5 h-3.5 text-amber-600" /> Check Out / Folio
+                      </button>
+                    )}
+                    <button
+                      className="w-full flex items-center gap-2 text-xs px-2 py-1.5 hover:bg-accent rounded cursor-pointer"
+                      onClick={() => router.push(`/reservations/${bar.res.id}/folio`)}
+                    >
+                      <FileText className="w-3.5 h-3.5 text-blue-600" /> View Folio
+                    </button>
+                    <button
+                      className="w-full flex items-center gap-2 text-xs px-2 py-1.5 hover:bg-accent rounded cursor-pointer"
+                      onClick={() => { setEditReservation(bar.res); setDialogOpen(true); setActivePopover(null); }}
+                    >
+                      <Edit className="w-3.5 h-3.5" /> Edit
+                    </button>
+                    {!['CHECKED_OUT', 'CANCELLED'].includes(bar.res.status) && (
+                      <button
+                        className="w-full flex items-center gap-2 text-xs px-2 py-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 rounded cursor-pointer"
+                        onClick={() => cancelMutation.mutate(bar.res.id)}
+                      >
+                        <XCircle className="w-3.5 h-3.5" /> Cancel
+                      </button>
+                    )}
+                  </PopoverContent>
+                </Popover>
               ))}
             </div>
           </div>
         </div>
       </div>)}
 
-      {/* ── Source legend ─────────────────────────────────────────── */}
+      {/* ── Status legend ─────────────────────────────────────────── */}
       {viewMode === 'gantt' && <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap pb-1">
-        <span className="font-medium text-foreground">Booking source:</span>
-        {Object.entries(BAR_COLORS).map(([src, cls]) => (
-          <div key={src} className="flex items-center gap-1.5">
+        <span className="font-medium text-foreground">Status:</span>
+        {Object.entries(BAR_COLORS).map(([status, cls]) => (
+          <div key={status} className="flex items-center gap-1.5">
             <div className={cn('w-3 h-3 rounded-sm border', cls)} />
-            <span className="capitalize">{src.toLowerCase().replace('_', ' ')}</span>
+            <span className="capitalize">{status.toLowerCase().replace('_', ' ')}</span>
           </div>
         ))}
       </div>}

@@ -221,4 +221,69 @@ export class DashboardService {
 
     return { recentReservations, recentPayments, recentMaintenance };
   }
+
+  async getFrontDeskSummary(propertyId: string) {
+    const today = startOfDay(new Date());
+    const tomorrow = new Date(today.getTime() + 86400000);
+
+    const [
+      arrivals,
+      departures,
+      occupiedRooms,
+      totalRooms,
+      pendingPaymentsAgg,
+      recentArrivals,
+      recentDepartures,
+      roomsStatus,
+    ] = await Promise.all([
+      this.prisma.reservation.count({
+        where: { propertyId, checkIn: { gte: today, lt: tomorrow }, status: { in: ['RESERVED', 'CONFIRMED'] } },
+      }),
+      this.prisma.reservation.count({
+        where: { propertyId, checkOut: { gte: today, lt: tomorrow }, status: 'CHECKED_IN' },
+      }),
+      this.prisma.room.count({ where: { propertyId, status: 'OCCUPIED' } }),
+      this.prisma.room.count({ where: { propertyId, isActive: true } }),
+      this.prisma.invoice.aggregate({
+        _sum: { totalAmount: true, paidAmount: true },
+        where: { propertyId, status: { in: ['SENT', 'PARTIALLY_PAID', 'OVERDUE'] } },
+      }),
+      this.prisma.reservation.findMany({
+        where: { propertyId, checkIn: { gte: today, lt: tomorrow }, status: { in: ['RESERVED', 'CONFIRMED'] } },
+        include: { guest: { select: { firstName: true, lastName: true } }, rooms: { include: { room: { select: { roomNumber: true } } } } },
+        orderBy: { checkIn: 'asc' },
+        take: 10,
+      }),
+      this.prisma.reservation.findMany({
+        where: { propertyId, checkOut: { gte: today, lt: tomorrow }, status: 'CHECKED_IN' },
+        include: { guest: { select: { firstName: true, lastName: true } }, rooms: { include: { room: { select: { roomNumber: true } } } } },
+        orderBy: { checkOut: 'asc' },
+        take: 10,
+      }),
+      this.prisma.room.findMany({
+        where: { propertyId, isActive: true },
+        select: { id: true, roomNumber: true, status: true, floor: true, category: { select: { name: true } } },
+        orderBy: [{ floor: 'asc' }, { roomNumber: 'asc' }],
+      }),
+    ]);
+
+    const outstanding =
+      Number(pendingPaymentsAgg._sum.totalAmount ?? 0) -
+      Number(pendingPaymentsAgg._sum.paidAmount ?? 0);
+
+    return {
+      stats: {
+        arrivals,
+        departures,
+        occupiedRooms,
+        availableRooms: totalRooms - occupiedRooms,
+        totalRooms,
+        occupancyRate: totalRooms ? Math.round((occupiedRooms / totalRooms) * 100) : 0,
+        outstandingBalance: outstanding,
+      },
+      recentArrivals,
+      recentDepartures,
+      roomsStatus,
+    };
+  }
 }

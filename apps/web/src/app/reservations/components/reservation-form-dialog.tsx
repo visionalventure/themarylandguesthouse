@@ -18,9 +18,20 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { reservationsApi, guestsApi, roomsApi } from '@/lib/api';
+import { FEATURES } from '@/lib/features';
 import { useToast } from '@/hooks/use-toast';
 
-const SOURCES = ['DIRECT', 'ONLINE', 'OTA', 'WALK_IN', 'CORPORATE'];
+const SOURCES = [
+  { value: 'WALK_IN',      label: 'Walk-In Guest' },
+  { value: 'PHONE',        label: 'Phone Reservation' },
+  { value: 'WHATSAPP',     label: 'WhatsApp' },
+  { value: 'EMAIL',        label: 'Email Reservation' },
+  { value: 'CORPORATE',    label: 'Corporate Account' },
+  { value: 'TRAVEL_AGENT', label: 'Travel Agent' },
+  { value: 'DIRECT',       label: 'Direct / Website' },
+  { value: 'OTA',          label: 'OTA (Booking.com, etc.)' },
+  ...(FEATURES.ONLINE_BOOKING ? [{ value: 'ONLINE', label: 'Online Booking' }] : []),
+];
 
 const schema = z.object({
   guestId:         z.string().min(1, 'Guest is required'),
@@ -31,6 +42,8 @@ const schema = z.object({
   children:        z.string(),
   source:          z.string().min(1, 'Source is required'),
   specialRequests: z.string().optional(),
+  depositAmount:   z.string().optional(),
+  depositMethod:   z.string().optional(),
 }).refine((d) => new Date(d.checkOut) > new Date(d.checkIn), {
   message: 'Check-out must be after check-in',
   path: ['checkOut'],
@@ -67,7 +80,8 @@ export function ReservationFormDialog({ open, onOpenChange, propertyId, initialD
 
   const blankDefaults = {
     guestId: '', roomId: '', checkIn: '', checkOut: '',
-    adults: '1', children: '0', source: 'DIRECT', specialRequests: '',
+    adults: '1', children: '0', source: 'WALK_IN', specialRequests: '',
+    depositAmount: '', depositMethod: '',
   };
 
   const form = useForm<FormValues>({
@@ -108,6 +122,10 @@ export function ReservationFormDialog({ open, onOpenChange, propertyId, initialD
         totalAmount:     0,
         specialRequests: values.specialRequests,
         ...(!isEdit && { rooms: { create: [{ roomId: values.roomId }] } }),
+        ...(!isEdit && values.depositAmount && Number(values.depositAmount) > 0 && {
+          depositAmount: Number(values.depositAmount),
+          depositMethod: values.depositMethod,
+        }),
       };
       return isEdit
         ? reservationsApi.update(initialData.id, payload)
@@ -242,8 +260,8 @@ export function ReservationFormDialog({ open, onOpenChange, propertyId, initialD
                 </SelectTrigger>
                 <SelectContent>
                   {SOURCES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s.replace('_', ' ')}
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -261,6 +279,30 @@ export function ReservationFormDialog({ open, onOpenChange, propertyId, initialD
               {...form.register('specialRequests')}
             />
           </div>
+
+          {/* Deposit */}
+          {!initialData && (
+            <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
+              <p className="text-sm font-medium">Deposit (optional)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="depositAmount">Amount</Label>
+                  <Input id="depositAmount" type="number" min="0" step="0.01" placeholder="0.00" {...form.register('depositAmount')} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="depositMethod">Payment Method</Label>
+                  <Select onValueChange={(v) => form.setValue('depositMethod', v)} defaultValue="">
+                    <SelectTrigger id="depositMethod"><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectContent>
+                      {['CASH','VISA','MASTERCARD','BANK_TRANSFER','ORANGE_MONEY','MTN_MOBILE_MONEY'].map(m => (
+                        <SelectItem key={m} value={m}>{m.replace(/_/g, ' ')}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
