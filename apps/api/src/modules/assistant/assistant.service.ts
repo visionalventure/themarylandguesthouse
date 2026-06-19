@@ -78,13 +78,15 @@ export class AssistantService {
     const systemPrompt = this.buildSystemPrompt(user.role, dto.context?.page);
 
     try {
-      const response = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        timeout: 30_000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: trimmed }],
-      });
+      const response = await this.client.messages.create(
+        {
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: trimmed }],
+        },
+        { timeout: 30_000 },
+      );
 
       const text = response.content.find(c => c.type === 'text');
       return { reply: text ? text.text : 'I could not generate a response.' };
