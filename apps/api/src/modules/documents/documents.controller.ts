@@ -31,7 +31,14 @@ export class DocumentsController {
 
   @Post('upload')
   @ApiOperation({ summary: 'Upload a file and return its data URL' })
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+    fileFilter: (_req, file, cb) => {
+      const allowed = /^(image\/(jpeg|png|gif|webp|svg\+xml)|application\/pdf)$/;
+      cb(null, allowed.test(file.mimetype));
+    },
+  }))
   uploadFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file received');
     const b64 = file.buffer.toString('base64');
