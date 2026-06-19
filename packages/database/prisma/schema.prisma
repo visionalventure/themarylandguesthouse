@@ -302,6 +302,8 @@ model Property {
   checkOutTime String       @default("12:00")
   logoUrl         String?
   coverImageUrl   String?
+  currency        String       @default("USD")
+  timezone        String       @default("Africa/Monrovia")
   invoiceTemplate Json?
   isActive        Boolean      @default(true)
   createdAt    DateTime     @default(now())

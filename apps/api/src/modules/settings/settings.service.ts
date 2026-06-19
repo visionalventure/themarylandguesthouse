@@ -19,7 +19,16 @@ export class SettingsService {
   }
 
   async updateProperty(propertyId: string, dto: any) {
-    return this.prisma.property.update({ where: { id: propertyId }, data: dto });
+    const allowed = [
+      'name', 'code', 'type', 'description', 'address', 'city', 'country',
+      'phone', 'email', 'starRating', 'checkInTime', 'checkOutTime',
+      'logoUrl', 'coverImageUrl', 'currency', 'timezone', 'invoiceTemplate', 'isActive',
+    ];
+    const data: any = {};
+    for (const key of allowed) {
+      if (key in dto) data[key] = dto[key];
+    }
+    return this.prisma.property.update({ where: { id: propertyId }, data });
   }
 
   async getUsers(tenantId: string) {

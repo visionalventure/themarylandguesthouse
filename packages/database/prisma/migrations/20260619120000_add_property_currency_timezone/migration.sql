@@ -1,0 +1,2 @@
+ALTER TABLE "properties" ADD COLUMN IF NOT EXISTS "currency" TEXT NOT NULL DEFAULT 'USD';
+ALTER TABLE "properties" ADD COLUMN IF NOT EXISTS "timezone" TEXT NOT NULL DEFAULT 'Africa/Monrovia';

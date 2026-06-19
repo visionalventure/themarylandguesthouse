@@ -74,7 +74,7 @@ function PropertyTab() {
   const { register, handleSubmit, reset, watch, setValue, control } = useForm({ defaultValues: data ?? {} });
   useEffect(() => { if (data) reset(data); }, [data, reset]);
 
-  const logoValue = watch('logo');
+  const logoValue = watch('logoUrl');
 
   const handleLogoFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -86,7 +86,7 @@ function PropertyTab() {
       const res = await documentsApi.upload(file);
       const fileUrl: string = res.data?.fileUrl ?? res.data?.url ?? '';
       if (fileUrl) {
-        setValue('logo', fileUrl, { shouldDirty: true });
+        setValue('logoUrl', fileUrl, { shouldDirty: true });
         toast({ title: 'Logo uploaded' });
       }
     } catch {
@@ -205,10 +205,10 @@ function PropertyTab() {
                   <div className="flex-1 h-px bg-border" />
                 </div>
                 <div className="flex gap-2">
-                  <Input {...register('logo')} placeholder="https://example.com/logo.png" className="text-xs" />
+                  <Input {...register('logoUrl')} placeholder="https://example.com/logo.png" className="text-xs" />
                   {logoValue && (
                     <Button type="button" variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0"
-                      onClick={() => setValue('logo', '', { shouldDirty: true })}>
+                      onClick={() => setValue('logoUrl', '', { shouldDirty: true })}>
                       <X className="w-4 h-4" />
                     </Button>
                   )}
