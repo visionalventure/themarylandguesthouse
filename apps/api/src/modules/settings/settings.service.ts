@@ -1,12 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { createHash, randomBytes } from 'crypto';
+import { randomBytes } from 'crypto';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
-
-function hashPassword(plain: string): string {
-  const salt = randomBytes(16).toString('hex');
-  const hash = createHash('sha256').update(salt + plain).digest('hex');
-  return `${salt}:${hash}`;
-}
 
 @Injectable()
 export class SettingsService {
@@ -49,7 +44,8 @@ export class SettingsService {
     });
     if (existing) return existing;
 
-    const passwordHash = hashPassword(dto.password || 'ChangeMe123!');
+    const rawPassword = dto.password || randomBytes(12).toString('hex');
+    const passwordHash = await bcrypt.hash(rawPassword, 12);
     return this.prisma.user.create({
       data: {
         ...dto,

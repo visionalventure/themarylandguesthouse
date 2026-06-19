@@ -29,8 +29,8 @@ export class DashboardController {
 
   @Get('occupancy-chart')
   @ApiOperation({ summary: 'Get occupancy trend chart data' })
-  getOccupancyChart(@Query('propertyId') propertyId: string, @Query('days') days?: number) {
-    return this.dashboardService.getOccupancyChart(propertyId, days);
+  getOccupancyChart(@Request() req: any, @Query('propertyId') propertyId: string, @Query('days') days?: number) {
+    return this.dashboardService.getOccupancyChart(propertyId, req.user.tenantId, days);
   }
 
   @Get('revenue-by-category')
@@ -41,8 +41,8 @@ export class DashboardController {
 
   @Get('booking-sources')
   @ApiOperation({ summary: 'Get booking sources distribution' })
-  getBookingSources(@Query('propertyId') propertyId: string) {
-    return this.dashboardService.getBookingSourcesChart(propertyId);
+  getBookingSources(@Request() req: any, @Query('propertyId') propertyId: string) {
+    return this.dashboardService.getBookingSourcesChart(propertyId, req.user.tenantId);
   }
 
   @Get('recent-activity')
@@ -53,7 +53,7 @@ export class DashboardController {
 
   @Get('front-desk')
   @ApiOperation({ summary: 'Front desk summary — arrivals, departures, room status, balances' })
-  getFrontDeskSummary(@Query('propertyId') propertyId: string) {
-    return this.dashboardService.getFrontDeskSummary(propertyId);
+  getFrontDeskSummary(@Request() req: any, @Query('propertyId') propertyId: string) {
+    return this.dashboardService.getFrontDeskSummary(propertyId, req.user.tenantId);
   }
 }

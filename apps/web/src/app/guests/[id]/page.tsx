@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
   ArrowLeft, User, Phone, Mail, Globe, Award,
@@ -30,6 +30,7 @@ export default function GuestDetailPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const role = user?.role ?? 'FRONT_DESK';
 
   const { data: guest, isLoading } = useQuery({
@@ -51,6 +52,7 @@ export default function GuestDetailPage() {
   const handleReveal = async () => {
     try {
       await guestsApi.revealIdentity(id, 'Authorized identity check');
+      await queryClient.invalidateQueries({ queryKey: ['guest', id] });
       toast({ title: 'Identity revealed', description: 'An audit log has been created.' });
     } catch {
       toast({ variant: 'destructive', title: 'Could not reveal identity' });

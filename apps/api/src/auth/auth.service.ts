@@ -255,11 +255,8 @@ export class AuthService {
       },
     });
 
-    // In production, send an email here. For demo, return token directly.
-    const resetUrl = `${this.config.get('FRONTEND_URL', 'http://localhost:3000')}/reset-password?token=${token}`;
-    console.log(`[PASSWORD RESET] URL for ${email}: ${resetUrl}`);
-
-    return { message: 'If that email exists, a reset link has been sent.', _devToken: token };
+    // TODO: send reset email via email service in production
+    return { message: 'If that email exists, a reset link has been sent.' };
   }
 
   async resetPassword(token: string, newPassword: string) {

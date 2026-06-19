@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { guestsApi } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
-import { displayName, PRIVACY_TYPE_LABELS, PRIVACY_TYPE_COLORS } from '@/lib/guest-privacy';
+import { displayName, canRevealIdentity, PRIVACY_TYPE_LABELS, PRIVACY_TYPE_COLORS } from '@/lib/guest-privacy';
 
 const TIER_COLORS: Record<string, string> = {
   BRONZE: 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400',
@@ -73,7 +73,7 @@ export function GuestDrawer({ guestId, onClose }: GuestDrawerProps) {
             <div className="flex items-start gap-4">
               <Avatar className="h-14 w-14 shrink-0">
                 <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
-                  {(guest.privacyType === 'PRIVATE' || guest.privacyType === 'CONFIDENTIAL') && !['SUPER_ADMIN','ADMIN','MANAGER'].includes(role) ? '🔒' : `${guest.firstName?.[0] ?? ''}${guest.lastName?.[0] ?? ''}`}
+                  {(guest.privacyType === 'PRIVATE' || guest.privacyType === 'CONFIDENTIAL') && !canRevealIdentity(role) ? '🔒' : `${guest.firstName?.[0] ?? ''}${guest.lastName?.[0] ?? ''}`}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">

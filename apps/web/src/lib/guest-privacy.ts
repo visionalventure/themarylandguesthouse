@@ -1,4 +1,4 @@
-const FULL_ACCESS = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
+export const FULL_ACCESS = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
 export function displayName(guest: any, role: string): string {
   if (!guest) return '—';

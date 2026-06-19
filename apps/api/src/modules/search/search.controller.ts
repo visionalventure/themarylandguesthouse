@@ -1,7 +1,9 @@
-import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../../common/prisma/prisma.service';
+
+const FULL_ACCESS_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
 @ApiTags('search')
 @ApiBearerAuth()
@@ -19,10 +21,18 @@ export class SearchController {
     @Request() req: any,
   ) {
     if (!q || q.length < 2) return [];
+
     const { tenantId } = req.user;
     const results: any[] = [];
-
     const typeList = types.split(',').map(t => t.trim());
+
+    // Require propertyId when searching reservations or rooms
+    const needsProperty = typeList.includes('reservations') || typeList.includes('rooms');
+    if (needsProperty && !propertyId) {
+      throw new BadRequestException('propertyId is required when searching reservations or rooms');
+    }
+
+    const canSee = FULL_ACCESS_ROLES.includes(req.user.role);
 
     if (typeList.includes('guests')) {
       const guests = await this.prisma.guest.findMany({
@@ -40,7 +50,6 @@ export class SearchController {
       });
       guests.forEach(g => {
         const isPrivate = g.privacyType === 'PRIVATE' || g.privacyType === 'CONFIDENTIAL';
-        const canSee = ['SUPER_ADMIN','ADMIN','MANAGER'].includes(req.user.role);
         results.push({
           type: 'guest',
           id: g.id,
@@ -55,6 +64,7 @@ export class SearchController {
       const reservations = await this.prisma.reservation.findMany({
         where: {
           propertyId,
+          property: { tenantId },
           OR: [
             { reservationNo: { contains: q, mode: 'insensitive' } },
             { guest: { firstName: { contains: q, mode: 'insensitive' } } },
@@ -67,7 +77,6 @@ export class SearchController {
       reservations.forEach(r => {
         const g = r.guest as any;
         const isPrivate = g?.privacyType === 'PRIVATE' || g?.privacyType === 'CONFIDENTIAL';
-        const canSee = ['SUPER_ADMIN','ADMIN','MANAGER'].includes(req.user.role);
         const guestLabel = g
           ? (isPrivate && !canSee) ? (g.alias ?? 'Private Guest') : `${g.firstName} ${g.lastName}`
           : undefined;
@@ -83,7 +92,11 @@ export class SearchController {
 
     if (typeList.includes('rooms') && propertyId) {
       const rooms = await this.prisma.room.findMany({
-        where: { propertyId, roomNumber: { contains: q, mode: 'insensitive' } },
+        where: {
+          propertyId,
+          property: { tenantId },
+          roomNumber: { contains: q, mode: 'insensitive' },
+        },
         take: 5,
         select: { id: true, roomNumber: true, status: true },
       });
@@ -93,7 +106,7 @@ export class SearchController {
           id: r.id,
           label: `Room ${r.roomNumber}`,
           sub: r.status,
-          href: `/rooms`,
+          href: `/rooms/${r.id}`,
         });
       });
     }

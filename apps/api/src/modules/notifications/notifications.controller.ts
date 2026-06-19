@@ -2,7 +2,7 @@ import { Controller, Get, Patch, Post, Param, Query, UseGuards, Request } from '
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
-@Controller('v1/notifications')
+@Controller({ path: 'notifications', version: '1' })
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}

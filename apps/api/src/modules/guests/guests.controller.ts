@@ -45,8 +45,10 @@ export class GuestsController {
     @Body() body: { reason?: string },
     @Request() req: any,
   ) {
-    const ip = req.headers['x-forwarded-for'] ?? req.socket?.remoteAddress;
-    return this.service.revealIdentity(id, req.user.sub, body.reason, ip);
+    // x-forwarded-for may be a comma-separated proxy chain; take leftmost (real client IP)
+    const forwarded = req.headers['x-forwarded-for'] as string | undefined;
+    const ip = forwarded ? forwarded.split(',')[0].trim() : req.socket?.remoteAddress;
+    return this.service.revealIdentity(id, req.user.sub, req.user.tenantId, body.reason, ip);
   }
 
   @Get(':id/stay-history')

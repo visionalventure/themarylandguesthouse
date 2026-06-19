@@ -1,10 +1,17 @@
 import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, MaxLength, IsOptional, IsObject } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AssistantService } from './assistant.service';
 
 class ChatDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
   message: string;
+
+  @IsOptional()
+  @IsObject()
   context?: { page?: string };
 }
 

@@ -1,5 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
+
+const logger = new Logger('AssistantService');
+
+// Most-restrictive default: same guidance as HOUSEKEEPING
+const RESTRICTED_GUIDANCE = 'You are assisting hotel staff. Focus only on basic navigation and general questions. Do not discuss payroll, HR records, financial data, or guest personal information.';
 
 const ERP_KNOWLEDGE = `
 Maryland Guesthouse ERP is a hospitality management platform. You help staff navigate and use it.
@@ -23,7 +28,6 @@ KEY HOSPITALITY TERMS:
 - RevPAR (Revenue Per Available Room): ADR × occupancy rate; measures revenue performance
 - Occupancy Rate: percentage of available rooms occupied on a given night
 - GOP (Gross Operating Profit): total revenue minus operating expenses
-- REVPAC (Revenue Per Available Customer): total revenue divided by guests
 - No-Show: guest with reservation who doesn't arrive
 - Walk-In: guest without prior reservation
 - Folio: running account of charges and payments for a reservation
@@ -51,37 +55,67 @@ PRIVACY LEVELS:
 
 @Injectable()
 export class AssistantService {
-  private client: Anthropic;
+  private client: Anthropic | null = null;
 
   constructor() {
-    this.client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (apiKey) {
+      this.client = new Anthropic({ apiKey });
+    } else {
+      logger.warn('ANTHROPIC_API_KEY is not set — Maryland Assistant will not function until it is configured');
+    }
   }
 
   async chat(dto: { message: string; context?: { page?: string } }, user: any) {
+    if (!this.client) {
+      throw new InternalServerErrorException('Maryland Assistant is not configured. Please contact your system administrator.');
+    }
+
+    const trimmed = dto.message?.trim();
+    if (!trimmed) throw new BadRequestException('Message cannot be empty');
+    if (trimmed.length > 2000) throw new BadRequestException('Message exceeds maximum length of 2000 characters');
+
     const systemPrompt = this.buildSystemPrompt(user.role, dto.context?.page);
 
-    const response = await this.client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: dto.message }],
-    });
+    try {
+      const response = await this.client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        timeout: 30_000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: trimmed }],
+      });
 
-    const text = response.content.find(c => c.type === 'text');
-    return { reply: text ? text.text : 'I could not generate a response.' };
+      const text = response.content.find(c => c.type === 'text');
+      return { reply: text ? text.text : 'I could not generate a response.' };
+    } catch (err: any) {
+      logger.error('Anthropic API error', err?.message ?? err);
+      if (err?.status === 429) {
+        throw new InternalServerErrorException('Assistant is temporarily busy. Please try again in a moment.');
+      }
+      if (err?.status === 401) {
+        throw new InternalServerErrorException('Assistant configuration error. Please contact support.');
+      }
+      throw new InternalServerErrorException('Unable to reach the assistant. Please try again.');
+    }
   }
 
   private buildSystemPrompt(role: string, page?: string): string {
     const roleGuidance: Record<string, string> = {
+      SUPER_ADMIN: 'You are assisting a Super Admin with full system access.',
+      ADMIN:       'You are assisting an Admin with full system access.',
+      MANAGER:     'You are assisting hotel management staff with full system access.',
+      FRONT_DESK:  'You are assisting front desk staff. Focus on reservations, check-in/check-out, guest profiles, folios, and payments.',
+      ACCOUNTANT:  'You are assisting accounting staff. Focus on invoices, payments, journal entries, and financial reports. Do not discuss HR disciplinary records.',
       HOUSEKEEPING: 'You are assisting housekeeping staff. Focus on room status, cleaning tasks, and room readiness. Do not discuss payroll, HR records, or financial data.',
       MAINTENANCE:  'You are assisting maintenance staff. Focus on work orders, assets, room repairs. Do not discuss guest personal data, payroll, or financial records.',
-      ACCOUNTANT:   'You are assisting accounting staff. Focus on invoices, payments, journal entries, and financial reports. Do not discuss HR disciplinary records.',
-      FRONT_DESK:   'You are assisting front desk staff. Focus on reservations, check-in/check-out, guest profiles, folios, and payments.',
       HR_MANAGER:   'You are assisting HR staff. Focus on employee management, payroll, and leave. Do not discuss guest personal data.',
       PROCUREMENT_OFFICER: 'You are assisting procurement staff. Focus on purchase orders, suppliers, and inventory.',
+      RESTAURANT_STAFF: 'You are assisting restaurant staff. Focus on menu, orders, and restaurant operations.',
     };
 
-    const guidance = roleGuidance[role] ?? 'You are assisting hotel management staff with full system access.';
+    // Unknown roles fall back to most-restrictive guidance, not full access
+    const guidance = roleGuidance[role] ?? RESTRICTED_GUIDANCE;
 
     return `You are Maryland Assistant, the AI helper built into Maryland Guesthouse ERP.
 ${guidance}

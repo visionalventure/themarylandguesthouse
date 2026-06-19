@@ -80,7 +80,7 @@ interface CommandBarProps {
 export function CommandBar({ open, onOpenChange }: CommandBarProps) {
   const router = useRouter();
   const { user, propertyId } = useAuthStore();
-  const role = user?.role ?? 'FRONT_DESK';
+  const role = user?.role ?? '';
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [recentCmds, setRecentCmds] = useState<RecentCommand[]>([]);
@@ -103,7 +103,9 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
     const timeout = setTimeout(() => {
       startTransition(async () => {
         try {
-          const res = await searchApi.global(query, 'guests,reservations,rooms', propertyId);
+          // Only search reservations/rooms if we have a propertyId; fall back to guests-only
+          const types = propertyId ? 'guests,reservations,rooms' : 'guests';
+          const res = await searchApi.global(query, types, propertyId ?? '');
           setSearchResults(res.data ?? []);
         } catch {
           setSearchResults([]);

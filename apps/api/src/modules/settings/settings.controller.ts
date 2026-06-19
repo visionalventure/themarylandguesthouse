@@ -1,6 +1,8 @@
 import { Controller, Get, Put, Post, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { SettingsService } from './settings.service';
 
 @ApiTags('settings')
@@ -17,24 +19,32 @@ export class SettingsController {
   }
 
   @Put('property')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update property settings' })
   updateProperty(@Query('propertyId') propertyId: string, @Body() dto: any) {
     return this.service.updateProperty(propertyId, dto);
   }
 
   @Get('users')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'List users for tenant' })
   getUsers(@Query('tenantId') tenantId: string) {
     return this.service.getUsers(tenantId);
   }
 
   @Post('users/invite')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Invite a new user' })
   inviteUser(@Body() dto: any) {
     return this.service.inviteUser(dto);
   }
 
   @Put('users/:id/role')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN')
   @ApiOperation({ summary: 'Update user role' })
   updateUserRole(@Param('id') id: string, @Body('role') role: string) {
     return this.service.updateUserRole(id, role);
@@ -47,6 +57,8 @@ export class SettingsController {
   }
 
   @Post('tax-rates')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create tax rate' })
   createTaxRate(@Body() dto: any) {
     return this.service.createTaxRate(dto);
@@ -65,6 +77,8 @@ export class SettingsController {
   }
 
   @Get('audit-log')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Get audit log entries' })
   getAuditLog(@Request() req: any, @Query() query: any) {
     return this.service.getAuditLog(req.user.tenantId, query);

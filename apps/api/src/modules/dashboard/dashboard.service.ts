@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, subDays, subMonths } from 'date-fns';
 
 @Injectable()
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
+
+  private async assertPropertyTenant(propertyId: string, tenantId: string) {
+    const prop = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId } });
+    if (!prop) throw new ForbiddenException('Property not found or access denied');
+  }
 
   async getKPIs(propertyId: string, tenantId: string) {
     const today = new Date();
@@ -129,7 +134,8 @@ export class DashboardService {
     return Object.entries(grouped).map(([date, revenue]) => ({ date, revenue }));
   }
 
-  async getOccupancyChart(propertyId: string, days = 30) {
+  async getOccupancyChart(propertyId: string, tenantId: string, days = 30) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const results = [];
     const today = new Date();
 
@@ -176,7 +182,8 @@ export class DashboardService {
     ];
   }
 
-  async getBookingSourcesChart(propertyId: string) {
+  async getBookingSourcesChart(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const sources = await this.prisma.reservation.groupBy({
       by: ['source'],
       where: { propertyId, createdAt: { gte: subMonths(new Date(), 1) } },
@@ -222,7 +229,8 @@ export class DashboardService {
     return { recentReservations, recentPayments, recentMaintenance };
   }
 
-  async getFrontDeskSummary(propertyId: string) {
+  async getFrontDeskSummary(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const today = startOfDay(new Date());
     const tomorrow = new Date(today.getTime() + 86400000);
 

@@ -7,12 +7,14 @@ import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { CommandBar } from '@/components/command-bar/command-bar';
 import { AssistantButton } from '@/components/assistant/assistant-button';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/store/auth';
 
 interface AppShellProps {
   children: React.ReactNode;
 }
 
 export function AppShell({ children }: AppShellProps) {
+  const { user } = useAuthStore();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -73,7 +75,7 @@ export function AppShell({ children }: AppShellProps) {
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>
-      <CommandBar open={commandOpen} onOpenChange={setCommandOpen} />
+      {user && <CommandBar open={commandOpen} onOpenChange={setCommandOpen} />}
       <AssistantButton />
     </div>
   );

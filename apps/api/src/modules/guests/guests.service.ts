@@ -42,8 +42,8 @@ export class GuestsService {
       };
     }
 
-    // FRONT_DESK and everyone else: full data for STANDARD/VIP, alias for PRIVATE/CONFIDENTIAL
-    if (isRestricted && FRONT_DESK_ROLES.includes(role)) {
+    // FRONT_DESK: full data for STANDARD/VIP, alias for PRIVATE/CONFIDENTIAL
+    if (isRestricted) {
       return {
         id: guest.id,
         firstName: alias,
@@ -59,6 +59,7 @@ export class GuestsService {
       };
     }
 
+    // STANDARD/VIP: full data for any remaining role (e.g. RESTAURANT_STAFF)
     return guest;
   }
 
@@ -126,8 +127,8 @@ export class GuestsService {
     return this.maskGuestData(guest, role);
   }
 
-  async revealIdentity(id: string, viewedBy: string, reason: string | undefined, ipAddress: string | undefined) {
-    const guest = await this.prisma.guest.findUnique({ where: { id } });
+  async revealIdentity(id: string, viewedBy: string, tenantId: string, reason: string | undefined, ipAddress: string | undefined) {
+    const guest = await this.prisma.guest.findFirst({ where: { id, tenantId } });
     if (!guest) throw new NotFoundException('Guest not found');
 
     await this.prisma.guestPrivacyLog.create({

@@ -127,9 +127,7 @@ export class BootstrapService implements OnApplicationBootstrap {
       });
     }
 
-    this.logger.log(
-      'Bootstrap complete ✓  admin@marylandguesthouse.com / Admin@123!',
-    );
+    this.logger.log('Bootstrap complete ✓');
   }
 
   private async seedRooms() {

@@ -22,9 +22,9 @@ function MessageBubble({ msg }: { msg: Message }) {
           ? 'bg-primary text-primary-foreground rounded-br-sm'
           : 'bg-muted text-foreground rounded-bl-sm',
       )}>
-        {msg.content.split('\n').map((line, i) => (
-          <span key={i}>{line}{i < msg.content.split('\n').length - 1 && <br />}</span>
-        ))}
+        {(() => { const lines = msg.content.split('\n'); return lines.map((line, i) => (
+          <span key={i}>{line}{i < lines.length - 1 && <br />}</span>
+        )); })()}
       </div>
     </div>
   );

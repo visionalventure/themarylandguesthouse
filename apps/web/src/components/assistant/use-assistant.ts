@@ -19,20 +19,20 @@ export function useAssistant() {
   const [loading, setLoading] = useState(false);
 
   const send = useCallback(async (content: string, page?: string) => {
-    const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content };
+    const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
     try {
       const res = await assistantApi.chat(content, { page });
       const assistantMsg: Message = {
-        id: `a-${Date.now()}`,
+        id: crypto.randomUUID(),
         role: 'assistant',
         content: res.data.reply,
       };
       setMessages(prev => [...prev, assistantMsg]);
     } catch {
       setMessages(prev => [...prev, {
-        id: `err-${Date.now()}`,
+        id: crypto.randomUUID(),
         role: 'assistant',
         content: 'Sorry, I could not connect to the assistant. Please try again.',
       }]);
