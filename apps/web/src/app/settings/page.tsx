@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { format } from 'date-fns';
 import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,35 @@ import { cn } from '@/lib/utils';
 
 import { usePageTitle } from '@/hooks/use-page-title';
 import { useAuthStore } from '@/store/auth';
+
+const TIMEZONES = [
+  { value: 'Africa/Monrovia',      label: 'Africa/Monrovia (GMT+0)' },
+  { value: 'Africa/Abidjan',       label: 'Africa/Abidjan (GMT+0)' },
+  { value: 'Africa/Accra',         label: 'Africa/Accra (GMT+0)' },
+  { value: 'Africa/Lagos',         label: 'Africa/Lagos (GMT+1)' },
+  { value: 'Africa/Nairobi',       label: 'Africa/Nairobi (GMT+3)' },
+  { value: 'Africa/Johannesburg',  label: 'Africa/Johannesburg (GMT+2)' },
+  { value: 'Africa/Cairo',         label: 'Africa/Cairo (GMT+2)' },
+  { value: 'Africa/Casablanca',    label: 'Africa/Casablanca (GMT+1)' },
+  { value: 'Europe/London',        label: 'Europe/London (GMT+0/+1)' },
+  { value: 'Europe/Paris',         label: 'Europe/Paris (GMT+1/+2)' },
+  { value: 'Europe/Berlin',        label: 'Europe/Berlin (GMT+1/+2)' },
+  { value: 'Europe/Moscow',        label: 'Europe/Moscow (GMT+3)' },
+  { value: 'America/New_York',     label: 'America/New_York (GMT-5/-4)' },
+  { value: 'America/Chicago',      label: 'America/Chicago (GMT-6/-5)' },
+  { value: 'America/Denver',       label: 'America/Denver (GMT-7/-6)' },
+  { value: 'America/Los_Angeles',  label: 'America/Los_Angeles (GMT-8/-7)' },
+  { value: 'America/Sao_Paulo',    label: 'America/Sao_Paulo (GMT-3)' },
+  { value: 'Asia/Dubai',           label: 'Asia/Dubai (GMT+4)' },
+  { value: 'Asia/Karachi',         label: 'Asia/Karachi (GMT+5)' },
+  { value: 'Asia/Kolkata',         label: 'Asia/Kolkata (GMT+5:30)' },
+  { value: 'Asia/Singapore',       label: 'Asia/Singapore (GMT+8)' },
+  { value: 'Asia/Tokyo',           label: 'Asia/Tokyo (GMT+9)' },
+  { value: 'Asia/Shanghai',        label: 'Asia/Shanghai (GMT+8)' },
+  { value: 'Australia/Sydney',     label: 'Australia/Sydney (GMT+10/+11)' },
+  { value: 'Pacific/Auckland',     label: 'Pacific/Auckland (GMT+12/+13)' },
+  { value: 'UTC',                  label: 'UTC (GMT+0)' },
+];
 
 const ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK', 'HOUSEKEEPING', 'MAINTENANCE', 'ACCOUNTANT'];
 const ROLE_COLORS: Record<string, string> = {
@@ -42,7 +71,7 @@ function PropertyTab() {
     queryFn: () => settingsApi.getProperty(propertyId).then(r => r.data),
   });
 
-  const { register, handleSubmit, reset, watch, setValue } = useForm({ defaultValues: data ?? {} });
+  const { register, handleSubmit, reset, watch, setValue, control } = useForm({ defaultValues: data ?? {} });
   useEffect(() => { if (data) reset(data); }, [data, reset]);
 
   const logoValue = watch('logo');
@@ -105,7 +134,22 @@ function PropertyTab() {
             </div>
             <div className="space-y-2">
               <Label>Timezone</Label>
-              <Input {...register('timezone')} placeholder="America/New_York" />
+              <Controller
+                name="timezone"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select timezone…" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64 overflow-y-auto">
+                      {TIMEZONES.map((tz) => (
+                        <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
           </div>
 
