@@ -98,6 +98,24 @@ function PropertyTab() {
     }
   };
 
+  // If user pastes a base64 data URL into the text field, auto-upload it instead of
+  // storing the raw base64 (which exceeds the API body limit and bloats the DB).
+  const handleLogoPaste = async (raw: string) => {
+    if (!raw.startsWith('data:')) return;
+    try {
+      const [header, b64] = raw.split(',');
+      const mime = header.match(/:(.*?);/)?.[1] ?? 'image/png';
+      const bytes = atob(b64);
+      const arr = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      const file = new File([arr], 'logo.png', { type: mime });
+      setValue('logoUrl', '', { shouldDirty: false });
+      await handleLogoFile(file);
+    } catch {
+      toast({ variant: 'destructive', title: 'Could not process pasted image. Please use the upload button.' });
+    }
+  };
+
   const mutation = useMutation({
     mutationFn: (values: any) => settingsApi.updateProperty(propertyId, values),
     onSuccess: () => toast({ title: 'Property settings saved' }),
@@ -207,7 +225,15 @@ function PropertyTab() {
                   <div className="flex-1 h-px bg-border" />
                 </div>
                 <div className="flex gap-2">
-                  <Input {...register('logoUrl')} placeholder="https://example.com/logo.png" className="text-xs" />
+                  <Input
+                    {...register('logoUrl')}
+                    placeholder="https://example.com/logo.png"
+                    className="text-xs"
+                    onBlur={async (e) => {
+                      const v = e.target.value.trim();
+                      if (v.startsWith('data:')) await handleLogoPaste(v);
+                    }}
+                  />
                   {logoValue && (
                     <Button type="button" variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0"
                       onClick={() => setValue('logoUrl', '', { shouldDirty: true })}>

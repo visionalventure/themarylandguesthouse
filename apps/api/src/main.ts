@@ -22,6 +22,14 @@ async function bootstrap() {
   // Serve uploaded files statically at /uploads
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
 
+  // Body size limits — must be set before any body-parsing middleware
+  // Default Express limit is 100KB which is too small for legitimate payloads.
+  // 5MB covers bulk imports; images must go through the file-upload endpoint, not JSON.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const express = require('express');
+  app.use(express.json({ limit: '5mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+
   // Security
   app.use(helmet());
   app.use(compression());
