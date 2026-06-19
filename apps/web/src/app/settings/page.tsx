@@ -90,8 +90,9 @@ function PropertyTab() {
         await settingsApi.updateProperty(propertyId, { logoUrl: fileUrl });
         toast({ title: 'Logo saved' });
       }
-    } catch {
-      toast({ variant: 'destructive', title: 'Logo upload failed' });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Upload failed';
+      toast({ variant: 'destructive', title: 'Logo upload failed', description: msg });
     } finally {
       setLogoUploading(false);
     }

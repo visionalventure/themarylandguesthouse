@@ -54,7 +54,9 @@ export class GuestsService {
   }
 
   async create(dto: any) {
-    return this.prisma.guest.create({ data: dto });
+    // Strip non-Guest fields the frontend may include (e.g. propertyId)
+    const { propertyId: _p, ...data } = dto;
+    return this.prisma.guest.create({ data });
   }
 
   async update(id: string, dto: any) {
