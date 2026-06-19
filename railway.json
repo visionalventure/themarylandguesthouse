@@ -5,7 +5,7 @@
     "dockerfilePath": "apps/api/Dockerfile"
   },
   "deploy": {
-    "startCommand": "npx prisma migrate deploy --schema ./prisma/schema.prisma && echo '[shell] migration done, node version:' && node --version && echo '[shell] dist/main.js exists:' && ls -lh dist/main.js && echo '[shell] starting node...' && node dist/main || echo '[shell] node exited with code' $?",
+    "startCommand": "echo '[start] migrations...' && npx prisma migrate deploy --schema ./prisma/schema.prisma 2>&1 && echo '[start] node starting...' && node dist/main 2>&1; echo '[start] exited:' $?",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
