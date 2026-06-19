@@ -49,4 +49,4 @@ ENV PORT=3001
 EXPOSE 3001
 
 # Run migrations then start — if migrate fails, container exits (safe)
-CMD ["sh", "-c", "npx prisma migrate deploy --schema ./prisma/schema.prisma && node dist/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema ./prisma/schema.prisma && echo '[CMD] migration done' && node --version && ls -lh dist/main.js && echo '[CMD] starting node' && node dist/main; echo '[CMD] node exited with code' $?"]
