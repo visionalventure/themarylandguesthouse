@@ -58,8 +58,27 @@ export class ReservationsService {
 
   async create(dto: any, createdById: string) {
     const reservationNo = await this.generateReservationNo(dto.propertyId);
-    const { rooms, checkIn, checkOut, propertyId, guestId, adults, children,
+    const { checkIn, checkOut, propertyId, guestId, adults, children,
             source, status, totalAmount, specialRequests, notes } = dto;
+
+    const totalNights = this.calculateNights(checkIn, checkOut);
+
+    // Extract room IDs from the nested-write shape the frontend sends
+    const roomIds: string[] = dto.rooms?.create?.map((r: any) => r.roomId).filter(Boolean) ?? [];
+
+    // Look up each room's base price from its category
+    const roomRecords = roomIds.length
+      ? await this.prisma.room.findMany({ where: { id: { in: roomIds } }, include: { category: true } })
+      : [];
+
+    const roomsCreate = roomRecords.map((room) => ({
+      roomId: room.id,
+      ratePerNight: room.category?.basePrice ?? 0,
+      totalNights,
+      totalAmount: Number(room.category?.basePrice ?? 0) * totalNights,
+    }));
+
+    const computedTotal = roomsCreate.reduce((sum, r) => sum + Number(r.totalAmount), 0);
 
     return this.prisma.reservation.create({
       data: {
@@ -73,10 +92,10 @@ export class ReservationsService {
         children: Number(children ?? 0),
         source: source ?? 'DIRECT',
         status: status ?? 'RESERVED',
-        totalAmount: totalAmount ?? 0,
+        totalAmount: computedTotal || totalAmount || 0,
         ...(specialRequests ? { specialRequests } : {}),
         ...(notes ? { notes } : {}),
-        ...(rooms ? { rooms } : {}),
+        ...(roomsCreate.length ? { rooms: { create: roomsCreate } } : {}),
       },
       include: { guest: true, rooms: true },
     });

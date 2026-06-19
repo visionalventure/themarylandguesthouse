@@ -254,6 +254,8 @@ export const documentsApi = {
     const form = new FormData();
     form.append('file', file);
     return api.post('/v1/documents/upload', form, {
+      // Must delete Content-Type so browser sets multipart/form-data with its own boundary
+      headers: { 'Content-Type': undefined },
       onUploadProgress: (e) => {
         if (onProgress && e.total) onProgress(Math.round((e.loaded / e.total) * 100));
       },
