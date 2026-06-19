@@ -87,7 +87,8 @@ function PropertyTab() {
       const fileUrl: string = res.data?.fileUrl ?? res.data?.url ?? '';
       if (fileUrl) {
         setValue('logoUrl', fileUrl, { shouldDirty: true });
-        toast({ title: 'Logo uploaded' });
+        await settingsApi.updateProperty(propertyId, { logoUrl: fileUrl });
+        toast({ title: 'Logo saved' });
       }
     } catch {
       toast({ variant: 'destructive', title: 'Logo upload failed' });
