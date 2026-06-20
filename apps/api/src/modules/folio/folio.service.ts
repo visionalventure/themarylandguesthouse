@@ -47,7 +47,7 @@ export class FolioService {
       const lastCharge = charges[charges.length - 1];
       allEntries.push({
         type: 'DISCOUNT',
-        date: lastCharge?.createdAt ?? new Date(),
+        date: lastCharge?.createdAt ?? reservation.createdAt,
         data: { amount: discountAmount, description: reservation.couponCode ?? 'Discount' },
       });
       allEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -100,13 +100,15 @@ export class FolioService {
     if (!reservation) throw new NotFoundException('Reservation not found');
     if (dto.value < 0) throw new BadRequestException('Discount value cannot be negative');
 
+    const charges = await this.prisma.reservationCharge.findMany({ where: { reservationId } });
+    const totalCharges = charges.reduce((s, c) => s + Number(c.amount), 0);
+
     let discountAmount: number;
     if (dto.discountType === 'PERCENTAGE') {
       if (dto.value > 100) throw new BadRequestException('Percentage discount cannot exceed 100%');
-      const charges = await this.prisma.reservationCharge.findMany({ where: { reservationId } });
-      const totalCharges = charges.reduce((s, c) => s + Number(c.amount), 0);
       discountAmount = totalCharges * (dto.value / 100);
     } else {
+      if (dto.value > totalCharges) throw new BadRequestException('Fixed discount cannot exceed total charges');
       discountAmount = dto.value;
     }
 

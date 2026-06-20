@@ -194,7 +194,16 @@ export default function FolioPage() {
         <Button size="sm" variant="outline" onClick={() => setPaymentOpen(true)}>
           <CreditCard className="w-4 h-4 mr-1" /> Collect Payment
         </Button>
-        <Button size="sm" variant="outline" onClick={() => setDiscountOpen(true)}>
+        <Button size="sm" variant="outline" onClick={() => {
+          if (Number(discountAmount) > 0) {
+            setDiscountForm({
+              discountType: 'FIXED',
+              value: Number(discountAmount).toFixed(2),
+              reason: reservation?.couponCode ?? '',
+            });
+          }
+          setDiscountOpen(true);
+        }}>
           <Tag className="w-4 h-4 mr-1" /> {Number(discountAmount) > 0 ? 'Edit Discount' : 'Apply Discount'}
         </Button>
         <Button size="sm" variant="outline" onClick={() => window.print()}>
@@ -243,11 +252,12 @@ export default function FolioPage() {
                 {ledger.length === 0 && (
                   <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No transactions yet</td></tr>
                 )}
-                {ledger.map((entry: any, i: number) => {
+                {ledger.map((entry: any) => {
                   const isDiscount = entry.type === 'DISCOUNT';
                   const isPayment  = entry.type === 'PAYMENT';
+                  const rowKey = entry.type + '-' + (entry.data.id ?? 'discount');
                   return (
-                    <tr key={i} className={cn(
+                    <tr key={rowKey} className={cn(
                       'border-b hover:bg-muted/10',
                       isPayment  && 'bg-green-50/30 dark:bg-green-900/10',
                       isDiscount && 'bg-blue-50/30 dark:bg-blue-900/10',
