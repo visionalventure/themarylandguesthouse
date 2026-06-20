@@ -145,19 +145,129 @@ export const accountingApi = {
 };
 
 export const hrApi = {
+  // Dashboard
+  dashboard: (propertyId: string) => api.get('/v1/hr/dashboard', { params: { propertyId } }),
+  // Employees
   employees: (params: any) => api.get('/v1/hr/employees', { params }),
   getEmployee: (id: string) => api.get(`/v1/hr/employees/${id}`),
   createEmployee: (data: any) => api.post('/v1/hr/employees', data),
+  updateEmployee: (id: string, data: any) => api.patch(`/v1/hr/employees/${id}`, data),
+  // Attendance
   attendance: (data: any) => api.post('/v1/hr/attendance', data),
   attendanceReport: (params: any) => api.get('/v1/hr/attendance/report', { params }),
+  anomalies: (params: any) => api.get('/v1/hr/attendance/anomalies', { params }),
+  createAnomaly: (data: any) => api.post('/v1/hr/attendance/anomalies', data),
+  updateAnomaly: (id: string, data: any) => api.patch(`/v1/hr/attendance/anomalies/${id}`, data),
+  // Leave
   listLeaveRequests: (params: any) => api.get('/v1/hr/leave-requests', { params }),
   createLeaveRequest: (data: any) => api.post('/v1/hr/leave-requests', data),
   approveLeave: (id: string) => api.patch(`/v1/hr/leave-requests/${id}/approve`, {}),
-  rejectLeave: (id: string, reason: string) =>
-    api.patch(`/v1/hr/leave-requests/${id}/reject`, { reason }),
+  rejectLeave: (id: string, reason: string) => api.patch(`/v1/hr/leave-requests/${id}/reject`, { reason }),
+  leaveBalances: (employeeId: string) => api.get(`/v1/hr/leave-balances/${employeeId}`),
+  upsertLeaveBalance: (data: any) => api.post('/v1/hr/leave-balances', data),
+  // Shift / Roster
+  roster: (params: any) => api.get('/v1/hr/roster', { params }),
+  upsertShift: (data: any) => api.post('/v1/hr/roster', data),
+  deleteShift: (id: string) => api.delete(`/v1/hr/roster/${id}`),
+  // Payroll
   payrollHistory: (params: any) => api.get('/v1/hr/payroll', { params }),
   runPayroll: (propertyId: string, periodStart: string, periodEnd: string) =>
     api.post('/v1/hr/payroll/run', { propertyId, periodStart, periodEnd }),
+  updatePayrollRecord: (id: string, data: any) => api.patch(`/v1/hr/payroll/${id}`, data),
+  approvePayroll: (id: string) => api.patch(`/v1/hr/payroll/${id}/approve`, {}),
+  markPayrollPaid: (id: string) => api.patch(`/v1/hr/payroll/${id}/mark-paid`, {}),
+  payrollSummary: (propertyId: string, period: string) =>
+    api.get('/v1/hr/payroll/summary', { params: { propertyId, period } }),
+  // Payroll Deductions
+  payrollDeductions: (params: any) => api.get('/v1/hr/payroll-deductions', { params }),
+  createDeduction: (data: any) => api.post('/v1/hr/payroll-deductions', data),
+  approveDeduction: (id: string) => api.patch(`/v1/hr/payroll-deductions/${id}/approve`, {}),
+  reverseDeduction: (id: string) => api.patch(`/v1/hr/payroll-deductions/${id}/reverse`, {}),
+  // Disciplinary
+  disciplinaryCases: (params: any) => api.get('/v1/hr/disciplinary', { params }),
+  getDisciplinaryCase: (id: string) => api.get(`/v1/hr/disciplinary/${id}`),
+  createDisciplinaryCase: (data: any) => api.post('/v1/hr/disciplinary', data),
+  updateDisciplinaryCase: (id: string, data: any) => api.patch(`/v1/hr/disciplinary/${id}`, data),
+  addDisciplinaryAction: (caseId: string, data: any) => api.post(`/v1/hr/disciplinary/${caseId}/actions`, data),
+  // Suspensions
+  suspensions: (params: any) => api.get('/v1/hr/suspensions', { params }),
+  createSuspension: (data: any) => api.post('/v1/hr/suspensions', data),
+  returnFromSuspension: (id: string, returnDate: string) =>
+    api.patch(`/v1/hr/suspensions/${id}/return`, { returnDate }),
+  // Grievances
+  grievances: (params: any) => api.get('/v1/hr/grievances', { params }),
+  createGrievance: (data: any) => api.post('/v1/hr/grievances', data),
+  updateGrievance: (id: string, data: any) => api.patch(`/v1/hr/grievances/${id}`, data),
+  // Staff Loans
+  loans: (params: any) => api.get('/v1/hr/loans', { params }),
+  createLoan: (data: any) => api.post('/v1/hr/loans', data),
+  approveLoan: (id: string) => api.patch(`/v1/hr/loans/${id}/approve`, {}),
+  recordRepayment: (loanId: string, data: any) => api.post(`/v1/hr/loans/${loanId}/repayments`, data),
+  // Asset Issuance
+  assetIssues: (params: any) => api.get('/v1/hr/assets', { params }),
+  issueAsset: (data: any) => api.post('/v1/hr/assets', data),
+  returnAsset: (id: string, data: any) => api.patch(`/v1/hr/assets/${id}/return`, data),
+  // Performance
+  performanceReviews: (params: any) => api.get('/v1/hr/performance', { params }),
+  createPerformanceReview: (data: any) => api.post('/v1/hr/performance', data),
+  updatePerformanceReview: (id: string, data: any) => api.patch(`/v1/hr/performance/${id}`, data),
+  // Probation
+  probationReviews: (params: any) => api.get('/v1/hr/probation', { params }),
+  createProbationReview: (data: any) => api.post('/v1/hr/probation', data),
+  updateProbationReview: (id: string, data: any) => api.patch(`/v1/hr/probation/${id}`, data),
+  // Training
+  trainingPrograms: (propertyId: string) => api.get('/v1/hr/training/programs', { params: { propertyId } }),
+  createTrainingProgram: (data: any) => api.post('/v1/hr/training/programs', data),
+  trainingAttendances: (params: any) => api.get('/v1/hr/training/attendances', { params }),
+  recordTrainingAttendance: (data: any) => api.post('/v1/hr/training/attendances', data),
+  completeTraining: (id: string, data: any) => api.patch(`/v1/hr/training/attendances/${id}/complete`, data),
+  // Recruitment
+  jobOpenings: (params: any) => api.get('/v1/hr/recruitment/openings', { params }),
+  createJobOpening: (data: any) => api.post('/v1/hr/recruitment/openings', data),
+  updateJobOpening: (id: string, data: any) => api.patch(`/v1/hr/recruitment/openings/${id}`, data),
+  candidates: (jobId: string) => api.get(`/v1/hr/recruitment/openings/${jobId}/candidates`),
+  createCandidate: (jobId: string, data: any) => api.post(`/v1/hr/recruitment/openings/${jobId}/candidates`, data),
+  updateCandidateStatus: (id: string, status: string) =>
+    api.patch(`/v1/hr/recruitment/candidates/${id}/status`, { status }),
+  scheduleInterview: (candidateId: string, data: any) =>
+    api.post(`/v1/hr/recruitment/candidates/${candidateId}/interview`, data),
+  convertToEmployee: (candidateId: string, data: any) =>
+    api.post(`/v1/hr/recruitment/candidates/${candidateId}/hire`, data),
+  // Onboarding
+  onboarding: (employeeId: string) => api.get(`/v1/hr/onboarding/${employeeId}`),
+  updateOnboarding: (employeeId: string, data: any) => api.patch(`/v1/hr/onboarding/${employeeId}`, data),
+  // Offboarding
+  offboardingCases: (params: any) => api.get('/v1/hr/offboarding', { params }),
+  createOffboarding: (data: any) => api.post('/v1/hr/offboarding', data),
+  updateOffboarding: (id: string, data: any) => api.patch(`/v1/hr/offboarding/${id}`, data),
+  // Cash Incidents
+  cashIncidents: (params: any) => api.get('/v1/hr/cash-incidents', { params }),
+  createCashIncident: (data: any) => api.post('/v1/hr/cash-incidents', data),
+  updateCashIncident: (id: string, data: any) => api.patch(`/v1/hr/cash-incidents/${id}`, data),
+  // Employee Documents
+  employeeDocuments: (employeeId: string) => api.get(`/v1/hr/employees/${employeeId}/documents`),
+  uploadDocument: (employeeId: string, data: any) => api.post(`/v1/hr/employees/${employeeId}/documents`, data),
+  deleteDocument: (employeeId: string, docId: string) => api.delete(`/v1/hr/employees/${employeeId}/documents/${docId}`),
+  // Benefits
+  employeeBenefits: (employeeId: string) => api.get(`/v1/hr/employees/${employeeId}/benefits`),
+  createBenefit: (employeeId: string, data: any) => api.post(`/v1/hr/employees/${employeeId}/benefits`, data),
+  updateBenefit: (id: string, data: any) => api.patch(`/v1/hr/benefits/${id}`, data),
+  // Policies
+  policies: (propertyId: string) => api.get('/v1/hr/policies', { params: { propertyId } }),
+  createPolicy: (data: any) => api.post('/v1/hr/policies', data),
+  acknowledgePolicy: (policyId: string, employeeId: string) =>
+    api.post(`/v1/hr/policies/${policyId}/acknowledge`, { employeeId }),
+  // Health & Safety Incidents
+  employeeIncidents: (params: any) => api.get('/v1/hr/incidents', { params }),
+  createEmployeeIncident: (data: any) => api.post('/v1/hr/incidents', data),
+  updateEmployeeIncident: (id: string, data: any) => api.patch(`/v1/hr/incidents/${id}`, data),
+  // HR Approvals
+  hrApprovals: (params: any) => api.get('/v1/hr/approvals', { params }),
+  createHRApproval: (data: any) => api.post('/v1/hr/approvals', data),
+  decideApproval: (id: string, data: any) => api.patch(`/v1/hr/approvals/${id}/decide`, data),
+  // Reports
+  headcountByDept: (propertyId: string) => api.get('/v1/hr/reports/headcount', { params: { propertyId } }),
+  // Departments
   departments: () => api.get('/v1/hr/departments'),
 };
 

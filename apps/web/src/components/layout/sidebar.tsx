@@ -69,7 +69,15 @@ const navSections = [
   {
     label: 'People',
     items: [
-      { name: 'Human Resources', href: '/hr',      icon: Users2 },
+      {
+        name: 'Human Resources', href: '/hr', icon: Users2,
+        children: [
+          { name: 'Employees',    href: '/hr' },
+          { name: 'Recruitment',  href: '/hr/recruitment' },
+          { name: 'Shift Roster', href: '/hr/roster' },
+          { name: 'Reports',      href: '/hr/reports' },
+        ],
+      },
       { name: 'Loyalty Program', href: '/loyalty', icon: Gift },
     ],
   },
@@ -89,7 +97,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false }: SidebarProps) {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['Accounting']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['Accounting', 'Human Resources']);
   const [propertyOpen, setPropertyOpen] = useState(false);
   const { propertyId, setPropertyId } = useAuthStore();
 

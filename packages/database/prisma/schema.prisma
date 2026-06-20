@@ -140,6 +140,9 @@ enum EmployeeStatus {
   ON_LEAVE
   TERMINATED
   SUSPENDED
+  RESIGNED
+  RETIRED
+  PROBATION
 }
 
 enum LeaveStatus {
@@ -157,6 +160,145 @@ enum LeaveType {
   UNPAID
   COMPASSIONATE
   STUDY
+  CASUAL
+  EMERGENCY
+  SUSPENSION
+}
+
+enum DisciplinaryActionType {
+  VERBAL_WARNING
+  WRITTEN_WARNING
+  FINAL_WRITTEN_WARNING
+  FINANCIAL_RECOVERY
+  SUSPENSION_WITH_PAY
+  SUSPENSION_WITHOUT_PAY
+  DEMOTION
+  LOSS_OF_PRIVILEGE
+  PIP
+  TRANSFER
+  TERMINATION_RECOMMENDATION
+}
+
+enum DisciplinaryCaseStatus {
+  REPORTED
+  UNDER_REVIEW
+  INVESTIGATING
+  EMPLOYEE_NOTIFIED
+  HEARING_SCHEDULED
+  DECISION_PENDING
+  APPROVED
+  REJECTED
+  APPEALED
+  CLOSED
+}
+
+enum SuspensionType {
+  WITH_PAY
+  WITHOUT_PAY
+  INVESTIGATIVE
+  ADMIN_LEAVE
+  TEMP_DUTY_REMOVAL
+}
+
+enum GrievanceStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  INVESTIGATION
+  MEDIATION
+  RESOLVED
+  ESCALATED
+  CLOSED
+}
+
+enum GrievanceType {
+  HARASSMENT
+  SALARY_DISPUTE
+  SUPERVISOR_COMPLAINT
+  UNSAFE_CONDITIONS
+  DISCRIMINATION
+  UNFAIR_TREATMENT
+  WORKLOAD
+  SHIFT_ROSTER
+  OTHER
+}
+
+enum StaffLoanStatus {
+  PENDING
+  APPROVED
+  ACTIVE
+  SETTLED
+  REJECTED
+  CANCELLED
+}
+
+enum CandidateStatus {
+  APPLIED
+  SHORTLISTED
+  INTERVIEW_SCHEDULED
+  INTERVIEWED
+  OFFER_EXTENDED
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+enum OnboardingStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+enum AttendanceAnomalyType {
+  REPEATED_LATENESS
+  NO_CLOCK_OUT
+  EARLY_DEPARTURE
+  UNAUTHORIZED_ABSENCE
+  EXCESSIVE_OVERTIME
+  MISSED_SHIFT
+  SUSPICIOUS_EDIT
+  ROSTER_CONFLICT
+  HALF_DAY_PATTERN
+}
+
+enum DeductionCategory {
+  DAMAGE_RECOVERY
+  UNAUTHORIZED_ABSENCE
+  CASH_SHORTAGE
+  TILL_VARIANCE
+  SALARY_ADVANCE
+  LOAN_RECOVERY
+  ASSET_LOSS
+  DISCIPLINARY_FINE
+  UNIFORM_RECOVERY
+  DEVICE_RECOVERY
+  OTHER
+}
+
+enum ShiftType {
+  MORNING
+  AFTERNOON
+  NIGHT
+  SPLIT
+  OFF_DAY
+  ON_CALL
+}
+
+enum SeparationType {
+  RESIGNATION
+  TERMINATION
+  END_OF_CONTRACT
+  RETIREMENT
+  DISMISSAL
+  ABSCONDED
+  REDUNDANCY
+}
+
+enum ProbationOutcome {
+  CONFIRMED
+  EXTENDED
+  TERMINATED
+  PENDING
 }
 
 enum MaintenanceStatus {
@@ -1290,42 +1432,72 @@ model Department {
 }
 
 model Employee {
-  id              String         @id @default(cuid())
-  userId          String?        @unique
-  propertyId      String
-  departmentId    String?
-  employeeNumber  String         @unique
-  firstName       String
-  lastName        String
-  email           String?
-  phone           String?
-  nationalId      String?
-  dateOfBirth     DateTime?
-  gender          String?
-  address         String?
+  id               String         @id @default(cuid())
+  userId           String?        @unique
+  propertyId       String
+  departmentId     String?
+  supervisorId     String?
+  employeeNumber   String         @unique
+  firstName        String
+  lastName         String
+  preferredName    String?
+  email            String?
+  phone            String?
+  nationalId       String?
+  taxId            String?
+  dateOfBirth      DateTime?
+  gender           String?
+  nationality      String?
+  address          String?
   emergencyContact String?
-  emergencyPhone  String?
-  position        String
-  employmentType  String         @default("FULL_TIME") // FULL_TIME | PART_TIME | CONTRACT | CASUAL
-  startDate       DateTime
-  endDate         DateTime?
-  status          EmployeeStatus @default(ACTIVE)
-  baseSalary      Decimal        @db.Decimal(12,2)
-  bankName        String?
-  bankAccount     String?
-  bankBranch      String?
-  avatarUrl       String?
-  notes           String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  emergencyPhone   String?
+  nextOfKin        String?
+  nextOfKinPhone   String?
+  position         String
+  employmentType   String         @default("FULL_TIME") // FULL_TIME | PART_TIME | CONTRACT | CASUAL | TEMPORARY | INTERN | CONSULTANT
+  startDate        DateTime
+  endDate          DateTime?
+  contractEndDate  DateTime?
+  probationStartDate DateTime?
+  probationEndDate DateTime?
+  probationConfirmedAt DateTime?
+  status           EmployeeStatus @default(ACTIVE)
+  baseSalary       Decimal        @db.Decimal(12,2)
+  bankName         String?
+  bankAccount      String?
+  bankBranch       String?
+  mobileMoney      String?
+  avatarUrl        String?
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
-  user            User?          @relation(fields: [userId], references: [id])
-  property        Property       @relation(fields: [propertyId], references: [id])
-  department      Department?    @relation(fields: [departmentId], references: [id])
-  attendances     Attendance[]
-  leaveRequests   LeaveRequest[]
-  payrolls        PayrollRecord[]
+  user             User?          @relation(fields: [userId], references: [id])
+  property         Property       @relation(fields: [propertyId], references: [id])
+  department       Department?    @relation(fields: [departmentId], references: [id])
+  supervisor       Employee?      @relation("EmployeeSupervisor", fields: [supervisorId], references: [id])
+  subordinates     Employee[]     @relation("EmployeeSupervisor")
+  attendances      Attendance[]
+  attendanceAnomalies AttendanceAnomaly[]
+  leaveRequests    LeaveRequest[]
+  payrolls         PayrollRecord[]
+  payrollDeductions PayrollDeduction[]
   performanceReviews PerformanceReview[]
+  probationReviews ProbationReview[]
+  disciplinaryCases DisciplinaryCase[]
+  suspensions      SuspensionRecord[]
+  grievances       GrievanceCase[]
+  staffLoans       StaffLoan[]
+  assetIssues      EmployeeAssetIssue[]
+  shiftRosters     ShiftRoster[]
+  trainingAttendances TrainingAttendance[]
+  onboardingChecklist OnboardingChecklist?
+  offboardingCase  OffboardingCase?
+  employeeDocuments EmployeeDocument[]
+  cashIncidents    CashHandlingIncident[]
+  policyAcknowledgements PolicyAcknowledgement[]
+  benefits         EmployeeBenefit[]
+  incidents        EmployeeIncident[]
 
   @@map("employees")
 }
@@ -1409,17 +1581,558 @@ model PerformanceReview {
   employeeId    String
   reviewerId    String?
   reviewPeriod  String
-  overallRating Int       // 1-5
+  reviewType    String    @default("ANNUAL") // PROBATION | MONTHLY | QUARTERLY | ANNUAL
+  overallRating Int       // 1-5: 1=Unsatisfactory 2=Needs Improvement 3=Satisfactory 4=Good 5=Excellent
   goals         Json?
   feedback      String?
   improvements  String?
-  status        String    @default("DRAFT")
+  kpis          Json?
+  promotionRecommended Boolean @default(false)
+  incrementRecommended Decimal? @db.Decimal(10,2)
+  status        String    @default("DRAFT") // DRAFT | SUBMITTED | APPROVED
   reviewedAt    DateTime?
   createdAt     DateTime  @default(now())
 
   employee      Employee  @relation(fields: [employeeId], references: [id])
 
   @@map("performance_reviews")
+}
+
+model ProbationReview {
+  id               String          @id @default(cuid())
+  employeeId       String
+  reviewerId       String?
+  scheduledDate    DateTime        @db.Date
+  conductedAt      DateTime?
+  outcome          ProbationOutcome @default(PENDING)
+  notes            String?
+  supervisorRecommendation String?
+  hrRecommendation String?
+  finalDecision    String?
+  extensionDays    Int?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  employee         Employee        @relation(fields: [employeeId], references: [id])
+
+  @@map("probation_reviews")
+}
+
+// ─── DISCIPLINARY ────────────────────────────────────────────
+
+model DisciplinaryCase {
+  id                String                 @id @default(cuid())
+  caseNumber        String                 @unique
+  employeeId        String
+  propertyId        String
+  incidentDate      DateTime               @db.Date
+  reportedById      String?
+  category          String                 // maps to DisciplinaryReason strings
+  description       String
+  evidence          String[]               @default([])
+  witnesses         String?
+  investigationNotes String?
+  status            DisciplinaryCaseStatus @default(REPORTED)
+  decisionDate      DateTime?
+  decisionMakerId   String?
+  effectiveDate     DateTime?              @db.Date
+  appealDeadline    DateTime?              @db.Date
+  finalOutcome      String?
+  closedAt          DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  employee          Employee               @relation(fields: [employeeId], references: [id])
+  actions           DisciplinaryAction[]
+  payrollDeductions PayrollDeduction[]
+  suspensions       SuspensionRecord[]
+
+  @@map("disciplinary_cases")
+}
+
+model DisciplinaryAction {
+  id               String                @id @default(cuid())
+  caseId           String
+  actionType       DisciplinaryActionType
+  effectiveDate    DateTime              @db.Date
+  endDate          DateTime?             @db.Date
+  description      String?
+  issuedById       String?
+  acknowledgedAt   DateTime?
+  createdAt        DateTime              @default(now())
+
+  case             DisciplinaryCase      @relation(fields: [caseId], references: [id])
+
+  @@map("disciplinary_actions")
+}
+
+// ─── PAYROLL DEDUCTIONS (CONTROLLED) ─────────────────────────
+
+model PayrollDeduction {
+  id               String           @id @default(cuid())
+  employeeId       String
+  disciplinaryCaseId String?
+  staffLoanId      String?
+  category         DeductionCategory
+  description      String
+  amount           Decimal          @db.Decimal(12,2)
+  deductionType    String           @default("FIXED") // FIXED | PERCENTAGE
+  effectivePeriod  String           // e.g. "2026-06"
+  isRecurring      Boolean          @default(false)
+  installmentTotal Int?
+  installmentPaid  Int              @default(0)
+  approvedById     String?
+  approvedAt       DateTime?
+  status           String           @default("PENDING") // PENDING | APPROVED | APPLIED | REVERSED | WAIVED
+  payslipVisible   Boolean          @default(true)
+  glAccountCode    String?
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  employee         Employee         @relation(fields: [employeeId], references: [id])
+  disciplinaryCase DisciplinaryCase? @relation(fields: [disciplinaryCaseId], references: [id])
+  staffLoan        StaffLoan?       @relation(fields: [staffLoanId], references: [id])
+
+  @@map("payroll_deductions")
+}
+
+// ─── SUSPENSION ──────────────────────────────────────────────
+
+model SuspensionRecord {
+  id               String         @id @default(cuid())
+  employeeId       String
+  disciplinaryCaseId String?
+  suspensionType   SuspensionType
+  startDate        DateTime       @db.Date
+  endDate          DateTime?      @db.Date
+  returnDate       DateTime?      @db.Date
+  isPaid           Boolean        @default(true)
+  reason           String
+  approvedById     String?
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  employee         Employee       @relation(fields: [employeeId], references: [id])
+  disciplinaryCase DisciplinaryCase? @relation(fields: [disciplinaryCaseId], references: [id])
+
+  @@map("suspension_records")
+}
+
+// ─── GRIEVANCE ───────────────────────────────────────────────
+
+model GrievanceCase {
+  id               String          @id @default(cuid())
+  caseNumber       String          @unique
+  employeeId       String
+  propertyId       String
+  grievanceType    GrievanceType
+  description      String
+  status           GrievanceStatus @default(SUBMITTED)
+  assignedToId     String?
+  resolutionNotes  String?
+  resolvedAt       DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  employee         Employee        @relation(fields: [employeeId], references: [id])
+
+  @@map("grievance_cases")
+}
+
+// ─── STAFF LOANS / ADVANCES ──────────────────────────────────
+
+model StaffLoan {
+  id               String          @id @default(cuid())
+  loanNumber       String          @unique
+  employeeId       String
+  loanType         String          // SALARY_ADVANCE | STAFF_LOAN | EMERGENCY | UNIFORM | DEVICE
+  amount           Decimal         @db.Decimal(12,2)
+  balance          Decimal         @db.Decimal(12,2)
+  interestRate     Decimal         @default(0) @db.Decimal(5,2)
+  installmentAmount Decimal        @db.Decimal(12,2)
+  installments     Int             @default(1)
+  status           StaffLoanStatus @default(PENDING)
+  approvedById     String?
+  approvedAt       DateTime?
+  disbursedAt      DateTime?
+  settledAt       DateTime?
+  reason           String?
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  employee         Employee        @relation(fields: [employeeId], references: [id])
+  repayments       StaffLoanRepayment[]
+  payrollDeductions PayrollDeduction[]
+
+  @@map("staff_loans")
+}
+
+model StaffLoanRepayment {
+  id          String    @id @default(cuid())
+  loanId      String
+  amount      Decimal   @db.Decimal(12,2)
+  payrollPeriod String?
+  method      String    @default("PAYROLL_DEDUCTION")
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  loan        StaffLoan @relation(fields: [loanId], references: [id])
+
+  @@map("staff_loan_repayments")
+}
+
+// ─── ASSET / UNIFORM ISSUANCE ────────────────────────────────
+
+model EmployeeAssetIssue {
+  id               String   @id @default(cuid())
+  employeeId       String
+  assetType        String   // UNIFORM | KEY | ACCESS_CARD | RADIO | POS_DEVICE | LAPTOP | PHONE | ID_CARD | TOOL | OTHER
+  description      String
+  serialNumber     String?
+  issuedDate       DateTime @db.Date
+  issuedById       String?
+  expectedReturn   DateTime? @db.Date
+  returnedDate     DateTime? @db.Date
+  conditionOnIssue String   @default("GOOD") // GOOD | FAIR | DAMAGED
+  conditionOnReturn String?
+  replacementCost  Decimal? @db.Decimal(10,2)
+  status           String   @default("ISSUED") // ISSUED | RETURNED | LOST | DAMAGED
+  recoveryDeductionId String?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  employee         Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("employee_asset_issues")
+}
+
+// ─── ATTENDANCE ANOMALY ───────────────────────────────────────
+
+model AttendanceAnomaly {
+  id            String                @id @default(cuid())
+  employeeId    String
+  anomalyType   AttendanceAnomalyType
+  date          DateTime              @db.Date
+  description   String
+  severity      String                @default("LOW") // LOW | MEDIUM | HIGH
+  status        String                @default("OPEN") // OPEN | REVIEWED | ESCALATED | DISMISSED | LINKED_TO_CASE
+  reviewedById  String?
+  reviewNotes   String?
+  linkedCaseId  String?
+  createdAt     DateTime              @default(now())
+
+  employee      Employee              @relation(fields: [employeeId], references: [id])
+
+  @@map("attendance_anomalies")
+}
+
+// ─── SHIFT & ROSTER ──────────────────────────────────────────
+
+model ShiftRoster {
+  id           String    @id @default(cuid())
+  employeeId   String
+  propertyId   String
+  shiftDate    DateTime  @db.Date
+  shiftType    ShiftType
+  startTime    String?   // HH:MM
+  endTime      String?   // HH:MM
+  breakMinutes Int       @default(0)
+  isConfirmed  Boolean   @default(false)
+  swapRequestedWith String?
+  swapApproved Boolean   @default(false)
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  employee     Employee  @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, shiftDate])
+  @@map("shift_rosters")
+}
+
+// ─── TRAINING ────────────────────────────────────────────────
+
+model TrainingProgram {
+  id           String   @id @default(cuid())
+  propertyId   String
+  title        String
+  description  String?
+  category     String   // SOP | SAFETY | COMPLIANCE | SKILLS | ORIENTATION | OTHER
+  requiredFor  String[] @default([]) // roles that must complete
+  durationHours Decimal? @db.Decimal(5,2)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  attendances  TrainingAttendance[]
+
+  @@map("training_programs")
+}
+
+model TrainingAttendance {
+  id          String           @id @default(cuid())
+  programId   String
+  employeeId  String
+  scheduledAt DateTime
+  completedAt DateTime?
+  score       Decimal?         @db.Decimal(5,2)
+  passed      Boolean?
+  notes       String?
+  certUrl     String?
+  createdAt   DateTime         @default(now())
+
+  program     TrainingProgram  @relation(fields: [programId], references: [id])
+  employee    Employee         @relation(fields: [employeeId], references: [id])
+
+  @@map("training_attendances")
+}
+
+// ─── RECRUITMENT ─────────────────────────────────────────────
+
+model RecruitmentJobOpening {
+  id           String      @id @default(cuid())
+  propertyId   String
+  title        String
+  departmentId String?
+  description  String?
+  requirements String?
+  salaryMin    Decimal?    @db.Decimal(12,2)
+  salaryMax    Decimal?    @db.Decimal(12,2)
+  openDate     DateTime    @db.Date
+  closeDate    DateTime?   @db.Date
+  status       String      @default("OPEN") // OPEN | FILLED | CANCELLED | ON_HOLD
+  hiringManagerId String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  candidates   Candidate[]
+
+  @@map("recruitment_job_openings")
+}
+
+model Candidate {
+  id           String          @id @default(cuid())
+  jobOpeningId String
+  firstName    String
+  lastName     String
+  email        String?
+  phone        String?
+  resumeUrl    String?
+  status       CandidateStatus @default(APPLIED)
+  appliedAt    DateTime        @default(now())
+  notes        String?
+  offerSalary  Decimal?        @db.Decimal(12,2)
+  hiredAsEmployeeId String?
+  updatedAt    DateTime        @updatedAt
+
+  jobOpening   RecruitmentJobOpening @relation(fields: [jobOpeningId], references: [id])
+  interviews   CandidateInterview[]
+
+  @@map("candidates")
+}
+
+model CandidateInterview {
+  id           String    @id @default(cuid())
+  candidateId  String
+  scheduledAt  DateTime
+  interviewerId String?
+  format       String    @default("IN_PERSON") // IN_PERSON | PHONE | VIDEO
+  score        Decimal?  @db.Decimal(5,2)
+  notes        String?
+  outcome      String?   // PROCEED | REJECT | ON_HOLD
+  createdAt    DateTime  @default(now())
+
+  candidate    Candidate @relation(fields: [candidateId], references: [id])
+
+  @@map("candidate_interviews")
+}
+
+// ─── ONBOARDING ──────────────────────────────────────────────
+
+model OnboardingChecklist {
+  id                  String          @id @default(cuid())
+  employeeId          String          @unique
+  status              OnboardingStatus @default(PENDING)
+  contractUploaded    Boolean         @default(false)
+  idCaptured          Boolean         @default(false)
+  roleAssigned        Boolean         @default(false)
+  payrollCreated      Boolean         @default(false)
+  deptAssigned        Boolean         @default(false)
+  uniformIssued       Boolean         @default(false)
+  systemAccess        Boolean         @default(false)
+  orientationDone     Boolean         @default(false)
+  policyAcknowledged  Boolean         @default(false)
+  completedAt         DateTime?
+  notes               String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  employee            Employee        @relation(fields: [employeeId], references: [id])
+
+  @@map("onboarding_checklists")
+}
+
+// ─── OFFBOARDING ─────────────────────────────────────────────
+
+model OffboardingCase {
+  id                  String        @id @default(cuid())
+  employeeId          String        @unique
+  separationType      SeparationType
+  noticeDate          DateTime?     @db.Date
+  lastWorkingDate     DateTime?     @db.Date
+  letterUploaded      Boolean       @default(false)
+  finalPayProcessed   Boolean       @default(false)
+  deductionsSettled   Boolean       @default(false)
+  handoverCompleted   Boolean       @default(false)
+  assetsReturned      Boolean       @default(false)
+  accessRevoked       Boolean       @default(false)
+  exitInterviewDone   Boolean       @default(false)
+  finalDocumentsIssued Boolean      @default(false)
+  status              String        @default("OPEN") // OPEN | COMPLETED
+  notes               String?
+  processedById       String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  employee            Employee      @relation(fields: [employeeId], references: [id])
+
+  @@map("offboarding_cases")
+}
+
+// ─── EMPLOYEE DOCUMENTS ───────────────────────────────────────
+
+model EmployeeDocument {
+  id           String   @id @default(cuid())
+  employeeId   String
+  category     String   // CONTRACT | WARNING | SUSPENSION | APPRAISAL | ID | CERT | PAYROLL | LEAVE | GRIEVANCE | MEDICAL | OTHER
+  title        String
+  fileUrl      String
+  expiryDate   DateTime? @db.Date
+  uploadedById String?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  employee     Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("employee_documents")
+}
+
+// ─── POLICY DOCUMENTS & ACKNOWLEDGEMENTS ─────────────────────
+
+model PolicyDocument {
+  id           String   @id @default(cuid())
+  propertyId   String
+  title        String
+  category     String   // CODE_OF_CONDUCT | CASH_HANDLING | GUEST_PRIVACY | DISCIPLINARY | ATTENDANCE | ANTI_HARASSMENT | SAFETY | IT_USAGE | OTHER
+  version      String   @default("1.0")
+  content      String?
+  fileUrl      String?
+  isActive     Boolean  @default(true)
+  effectiveDate DateTime @db.Date
+  createdAt    DateTime @default(now())
+
+  acknowledgements PolicyAcknowledgement[]
+
+  @@map("policy_documents")
+}
+
+model PolicyAcknowledgement {
+  id          String         @id @default(cuid())
+  policyId    String
+  employeeId  String
+  acknowledgedAt DateTime    @default(now())
+  notes       String?
+
+  policy      PolicyDocument @relation(fields: [policyId], references: [id])
+  employee    Employee       @relation(fields: [employeeId], references: [id])
+
+  @@unique([policyId, employeeId])
+  @@map("policy_acknowledgements")
+}
+
+// ─── CASH HANDLING INCIDENTS ──────────────────────────────────
+
+model CashHandlingIncident {
+  id              String   @id @default(cuid())
+  employeeId      String
+  propertyId      String
+  incidentType    String   // SHORTAGE | TILL_VARIANCE | REFUND_ABUSE | VOID | RATE_OVERRIDE | SETTLEMENT_DISCREPANCY
+  amount          Decimal? @db.Decimal(12,2)
+  description     String
+  incidentDate    DateTime @db.Date
+  reportedById    String?
+  disciplinaryCaseId String?
+  recoveryDeductionId String?
+  status          String   @default("OPEN") // OPEN | REVIEWED | LINKED | RESOLVED
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  employee        Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("cash_handling_incidents")
+}
+
+// ─── EMPLOYEE BENEFITS ────────────────────────────────────────
+
+model EmployeeBenefit {
+  id           String   @id @default(cuid())
+  employeeId   String
+  benefitType  String   // HOUSING | TRANSPORT | MEAL | PHONE | MEDICAL | RISK | UNIFORM | STAFF_DISCOUNT
+  description  String?
+  amount       Decimal  @db.Decimal(10,2)
+  frequency    String   @default("MONTHLY") // MONTHLY | ANNUAL | ONE_TIME
+  isActive     Boolean  @default(true)
+  startDate    DateTime @db.Date
+  endDate      DateTime? @db.Date
+  createdAt    DateTime @default(now())
+
+  employee     Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("employee_benefits")
+}
+
+// ─── EMPLOYEE INCIDENTS (HEALTH & SAFETY) ────────────────────
+
+model EmployeeIncident {
+  id           String   @id @default(cuid())
+  employeeId   String
+  propertyId   String
+  incidentType String   // INJURY | ACCIDENT | SAFETY_VIOLATION | MEDICAL | SECURITY | GUEST_CONFLICT
+  description  String
+  incidentDate DateTime @db.Date
+  location     String?
+  witnesses    String?
+  evidenceUrls String[] @default([])
+  followUpActions String?
+  returnToWorkDate DateTime? @db.Date
+  reportedById String?
+  status       String   @default("OPEN") // OPEN | UNDER_REVIEW | RESOLVED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee     Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("employee_incidents")
+}
+
+// ─── HR APPROVAL REQUESTS ─────────────────────────────────────
+
+model HRApprovalRequest {
+  id           String   @id @default(cuid())
+  propertyId   String
+  requestType  String   // DEDUCTION | SUSPENSION | SALARY_CHANGE | TERMINATION | LOAN | LEAVE_OVERRIDE | ASSET_RECOVERY | PROBATION
+  referenceId  String   // ID of the linked record
+  requestedById String
+  assignedToId String?
+  status       String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  notes        String?
+  decidedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  @@map("hr_approval_requests")
 }
 
 // ============================================================
