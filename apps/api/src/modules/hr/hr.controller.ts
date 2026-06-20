@@ -22,11 +22,15 @@ export class HrController {
   // ─── EMPLOYEES ───────────────────────────────────────────────
 
   @Get('employees')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER')
   getEmployees(@Query() query: any) {
     return this.service.getEmployees(query.propertyId, query);
   }
 
   @Get('employees/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER')
   getEmployee(@Param('id') id: string) {
     return this.service.getEmployee(id);
   }
@@ -48,6 +52,8 @@ export class HrController {
   // ─── ATTENDANCE ──────────────────────────────────────────────
 
   @Post('attendance')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER')
   recordAttendance(@Body() dto: any) {
     return this.service.recordAttendance(dto);
   }
@@ -83,6 +89,8 @@ export class HrController {
   // ─── LEAVE ───────────────────────────────────────────────────
 
   @Get('leave-requests')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER')
   getLeaveRequests(@Query() query: any) {
     return this.service.getLeaveRequests(query.propertyId, query);
   }
@@ -634,6 +642,8 @@ export class HrController {
   }
 
   @Post('approvals')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
   createApproval(@Body() dto: any, @Request() req: any) {
     return this.service.createHRApproval({ ...dto, requestedById: req.user.sub });
   }

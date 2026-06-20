@@ -772,9 +772,13 @@ function LoansTab({ propertyId }: { propertyId: string }) {
   const employees: any[] = empData?.data ?? [];
 
   const createMutation = useMutation({
-    mutationFn: () => hrApi.createLoan({ ...form, amount: Number(form.amount), installments: Number(form.installments), installmentAmount: Number(form.amount) / Number(form.installments) }),
+    mutationFn: () => {
+      const installments = Number(form.installments);
+      if (!installments || installments <= 0) throw new Error('Installments must be greater than 0');
+      return hrApi.createLoan({ ...form, amount: Number(form.amount), installments, installmentAmount: Number(form.amount) / installments });
+    },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-loans'] }); toast({ title: 'Loan request submitted' }); setCreateOpen(false); },
-    onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed' }),
+    onError: (err: any) => toast({ variant: 'destructive', title: err.message || err.response?.data?.message || 'Failed' }),
   });
 
   const approveMutation = useMutation({
@@ -899,7 +903,7 @@ function LoansTab({ propertyId }: { propertyId: string }) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button disabled={!form.employeeId || !form.amount || createMutation.isPending}
+            <Button disabled={!form.employeeId || !form.amount || Number(form.installments) <= 0 || createMutation.isPending}
               className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => createMutation.mutate()}>
               Submit Request
             </Button>

@@ -61,15 +61,16 @@ export class HrService {
   }
 
   async createEmployee(dto: any) {
-    const count = await this.prisma.employee.count({ where: { propertyId: dto.propertyId } });
-    const employeeNumber = `EMP-${(count + 1).toString().padStart(4, '0')}`;
-    const employee = await this.prisma.employee.create({
-      data: { ...dto, employeeNumber },
-      include: { department: true },
+    return this.prisma.$transaction(async (tx) => {
+      const count = await tx.employee.count({ where: { propertyId: dto.propertyId } });
+      const employeeNumber = `EMP-${(count + 1).toString().padStart(4, '0')}`;
+      const employee = await tx.employee.create({
+        data: { ...dto, employeeNumber },
+        include: { department: true },
+      });
+      await tx.onboardingChecklist.create({ data: { employeeId: employee.id } }).catch(() => null);
+      return employee;
     });
-    // Auto-create onboarding checklist
-    await this.prisma.onboardingChecklist.create({ data: { employeeId: employee.id } }).catch(() => null);
-    return employee;
   }
 
   async updateEmployee(id: string, dto: any) {
@@ -169,9 +170,13 @@ export class HrService {
   }
 
   async upsertLeaveBalance(dto: { employeeId: string; year: number; leaveType: any; entitled: number }) {
+    const existing = await this.prisma.leaveBalance.findUnique({
+      where: { employeeId_year_leaveType: { employeeId: dto.employeeId, year: dto.year, leaveType: dto.leaveType } },
+    });
+    const taken = Number(existing?.taken ?? 0);
     return this.prisma.leaveBalance.upsert({
       where: { employeeId_year_leaveType: { employeeId: dto.employeeId, year: dto.year, leaveType: dto.leaveType } },
-      update: { entitled: dto.entitled, remaining: dto.entitled },
+      update: { entitled: dto.entitled, remaining: Math.max(0, dto.entitled - taken) },
       create: { ...dto, taken: 0, remaining: dto.entitled },
     });
   }
@@ -266,10 +271,16 @@ export class HrService {
   }
 
   async approvePayrollRecord(id: string) {
+    const record = await this.prisma.payrollRecord.findUnique({ where: { id } });
+    if (!record) throw new NotFoundException('Payroll record not found');
+    if (record.status !== 'DRAFT') throw new BadRequestException('Only DRAFT records can be approved');
     return this.prisma.payrollRecord.update({ where: { id }, data: { status: 'APPROVED' } });
   }
 
   async markPayrollPaid(id: string) {
+    const record = await this.prisma.payrollRecord.findUnique({ where: { id } });
+    if (!record) throw new NotFoundException('Payroll record not found');
+    if (record.status !== 'APPROVED') throw new BadRequestException('Only APPROVED records can be marked paid');
     return this.prisma.payrollRecord.update({ where: { id }, data: { status: 'PAID', paidAt: new Date() } });
   }
 
@@ -384,11 +395,15 @@ export class HrService {
     const suspension = await this.prisma.suspensionRecord.update({
       where: { id },
       data: { returnDate: new Date(returnDate) },
-      include: { employee: true },
+      include: { employee: { select: { probationEndDate: true } } },
     });
+    const returnStatus =
+      suspension.employee.probationEndDate && suspension.employee.probationEndDate > new Date()
+        ? 'PROBATION'
+        : 'ACTIVE';
     await this.prisma.employee.update({
       where: { id: suspension.employeeId },
-      data: { status: 'ACTIVE' },
+      data: { status: returnStatus },
     });
     return suspension;
   }
@@ -650,7 +665,7 @@ export class HrService {
     const fields = ['contractUploaded','idCaptured','roleAssigned','payrollCreated','deptAssigned','uniformIssued','systemAccess','orientationDone','policyAcknowledged'];
     const allDone = fields.every((f) => checklist[f as keyof typeof checklist]);
     if (allDone && checklist.status !== 'COMPLETED') {
-      await this.prisma.onboardingChecklist.update({ where: { employeeId }, data: { status: 'COMPLETED', completedAt: new Date() } });
+      return this.prisma.onboardingChecklist.update({ where: { employeeId }, data: { status: 'COMPLETED', completedAt: new Date() } });
     }
     return checklist;
   }
@@ -667,9 +682,13 @@ export class HrService {
 
   async createOffboardingCase(dto: any) {
     const offboarding = await this.prisma.offboardingCase.create({ data: dto });
+    const newStatus =
+      dto.separationType === 'RESIGNATION' ? 'RESIGNED'
+      : dto.separationType === 'RETIREMENT' ? 'RETIRED'
+      : 'TERMINATED';
     await this.prisma.employee.update({
       where: { id: dto.employeeId },
-      data: { status: dto.separationType === 'RESIGNATION' ? 'RESIGNED' : 'TERMINATED' },
+      data: { status: newStatus },
     }).catch(() => null);
     return offboarding;
   }
@@ -848,8 +867,11 @@ export class HrService {
   }
 
   async getPayrollSummary(propertyId: string, period: string) {
+    const periodStartDate = new Date(`${period}-01`);
+    const nextMonth = new Date(periodStartDate);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
     const records = await this.prisma.payrollRecord.findMany({
-      where: { employee: { propertyId }, periodStart: { gte: new Date(`${period}-01`) } },
+      where: { employee: { propertyId }, periodStart: { gte: periodStartDate, lt: nextMonth } },
       include: { employee: { select: { firstName: true, lastName: true, departmentId: true } } },
     });
     const total = records.reduce((s, r) => ({
