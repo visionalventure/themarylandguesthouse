@@ -21,8 +21,10 @@ export class BootstrapService implements OnApplicationBootstrap {
       where: { email: 'admin@marylandguesthouse.com' },
     });
 
-    // Always ensure rooms exist, even if admin was already seeded
+    // Always ensure reference data exists, even if admin was already seeded
     await this.seedRooms();
+    await this.seedDepartments();
+    await this.seedRestaurant();
 
     if (existing) return;
 
@@ -167,5 +169,107 @@ export class BootstrapService implements OnApplicationBootstrap {
     }
 
     this.logger.log('Room seed complete ✓  7 rooms across 5 categories');
+  }
+
+  private async seedDepartments() {
+    const tenant = await this.prisma.tenant.findUnique({ where: { slug: 'maryland-guesthouse' } });
+    if (!tenant) return;
+
+    const depts = [
+      { code: 'MGMT', name: 'Management' },
+      { code: 'FD',   name: 'Front Desk & Reservations' },
+      { code: 'HK',   name: 'Housekeeping' },
+      { code: 'FNB',  name: 'Food & Beverage' },
+      { code: 'MNT',  name: 'Maintenance & Engineering' },
+      { code: 'FIN',  name: 'Finance & Accounting' },
+      { code: 'HR',   name: 'Human Resources' },
+      { code: 'SEC',  name: 'Security' },
+      { code: 'PROC', name: 'Procurement' },
+      { code: 'IT',   name: 'IT & Systems' },
+    ];
+
+    for (const d of depts) {
+      await this.prisma.department.upsert({
+        where: { tenantId_code: { tenantId: tenant.id, code: d.code } },
+        update: {},
+        create: { tenantId: tenant.id, code: d.code, name: d.name },
+      });
+    }
+
+    this.logger.log('Department seed complete ✓  10 departments');
+  }
+
+  private async seedRestaurant() {
+    const property = await this.prisma.property.findUnique({ where: { id: 'demo-property-id' } });
+    if (!property) return;
+
+    const existing = await this.prisma.restaurant.findFirst({ where: { propertyId: property.id } });
+    if (existing) return;
+
+    const restaurant = await this.prisma.restaurant.create({
+      data: {
+        propertyId: property.id,
+        name: 'Maryland Restaurant & Bar',
+        type: 'RESTAURANT',
+        description: 'In-house dining and bar service',
+        isActive: true,
+      },
+    });
+
+    // Seed tables
+    const tables = [
+      { tableNumber: 'T1', capacity: 2, location: 'Indoor' },
+      { tableNumber: 'T2', capacity: 2, location: 'Indoor' },
+      { tableNumber: 'T3', capacity: 4, location: 'Indoor' },
+      { tableNumber: 'T4', capacity: 4, location: 'Indoor' },
+      { tableNumber: 'T5', capacity: 4, location: 'Indoor' },
+      { tableNumber: 'T6', capacity: 6, location: 'Indoor' },
+      { tableNumber: 'T7', capacity: 6, location: 'Terrace' },
+      { tableNumber: 'T8', capacity: 8, location: 'Terrace' },
+      { tableNumber: 'B1', capacity: 2, location: 'Bar' },
+      { tableNumber: 'B2', capacity: 2, location: 'Bar' },
+    ];
+
+    for (const t of tables) {
+      await this.prisma.restaurantTable.upsert({
+        where: { restaurantId_tableNumber: { restaurantId: restaurant.id, tableNumber: t.tableNumber } },
+        update: {},
+        create: { restaurantId: restaurant.id, ...t },
+      });
+    }
+
+    // Seed basic menu items
+    const menuItems = [
+      { name: 'Continental Breakfast',   price: 15, isVegetarian: true  },
+      { name: 'Full English Breakfast',  price: 20 },
+      { name: 'Club Sandwich',           price: 12 },
+      { name: 'Grilled Chicken',         price: 18 },
+      { name: 'Jollof Rice & Chicken',   price: 14 },
+      { name: 'Grilled Fish',            price: 16 },
+      { name: 'Vegetable Stir Fry',      price: 10, isVegetarian: true, isVegan: true },
+      { name: 'Garden Salad',            price: 8,  isVegetarian: true, isVegan: true },
+      { name: 'Chocolate Cake',          price: 6,  isVegetarian: true  },
+      { name: 'Fresh Fruit Bowl',        price: 7,  isVegetarian: true, isVegan: true },
+      { name: 'Soft Drink (Can)',        price: 2 },
+      { name: 'Fresh Juice',             price: 4,  isVegetarian: true, isVegan: true },
+      { name: 'Bottled Water',           price: 1,  isVegetarian: true, isVegan: true },
+      { name: 'Local Beer',             price: 3 },
+      { name: 'House Wine (Glass)',      price: 8 },
+    ];
+
+    for (const item of menuItems) {
+      await this.prisma.menuItem.create({
+        data: {
+          restaurantId: restaurant.id,
+          name: item.name,
+          price: item.price,
+          isAvailable: true,
+          isVegetarian: item.isVegetarian ?? false,
+          isVegan: item.isVegan ?? false,
+        },
+      });
+    }
+
+    this.logger.log('Restaurant seed complete ✓  1 restaurant, 10 tables, 15 menu items');
   }
 }
