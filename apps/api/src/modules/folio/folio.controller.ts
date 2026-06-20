@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Request, UseGuards, HttpCode } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { FolioService } from './folio.service';
@@ -48,5 +48,21 @@ export class FolioController {
     @Param('paymentId') paymentId: string,
   ) {
     return this.service.getReceipt(reservationId, paymentId);
+  }
+
+  @Patch(':reservationId/discount')
+  @ApiOperation({ summary: 'Apply a discount to a reservation folio' })
+  applyDiscount(
+    @Param('reservationId') reservationId: string,
+    @Body() dto: { discountType: 'PERCENTAGE' | 'FIXED'; value: number; reason?: string },
+  ) {
+    return this.service.applyDiscount(reservationId, dto);
+  }
+
+  @Delete(':reservationId/discount')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Remove the discount from a reservation folio' })
+  removeDiscount(@Param('reservationId') reservationId: string) {
+    return this.service.removeDiscount(reservationId);
   }
 }

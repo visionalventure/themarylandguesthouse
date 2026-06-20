@@ -27,8 +27,9 @@ export class FolioService {
 
     if (!reservation) throw new NotFoundException('Reservation not found');
 
-    const totalCharges = charges.reduce((s, c) => s + Number(c.amount), 0);
-    const totalPaid    = payments
+    const totalCharges  = charges.reduce((s, c) => s + Number(c.amount), 0);
+    const discountAmount = Number(reservation.discountAmount ?? 0);
+    const totalPaid     = payments
       .filter((p) => p.status === 'COMPLETED')
       .reduce((s, p) => s + Number(p.amount), 0);
 
@@ -36,19 +37,29 @@ export class FolioService {
     const ledger: any[] = [];
     let balance = 0;
 
-    const allEntries = [
+    const allEntries: { type: string; date: Date; data: any }[] = [
       ...charges.map((c) => ({ type: 'CHARGE', date: c.createdAt, data: c })),
       ...payments.filter((p) => p.status === 'COMPLETED').map((p) => ({ type: 'PAYMENT', date: p.processedAt ?? p.createdAt, data: p })),
     ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+    // Inject discount after all charges, before payments
+    if (discountAmount > 0) {
+      const lastCharge = charges[charges.length - 1];
+      allEntries.push({
+        type: 'DISCOUNT',
+        date: lastCharge?.createdAt ?? new Date(),
+        data: { amount: discountAmount, description: reservation.couponCode ?? 'Discount' },
+      });
+      allEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }
+
     for (const entry of allEntries) {
       if (entry.type === 'CHARGE') {
         balance += Number(entry.data.amount);
-        ledger.push({ ...entry, runningBalance: balance });
       } else {
         balance -= Number(entry.data.amount);
-        ledger.push({ ...entry, runningBalance: balance });
       }
+      ledger.push({ ...entry, runningBalance: balance });
     }
 
     return {
@@ -57,8 +68,9 @@ export class FolioService {
       payments,
       ledger,
       totalCharges,
+      discountAmount,
       totalPaid,
-      balance: totalCharges - totalPaid,
+      balance: totalCharges - discountAmount - totalPaid,
     };
   }
 
@@ -81,6 +93,39 @@ export class FolioService {
         taxRate: Number(taxRate),
       },
     });
+  }
+
+  async applyDiscount(reservationId: string, dto: { discountType: 'PERCENTAGE' | 'FIXED'; value: number; reason?: string }) {
+    const reservation = await this.prisma.reservation.findUnique({ where: { id: reservationId } });
+    if (!reservation) throw new NotFoundException('Reservation not found');
+    if (dto.value < 0) throw new BadRequestException('Discount value cannot be negative');
+
+    let discountAmount: number;
+    if (dto.discountType === 'PERCENTAGE') {
+      if (dto.value > 100) throw new BadRequestException('Percentage discount cannot exceed 100%');
+      const charges = await this.prisma.reservationCharge.findMany({ where: { reservationId } });
+      const totalCharges = charges.reduce((s, c) => s + Number(c.amount), 0);
+      discountAmount = totalCharges * (dto.value / 100);
+    } else {
+      discountAmount = dto.value;
+    }
+
+    await this.prisma.reservation.update({
+      where: { id: reservationId },
+      data: { discountAmount, couponCode: dto.reason ?? null },
+    });
+
+    return { discountAmount, reason: dto.reason };
+  }
+
+  async removeDiscount(reservationId: string) {
+    const reservation = await this.prisma.reservation.findUnique({ where: { id: reservationId } });
+    if (!reservation) throw new NotFoundException('Reservation not found');
+    await this.prisma.reservation.update({
+      where: { id: reservationId },
+      data: { discountAmount: 0, couponCode: null },
+    });
+    return { discountAmount: 0 };
   }
 
   async voidCharge(reservationId: string, chargeId: string) {

@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
   ArrowLeft, Plus, CreditCard, Printer, LogOut,
-  Loader2, Trash2, FileText,
+  Loader2, Trash2, FileText, Tag, X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,8 +45,10 @@ export default function FolioPage() {
 
   const [chargeOpen, setChargeOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [discountOpen, setDiscountOpen] = useState(false);
   const [chargeForm, setChargeForm] = useState({ chargeType: 'ROOM', description: '', amount: '', quantity: '1', taxRate: '0' });
   const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'CASH', notes: '' });
+  const [discountForm, setDiscountForm] = useState({ discountType: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED', value: '', reason: '' });
 
   const { data, isLoading } = useQuery({
     queryKey: ['folio', id],
@@ -85,6 +87,27 @@ export default function FolioPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['folio', id] }); toast({ title: 'Charge voided' }); },
   });
 
+  const applyDiscountMutation = useMutation({
+    mutationFn: (values: { discountType: 'PERCENTAGE' | 'FIXED'; value: number; reason?: string }) =>
+      api.patch(`/v1/folio/${id}/discount`, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['folio', id] });
+      toast({ title: 'Discount applied' });
+      setDiscountOpen(false);
+      setDiscountForm({ discountType: 'PERCENTAGE', value: '', reason: '' });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message ?? 'Failed to apply discount' }),
+  });
+
+  const removeDiscountMutation = useMutation({
+    mutationFn: () => api.delete(`/v1/folio/${id}/discount`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['folio', id] });
+      toast({ title: 'Discount removed' });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message ?? 'Failed to remove discount' }),
+  });
+
   const checkOutMutation = useMutation({
     mutationFn: () => reservationsApi.checkOut(id),
     onSuccess: () => {
@@ -118,7 +141,7 @@ export default function FolioPage() {
   if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin" /></div>;
   if (!data) return <div className="p-6">Folio not found</div>;
 
-  const { reservation, ledger, totalCharges, totalPaid, balance, payments } = data;
+  const { reservation, ledger, totalCharges, discountAmount, totalPaid, balance } = data;
   const guest = reservation?.guest;
   const room = reservation?.rooms?.[0]?.room;
   const status = reservation?.status;
@@ -171,6 +194,9 @@ export default function FolioPage() {
         <Button size="sm" variant="outline" onClick={() => setPaymentOpen(true)}>
           <CreditCard className="w-4 h-4 mr-1" /> Collect Payment
         </Button>
+        <Button size="sm" variant="outline" onClick={() => setDiscountOpen(true)}>
+          <Tag className="w-4 h-4 mr-1" /> {Number(discountAmount) > 0 ? 'Edit Discount' : 'Apply Discount'}
+        </Button>
         <Button size="sm" variant="outline" onClick={() => window.print()}>
           <Printer className="w-4 h-4 mr-1" /> Print Folio
         </Button>
@@ -217,39 +243,57 @@ export default function FolioPage() {
                 {ledger.length === 0 && (
                   <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No transactions yet</td></tr>
                 )}
-                {ledger.map((entry: any, i: number) => (
-                  <tr key={i} className={cn('border-b hover:bg-muted/10', entry.type === 'PAYMENT' && 'bg-green-50/30 dark:bg-green-900/10')}>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                      {format(new Date(entry.date), 'dd MMM HH:mm')}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span className={cn('text-xs font-medium mr-1.5 px-1.5 py-0.5 rounded', entry.type === 'CHARGE' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300')}>
-                        {entry.type === 'CHARGE' ? (entry.data.chargeType ?? 'CHARGE') : 'PAYMENT'}
-                      </span>
-                      {entry.type === 'CHARGE' ? entry.data.description : (entry.data.method?.replace('_', ' '))}
-                      {entry.type === 'PAYMENT' && entry.data.receiptNumber && (
-                        <button
-                          className="ml-2 text-xs text-primary underline"
-                          onClick={() => router.push(`/reservations/${id}/folio/receipt/${entry.data.id}`)}
-                        >
-                          {entry.data.receiptNumber}
-                        </button>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">{entry.type === 'CHARGE' ? `$${Number(entry.data.amount).toFixed(2)}` : ''}</td>
-                    <td className="px-4 py-2.5 text-right text-green-600">{entry.type === 'PAYMENT' ? `$${Number(entry.data.amount).toFixed(2)}` : ''}</td>
-                    <td className={cn('px-4 py-2.5 text-right font-medium', entry.runningBalance > 0 ? 'text-red-600' : 'text-green-600')}>
-                      ${Number(entry.runningBalance).toFixed(2)}
-                    </td>
-                    <td className="px-2 py-2">
-                      {entry.type === 'CHARGE' && (
-                        <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => voidChargeMutation.mutate(entry.data.id)}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {ledger.map((entry: any, i: number) => {
+                  const isDiscount = entry.type === 'DISCOUNT';
+                  const isPayment  = entry.type === 'PAYMENT';
+                  return (
+                    <tr key={i} className={cn(
+                      'border-b hover:bg-muted/10',
+                      isPayment  && 'bg-green-50/30 dark:bg-green-900/10',
+                      isDiscount && 'bg-blue-50/30 dark:bg-blue-900/10',
+                    )}>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                        {format(new Date(entry.date), 'dd MMM HH:mm')}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={cn('text-xs font-medium mr-1.5 px-1.5 py-0.5 rounded',
+                          entry.type === 'CHARGE'   && 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+                          isPayment                 && 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+                          isDiscount                && 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+                        )}>
+                          {entry.type === 'CHARGE' ? (entry.data.chargeType ?? 'CHARGE') : entry.type}
+                        </span>
+                        {entry.type === 'CHARGE'   && entry.data.description}
+                        {isDiscount                && entry.data.description}
+                        {isPayment                 && entry.data.method?.replace('_', ' ')}
+                        {isPayment && entry.data.receiptNumber && (
+                          <button
+                            className="ml-2 text-xs text-primary underline"
+                            onClick={() => router.push(`/reservations/${id}/folio/receipt/${entry.data.id}`)}
+                          >
+                            {entry.data.receiptNumber}
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        {entry.type === 'CHARGE' ? `$${Number(entry.data.amount).toFixed(2)}` : ''}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-green-600">
+                        {(isPayment || isDiscount) ? `$${Number(entry.data.amount).toFixed(2)}` : ''}
+                      </td>
+                      <td className={cn('px-4 py-2.5 text-right font-medium', entry.runningBalance > 0 ? 'text-red-600' : 'text-green-600')}>
+                        ${Number(entry.runningBalance).toFixed(2)}
+                      </td>
+                      <td className="px-2 py-2">
+                        {entry.type === 'CHARGE' && (
+                          <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => voidChargeMutation.mutate(entry.data.id)}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -265,6 +309,25 @@ export default function FolioPage() {
                 <span className="text-muted-foreground">Total Charges</span>
                 <span>${Number(totalCharges).toFixed(2)}</span>
               </div>
+              {Number(discountAmount) > 0 && (
+                <div className="flex justify-between text-blue-600">
+                  <span className="flex items-center gap-1">
+                    Discount
+                    {reservation?.couponCode && (
+                      <span className="text-xs text-muted-foreground">({reservation.couponCode})</span>
+                    )}
+                    <button
+                      className="ml-1 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeDiscountMutation.mutate()}
+                      disabled={removeDiscountMutation.isPending}
+                      title="Remove discount"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                  <span>-${Number(discountAmount).toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-green-600">
                 <span>Total Paid</span>
                 <span>${Number(totalPaid).toFixed(2)}</span>
@@ -321,6 +384,69 @@ export default function FolioPage() {
             >
               {postChargeMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
               Post Charge
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Apply Discount Dialog */}
+      <Dialog open={discountOpen} onOpenChange={setDiscountOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Apply Discount</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Discount Type</Label>
+                <Select
+                  value={discountForm.discountType}
+                  onValueChange={v => setDiscountForm(f => ({ ...f, discountType: v as 'PERCENTAGE' | 'FIXED' }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
+                    <SelectItem value="FIXED">Fixed Amount ($)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>{discountForm.discountType === 'PERCENTAGE' ? 'Percentage (%)' : 'Amount ($)'}</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max={discountForm.discountType === 'PERCENTAGE' ? '100' : undefined}
+                  step={discountForm.discountType === 'PERCENTAGE' ? '1' : '0.01'}
+                  placeholder={discountForm.discountType === 'PERCENTAGE' ? 'e.g. 10' : 'e.g. 25.00'}
+                  value={discountForm.value}
+                  onChange={e => setDiscountForm(f => ({ ...f, value: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Reason / Code <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Input
+                placeholder="e.g. Loyalty reward, Promo code, Manager approval"
+                value={discountForm.reason}
+                onChange={e => setDiscountForm(f => ({ ...f, reason: e.target.value }))}
+              />
+            </div>
+            {discountForm.value && discountForm.discountType === 'PERCENTAGE' && Number(totalCharges) > 0 && (
+              <p className="text-xs text-muted-foreground">
+                = ${(Number(totalCharges) * (Number(discountForm.value) / 100)).toFixed(2)} off total charges of ${Number(totalCharges).toFixed(2)}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDiscountOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!discountForm.value || Number(discountForm.value) <= 0 || applyDiscountMutation.isPending}
+              onClick={() => applyDiscountMutation.mutate({
+                discountType: discountForm.discountType,
+                value: Number(discountForm.value),
+                reason: discountForm.reason || undefined,
+              })}
+            >
+              {applyDiscountMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              Apply Discount
             </Button>
           </DialogFooter>
         </DialogContent>
