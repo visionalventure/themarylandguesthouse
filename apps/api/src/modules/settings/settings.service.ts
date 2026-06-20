@@ -91,6 +91,24 @@ export class SettingsService {
     });
   }
 
+  async getDepartments(tenantId: string) {
+    return this.prisma.department.findMany({
+      where: { tenantId, isActive: true },
+      include: { _count: { select: { employees: true } } },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async createDepartment(dto: { tenantId: string; name: string; code: string; description?: string }) {
+    return this.prisma.department.create({
+      data: { ...dto, code: dto.code.toUpperCase() },
+    });
+  }
+
+  async updateDepartment(id: string, dto: { name?: string; description?: string; isActive?: boolean }) {
+    return this.prisma.department.update({ where: { id }, data: dto });
+  }
+
   async getAuditLog(tenantId: string, query: any = {}) {
     const { entityType, userId, page = 1, limit = 50 } = query;
     const skip = (Number(page) - 1) * Number(limit);

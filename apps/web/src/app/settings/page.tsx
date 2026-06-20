@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { format } from 'date-fns';
-import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard, AlignLeft, AlignCenter, AlignRight, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -925,6 +925,141 @@ function PrivacyTab() {
   );
 }
 
+function DepartmentsTab() {
+  const user = useAuthStore((s) => s.user);
+  const isSuperAdmin = (user as any)?.role === 'SUPER_ADMIN';
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<any>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['settings-departments'],
+    queryFn: () => settingsApi.getDepartments().then(r => r.data),
+  });
+  const departments: any[] = Array.isArray(data) ? data : (data?.data ?? []);
+
+  const { register, handleSubmit, reset, setValue } = useForm({
+    defaultValues: { name: '', code: '', description: '' },
+  });
+
+  const openCreate = () => {
+    reset({ name: '', code: '', description: '' });
+    setEditTarget(null);
+    setCreateOpen(true);
+  };
+
+  const openEdit = (dept: any) => {
+    reset({ name: dept.name, code: dept.code, description: dept.description ?? '' });
+    setEditTarget(dept);
+    setCreateOpen(true);
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: (values: any) =>
+      editTarget
+        ? settingsApi.updateDepartment(editTarget.id, values)
+        : settingsApi.createDepartment(values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-departments'] });
+      toast({ title: editTarget ? 'Department updated' : 'Department created' });
+      setCreateOpen(false);
+      reset();
+    },
+    onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed' }),
+  });
+
+  return (
+    <div className="mt-4 space-y-3">
+      {isSuperAdmin && (
+        <div className="flex justify-end">
+          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={openCreate}>
+            <Plus className="w-4 h-4 mr-2" /> New Department
+          </Button>
+        </div>
+      )}
+      <Card>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">Loading…</div>
+          ) : departments.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">
+              <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              No departments found.
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 z-10 bg-background">
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Code</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Description</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Staff</th>
+                  {isSuperAdmin && <th className="px-4 py-3" />}
+                </tr>
+              </thead>
+              <tbody>
+                {departments.map((dept: any) => (
+                  <tr key={dept.id} className="border-b border-border hover:bg-muted/30">
+                    <td className="px-4 py-3 font-medium text-foreground">{dept.name}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant="outline" className="text-xs font-mono">{dept.code}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">{dept.description ?? '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{dept._count?.employees ?? 0}</td>
+                    {isSuperAdmin && (
+                      <td className="px-4 py-3 text-right">
+                        <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => openEdit(dept)}>
+                          Edit
+                        </Button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editTarget ? 'Edit Department' : 'New Department'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(d => saveMutation.mutate(d))} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Department Name *</Label>
+              <Input placeholder="e.g. Front Desk & Reservations" {...register('name', { required: true })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Code *</Label>
+              <Input
+                placeholder="e.g. FD"
+                className="uppercase"
+                {...register('code', { required: true })}
+                onChange={e => setValue('code', e.target.value.toUpperCase())}
+              />
+              <p className="text-xs text-muted-foreground">Short unique identifier (3-6 characters). Cannot be changed after creation.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input placeholder="Optional description" {...register('description')} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={saveMutation.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                {saveMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {editTarget ? 'Save Changes' : 'Create Department'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   usePageTitle('Settings');
   return (
@@ -941,6 +1076,7 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="property">Property</TabsTrigger>
           <TabsTrigger value="users">Users & Roles</TabsTrigger>
+          <TabsTrigger value="departments">Departments</TabsTrigger>
           <TabsTrigger value="tax">Tax Rates</TabsTrigger>
           <TabsTrigger value="invoice">Invoice Template</TabsTrigger>
           <TabsTrigger value="audit">Audit Log</TabsTrigger>
@@ -948,6 +1084,7 @@ export default function SettingsPage() {
         </TabsList>
         <TabsContent value="property"><PropertyTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
+        <TabsContent value="departments"><DepartmentsTab /></TabsContent>
         <TabsContent value="tax"><TaxRatesTab /></TabsContent>
         <TabsContent value="invoice"><InvoiceTemplateTab /></TabsContent>
         <TabsContent value="audit"><AuditLogTab /></TabsContent>

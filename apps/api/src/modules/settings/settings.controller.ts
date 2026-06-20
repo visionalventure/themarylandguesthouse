@@ -83,4 +83,28 @@ export class SettingsController {
   getAuditLog(@Request() req: any, @Query() query: any) {
     return this.service.getAuditLog(req.user.tenantId, query);
   }
+
+  @Get('departments')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'List departments for tenant' })
+  getDepartments(@Request() req: any) {
+    return this.service.getDepartments(req.user.tenantId);
+  }
+
+  @Post('departments')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiOperation({ summary: 'Create a new department' })
+  createDepartment(@Request() req: any, @Body() dto: any) {
+    return this.service.createDepartment({ ...dto, tenantId: req.user.tenantId });
+  }
+
+  @Put('departments/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiOperation({ summary: 'Update a department' })
+  updateDepartment(@Param('id') id: string, @Body() dto: any) {
+    return this.service.updateDepartment(id, dto);
+  }
 }

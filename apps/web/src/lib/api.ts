@@ -258,6 +258,9 @@ export const settingsApi = {
   getProfile: () => api.get('/v1/settings/profile'),
   updateProfile: (data: any) => api.put('/v1/settings/profile', data),
   auditLog: (params: any) => api.get('/v1/settings/audit-log', { params }),
+  getDepartments: () => api.get('/v1/settings/departments'),
+  createDepartment: (data: any) => api.post('/v1/settings/departments', data),
+  updateDepartment: (id: string, data: any) => api.put(`/v1/settings/departments/${id}`, data),
 };
 
 export const documentsApi = {
