@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
-import { TrendingUp, Wallet, Users2, AlertTriangle, Download, Calendar } from 'lucide-react';
+import { TrendingUp, Users2, AlertTriangle, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,18 +25,61 @@ export default function HRReportsPage() {
   const periodStart = format(startOfMonth(new Date(period + '-01')), 'yyyy-MM-dd');
   const periodEnd   = format(endOfMonth(new Date(period + '-01')), 'yyyy-MM-dd');
 
-  const { data: hrReports, isLoading } = useQuery({
-    queryKey: ['hr-reports', propertyId, period, reportType],
-    queryFn: () => hrApi.reports({ propertyId, periodStart, periodEnd, type: reportType }).then(r => r.data),
+  const { data: headcountData, isLoading: loadingHeadcount } = useQuery({
+    queryKey: ['hr-headcount', propertyId],
+    queryFn: () => hrApi.headcountByDept(propertyId).then((r: any) => r.data),
+    enabled: reportType === 'workforce',
   });
 
-  const { data: costData } = useQuery({
-    queryKey: ['hr-cost-dashboard', propertyId, period],
-    queryFn: () => hrApi.workforceCostDashboard({ propertyId, periodStart, periodEnd }).then(r => r.data),
+  const { data: attendanceData, isLoading: loadingAttendance } = useQuery({
+    queryKey: ['hr-attendance-report', propertyId, periodStart, periodEnd],
+    queryFn: () => hrApi.attendanceReport({ propertyId, startDate: periodStart, endDate: periodEnd }).then((r: any) => r.data),
+    enabled: reportType === 'attendance',
   });
 
-  const reports = hrReports ?? {};
-  const cost = costData ?? {};
+  const { data: leaveData, isLoading: loadingLeave } = useQuery({
+    queryKey: ['hr-leave-report', propertyId, periodStart, periodEnd],
+    queryFn: () => hrApi.listLeaveRequests({ propertyId, startDate: periodStart, endDate: periodEnd }).then((r: any) => r.data),
+    enabled: reportType === 'leave',
+  });
+
+  const { data: payrollData, isLoading: loadingPayroll } = useQuery({
+    queryKey: ['hr-payroll-summary', propertyId, period],
+    queryFn: () => hrApi.payrollSummary(propertyId, period).then((r: any) => r.data),
+    enabled: reportType === 'payroll' || true,
+  });
+
+  const { data: discData, isLoading: loadingDisc } = useQuery({
+    queryKey: ['hr-disc-report', propertyId, periodStart, periodEnd],
+    queryFn: () => hrApi.disciplinaryCases({ propertyId, startDate: periodStart, endDate: periodEnd }).then((r: any) => r.data),
+    enabled: reportType === 'disciplinary',
+  });
+
+  const { data: turnoverData, isLoading: loadingTurnover } = useQuery({
+    queryKey: ['hr-offboarding', propertyId, periodStart, periodEnd],
+    queryFn: () => hrApi.offboardingCases({ propertyId, startDate: periodStart, endDate: periodEnd }).then((r: any) => r.data),
+    enabled: reportType === 'turnover',
+  });
+
+  const isLoading = loadingHeadcount || loadingAttendance || loadingLeave || loadingPayroll || loadingDisc || loadingTurnover;
+
+  const cost = payrollData ?? {};
+  const reports = {
+    workforce: headcountData ?? {},
+    attendance: { rows: Array.isArray(attendanceData) ? attendanceData : (attendanceData?.data ?? []) },
+    leave: { rows: Array.isArray(leaveData) ? leaveData : (leaveData?.data ?? []) },
+    payroll: { rows: Array.isArray(payrollData?.records) ? payrollData.records : [] },
+    disciplinary: {
+      rows: Array.isArray(discData) ? discData : (discData?.data ?? []),
+      byCategory: (Array.isArray(discData) ? discData : (discData?.data ?? [])).reduce((acc: any, c: any) => {
+        acc[c.category] = (acc[c.category] ?? 0) + 1; return acc;
+      }, {}),
+    },
+    turnover: {
+      exits: Array.isArray(turnoverData) ? turnoverData : (turnoverData?.data ?? []),
+      newHires: [],
+    },
+  }[reportType] ?? {};
 
   const REPORT_TYPES = [
     { value: 'workforce', label: 'Workforce Summary' },
@@ -85,23 +128,26 @@ export default function HRReportsPage() {
       {/* Workforce Cost Dashboard — always shown */}
       <div>
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Workforce Cost Dashboard</h3>
-        <StaggerGrid cols={4}>
+        <StaggerGrid className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total Payroll', value: cost.totalPayroll ?? 0, prefix: '$', color: 'text-primary' },
-            { label: 'Total Allowances', value: cost.totalAllowances ?? 0, prefix: '$', color: 'text-green-600' },
-            { label: 'Total Deductions', value: cost.totalDeductions ?? 0, prefix: '$', color: 'text-red-600' },
-            { label: 'Net Payout', value: cost.netPayout ?? 0, prefix: '$', color: 'text-foreground' },
-            { label: 'Total Loan Balance', value: cost.totalLoanBalance ?? 0, prefix: '$', color: 'text-amber-600' },
-            { label: 'Disciplinary Recovery', value: cost.disciplinaryRecovery ?? 0, prefix: '$', color: 'text-orange-600' },
-            { label: 'Staff on Payroll', value: cost.staffOnPayroll ?? 0, prefix: '', color: 'text-foreground' },
-            { label: 'Headcount', value: cost.headcount ?? 0, prefix: '', color: 'text-foreground' },
-          ].map(({ label, value, prefix, color }) => (
+            { label: 'Total Payroll', value: cost.totalPayroll ?? 0, isCurrency: true, color: 'text-primary' },
+            { label: 'Total Allowances', value: cost.totalAllowances ?? 0, isCurrency: true, color: 'text-green-600' },
+            { label: 'Total Deductions', value: cost.totalDeductions ?? 0, isCurrency: true, color: 'text-red-600' },
+            { label: 'Net Payout', value: cost.netPayout ?? 0, isCurrency: true, color: 'text-foreground' },
+            { label: 'Total Loan Balance', value: cost.totalLoanBalance ?? 0, isCurrency: true, color: 'text-amber-600' },
+            { label: 'Disciplinary Recovery', value: cost.disciplinaryRecovery ?? 0, isCurrency: true, color: 'text-orange-600' },
+            { label: 'Staff on Payroll', value: cost.staffOnPayroll ?? 0, isCurrency: false, color: 'text-foreground' },
+            { label: 'Headcount', value: cost.headcount ?? 0, isCurrency: false, color: 'text-foreground' },
+          ].map(({ label, value, isCurrency, color }) => (
             <StaggerItem key={label}>
               <Card>
                 <CardContent className="pt-4 pb-3">
                   <p className="text-xs text-muted-foreground">{label}</p>
                   <p className={cn('text-xl font-bold mt-1', color)}>
-                    {prefix}<AnimatedCounter value={value} decimals={prefix === '$' ? 2 : 0} />
+                    <AnimatedCounter
+                      value={Number(value)}
+                      formatter={isCurrency ? (v) => `$${v.toFixed(2)}` : (v) => String(Math.round(v))}
+                    />
                   </p>
                 </CardContent>
               </Card>

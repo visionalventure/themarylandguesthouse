@@ -5,8 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek } from 'date-fns';
 import { Plus, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -59,12 +58,12 @@ export default function RosterPage() {
 
   const { data: rosterData, isLoading } = useQuery({
     queryKey: ['roster', propertyId, weekStart.toISOString(), deptFilter],
-    queryFn: () => hrApi.shiftRoster({
+    queryFn: () => hrApi.roster({
       propertyId,
       startDate: format(weekStart, 'yyyy-MM-dd'),
       endDate: format(weekEnd, 'yyyy-MM-dd'),
       departmentId: deptFilter !== 'ALL' ? deptFilter : undefined,
-    }).then(r => r.data),
+    }).then((r: any) => r.data),
   });
 
   const { data: empData } = useQuery({
@@ -93,7 +92,7 @@ export default function RosterPage() {
   });
 
   const addMutation = useMutation({
-    mutationFn: () => hrApi.createShiftRoster({ ...form, propertyId, endDate: form.endDate || form.startDate }),
+    mutationFn: () => hrApi.upsertShift({ ...form, propertyId, endDate: form.endDate || form.startDate }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roster'] });
       toast({ title: 'Shift assigned' });

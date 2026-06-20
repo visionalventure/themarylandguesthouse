@@ -3,9 +3,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus, Search, Users2, UserCheck, UserMinus, Building2, CalendarCheck, FileClock, Wallet,
-  CheckCircle, XCircle, Clock, AlertTriangle, ShieldAlert, TrendingUp, BookOpen,
-  Briefcase, CreditCard, FileText, Activity, LogOut, ChevronRight,
+  Plus, Search, Users2, UserCheck, CalendarCheck, FileClock,
+  Clock, AlertTriangle, ShieldAlert, FileText, Activity, ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,7 +78,7 @@ function HRDashboard({ propertyId }: { propertyId: string }) {
 
   return (
     <div className="space-y-4 mt-4">
-      <StaggerGrid cols={5}>
+      <StaggerGrid className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {kpis.map(({ label, value, icon: Icon, color }) => (
           <StaggerItem key={label}>
             <Card>
@@ -183,6 +182,8 @@ function EmployeesTab({ propertyId }: { propertyId: string }) {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [departmentFilter, setDepartmentFilter] = useState('ALL');
   const [page, setPage] = useState(1);
+  const [empDialogOpen, setEmpDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const { data: depts } = useQuery({
@@ -228,7 +229,15 @@ function EmployeesTab({ propertyId }: { propertyId: string }) {
             {departments.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <EmployeeFormDialog propertyId={propertyId} onSuccess={() => {}} />
+        <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setEmpDialogOpen(true)}>
+          <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Employee
+        </Button>
+        <EmployeeFormDialog
+          open={empDialogOpen}
+          onOpenChange={setEmpDialogOpen}
+          propertyId={propertyId}
+          departments={departments}
+        />
       </div>
 
       <Card>
@@ -288,7 +297,7 @@ function EmployeesTab({ propertyId }: { propertyId: string }) {
       </Card>
 
       {total > 20 && (
-        <Pagination currentPage={page} totalPages={Math.ceil(total / 20)} onPageChange={setPage} />
+        <Pagination page={page} totalPages={Math.ceil(total / 20)} onPageChange={(p) => setPage(p)} />
       )}
     </div>
   );
@@ -975,11 +984,18 @@ export default function HrPage() {
 
 // ─── LEGACY TAB CONTENT (preserved from existing page) ───────────────────────
 
-function AttendanceTabContent({ propertyId, queryClient, toast }: any) {
+function AttendanceTabContent({ propertyId, queryClient }: any) {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
+
+  const { data: empData } = useQuery({
+    queryKey: ['hr-employees', propertyId, '', 'ACTIVE', 'all'],
+    queryFn: () => hrApi.employees({ propertyId, status: 'ACTIVE', limit: 200 }).then(r => r.data),
+  });
+  const employees: any[] = empData?.data ?? [];
 
   const { data: attendanceData, isLoading } = useQuery({
     queryKey: ['attendance-report', propertyId, startDate, endDate],
@@ -1008,7 +1024,14 @@ function AttendanceTabContent({ propertyId, queryClient, toast }: any) {
           <Input type="date" className="h-8 w-36 text-xs" value={endDate} onChange={e => setEndDate(e.target.value)} />
         </div>
         <div className="flex-1" />
-        <AttendanceDialog propertyId={propertyId} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['attendance-report'] })} />
+        <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setAttendanceOpen(true)}>
+          <Plus className="w-3.5 h-3.5 mr-1.5" /> Log Attendance
+        </Button>
+        <AttendanceDialog
+          open={attendanceOpen}
+          onOpenChange={(open) => { setAttendanceOpen(open); if (!open) queryClient.invalidateQueries({ queryKey: ['attendance-report'] }); }}
+          employees={employees}
+        />
       </div>
       <Card>
         <CardContent className="p-0">
@@ -1054,6 +1077,13 @@ function AttendanceTabContent({ propertyId, queryClient, toast }: any) {
 
 function LeaveTabContent({ propertyId, queryClient, toast }: any) {
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [leaveOpen, setLeaveOpen] = useState(false);
+
+  const { data: empData } = useQuery({
+    queryKey: ['hr-employees', propertyId, '', 'ACTIVE', 'leave-tab'],
+    queryFn: () => hrApi.employees({ propertyId, status: 'ACTIVE', limit: 200 }).then(r => r.data),
+  });
+  const employees: any[] = empData?.data ?? [];
 
   const { data } = useQuery({
     queryKey: ['leave-requests', propertyId, statusFilter],
@@ -1090,7 +1120,14 @@ function LeaveTabContent({ propertyId, queryClient, toast }: any) {
           </SelectContent>
         </Select>
         <div className="flex-1" />
-        <LeaveRequestDialog propertyId={propertyId} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['leave-requests'] })} />
+        <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setLeaveOpen(true)}>
+          <Plus className="w-3.5 h-3.5 mr-1.5" /> New Request
+        </Button>
+        <LeaveRequestDialog
+          open={leaveOpen}
+          onOpenChange={(open) => { setLeaveOpen(open); if (!open) queryClient.invalidateQueries({ queryKey: ['leave-requests'] }); }}
+          employees={employees}
+        />
       </div>
       <Card>
         <CardContent className="p-0">
@@ -1143,6 +1180,7 @@ function LeaveTabContent({ propertyId, queryClient, toast }: any) {
 
 function PayrollTabContent({ propertyId, queryClient, toast }: any) {
   const [page, setPage] = useState(1);
+  const [payrollOpen, setPayrollOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['payroll-history', propertyId, page],
@@ -1170,7 +1208,14 @@ function PayrollTabContent({ propertyId, queryClient, toast }: any) {
   return (
     <div className="mt-4 space-y-3">
       <div className="flex justify-end">
-        <PayrollDialog propertyId={propertyId} onSuccess={() => queryClient.invalidateQueries({ queryKey: ['payroll-history'] })} />
+        <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setPayrollOpen(true)}>
+          <Plus className="w-3.5 h-3.5 mr-1.5" /> Run Payroll
+        </Button>
+        <PayrollDialog
+          open={payrollOpen}
+          onOpenChange={(open) => { setPayrollOpen(open); if (!open) queryClient.invalidateQueries({ queryKey: ['payroll-history'] }); }}
+          propertyId={propertyId}
+        />
       </div>
       <Card>
         <CardContent className="p-0">
@@ -1223,7 +1268,7 @@ function PayrollTabContent({ propertyId, queryClient, toast }: any) {
           )}
         </CardContent>
       </Card>
-      {total > 20 && <Pagination currentPage={page} totalPages={Math.ceil(total / 20)} onPageChange={setPage} />}
+      {total > 20 && <Pagination page={page} totalPages={Math.ceil(total / 20)} onPageChange={(p) => setPage(p)} />}
     </div>
   );
 }
