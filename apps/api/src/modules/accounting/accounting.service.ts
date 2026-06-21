@@ -267,7 +267,7 @@ export class AccountingService {
             quantity: Number(l.quantity),
             unitPrice: Number(l.unitPrice),
             taxRate: Number(l.taxRate ?? 0),
-            amount: Number(l.quantity) * Number(l.unitPrice),
+            total: Number(l.quantity) * Number(l.unitPrice),
           })),
         },
       },
