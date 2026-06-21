@@ -9,7 +9,10 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
   constructor(private readonly config: ConfigService) {
-    this.resend = new Resend(this.config.get('RESEND_API_KEY'));
+    const apiKey = this.config.get('RESEND_API_KEY');
+    // Resend throws if key is empty string — pass a placeholder so the instance builds;
+    // the send() method skips delivery when no real key is configured.
+    this.resend = new Resend(apiKey || 'placeholder_no_email');
     this.from = this.config.get('EMAIL_FROM') ?? 'noreply@marylandguesthouse.com';
   }
 
