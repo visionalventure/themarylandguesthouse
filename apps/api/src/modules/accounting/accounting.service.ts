@@ -219,6 +219,18 @@ export class AccountingService {
   }
 
   // Invoices
+  async getInvoice(id: string) {
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        guest: { select: { firstName: true, lastName: true, email: true, phone: true } },
+        lineItems: { orderBy: { id: 'asc' } },
+      },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    return invoice;
+  }
+
   async getInvoices(propertyId: string, query: any = {}) {
     const { page = 1, limit = 20, status, search } = query;
     const where: any = { tenantId: propertyId };

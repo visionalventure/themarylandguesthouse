@@ -88,6 +88,12 @@ export class AccountingController {
     return this.service.getInvoices(propertyId, query);
   }
 
+  @Get('invoices/:id')
+  @ApiOperation({ summary: 'Get invoice by ID with line items' })
+  getInvoice(@Param('id') id: string) {
+    return this.service.getInvoice(id);
+  }
+
   @Post('invoices')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, addDays } from 'date-fns';
-import { Plus, Loader2, FileText, DollarSign, Clock, AlertCircle, Trash2, Search } from 'lucide-react';
+import { Plus, Loader2, FileText, DollarSign, Clock, AlertCircle, Trash2, Search, X, Printer, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
 import { accountingApi, guestsApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/auth';
@@ -38,6 +40,7 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const [markPaidId, setMarkPaidId] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState('');
   const [guestId, setGuestId] = useState('');
@@ -53,6 +56,12 @@ export default function InvoicesPage() {
       ...(statusFilter !== 'ALL' ? { status: statusFilter } : {}),
       ...(search ? { search } : {}),
     }).then(r => r.data),
+  });
+
+  const { data: previewData, isLoading: previewLoading } = useQuery({
+    queryKey: ['invoice', previewId],
+    queryFn: () => accountingApi.getInvoice(previewId!).then(r => r.data),
+    enabled: !!previewId,
   });
 
   const { data: guestsData } = useQuery({
@@ -173,7 +182,8 @@ export default function InvoicesPage() {
                   {invoices.map((inv: any) => {
                     const cfg = STATUS_CONFIG[inv.status] ?? STATUS_CONFIG.DRAFT;
                     return (
-                      <tr key={inv.id} className="border-b border-border/50 hover:bg-white/[0.02] transition-colors">
+                      <tr key={inv.id} className="border-b border-border/50 hover:bg-white/[0.02] transition-colors cursor-pointer"
+                        onClick={() => setPreviewId(inv.id)}>
                         <td className="px-4 py-3 font-mono text-xs text-primary">{inv.invoiceNumber}</td>
                         <td className="px-4 py-3">{inv.guest ? `${inv.guest.firstName} ${inv.guest.lastName}` : '—'}</td>
                         <td className="px-4 py-3 text-xs">{inv.issueDate ? format(new Date(inv.issueDate), 'MMM d, yyyy') : '—'}</td>
@@ -181,8 +191,10 @@ export default function InvoicesPage() {
                         <td className="px-4 py-3 font-semibold">${Number(inv.totalAmount ?? 0).toLocaleString()}</td>
                         <td className="px-4 py-3 text-green-400">${Number(inv.paidAmount ?? 0).toLocaleString()}</td>
                         <td className="px-4 py-3"><Badge className={cn('text-[10px] border', cfg.color)}>{cfg.label}</Badge></td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                           <div className="flex gap-1">
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0"
+                              onClick={() => setPreviewId(inv.id)}><Eye className="w-3.5 h-3.5" /></Button>
                             {inv.status === 'DRAFT' && (
                               <Button size="sm" variant="outline" className="h-6 text-xs px-2"
                                 onClick={() => sendMutation.mutate(inv.id)} disabled={sendMutation.isPending}>Send</Button>
@@ -261,6 +273,126 @@ export default function InvoicesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Preview Sheet */}
+      <Sheet open={!!previewId} onOpenChange={(v) => { if (!v) setPreviewId(null); }}>
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+          {previewLoading ? (
+            <div className="flex items-center justify-center h-64"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+          ) : previewData ? (() => {
+            const inv = previewData;
+            const cfg = STATUS_CONFIG[inv.status] ?? STATUS_CONFIG.DRAFT;
+            const subtotal = (inv.lineItems ?? []).reduce((s: number, l: any) => s + Number(l.quantity) * Number(l.unitPrice), 0);
+            const tax = Number(inv.taxAmount ?? 0);
+            const total = Number(inv.totalAmount ?? 0);
+            const paid = Number(inv.paidAmount ?? 0);
+            const balance = total - paid;
+            return (
+              <>
+                <SheetHeader className="mb-6">
+                  <div className="flex items-center justify-between">
+                    <SheetTitle className="text-lg font-bold font-mono text-primary">{inv.invoiceNumber}</SheetTitle>
+                    <div className="flex items-center gap-2">
+                      <Badge className={cn('text-[10px] border', cfg.color)}>{cfg.label}</Badge>
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5"
+                        onClick={() => window.print()}><Printer className="w-3.5 h-3.5" /> Print</Button>
+                    </div>
+                  </div>
+                </SheetHeader>
+
+                {/* Guest & Dates */}
+                <div className="grid grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Bill To</p>
+                    {inv.guest ? (
+                      <>
+                        <p className="font-semibold">{inv.guest.firstName} {inv.guest.lastName}</p>
+                        {inv.guest.email && <p className="text-xs text-muted-foreground">{inv.guest.email}</p>}
+                        {inv.guest.phone && <p className="text-xs text-muted-foreground">{inv.guest.phone}</p>}
+                      </>
+                    ) : <p className="text-muted-foreground text-sm">—</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Issue Date</span>
+                      <span>{inv.issueDate ? format(new Date(inv.issueDate), 'MMM d, yyyy') : '—'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Due Date</span>
+                      <span>{inv.dueDate ? format(new Date(inv.dueDate), 'MMM d, yyyy') : '—'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator className="mb-6" />
+
+                {/* Line Items */}
+                <div className="mb-6">
+                  <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Line Items</p>
+                  <div className="rounded-xl border border-border overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/30">
+                          <th className="px-3 py-2 text-left text-xs text-muted-foreground">Description</th>
+                          <th className="px-3 py-2 text-right text-xs text-muted-foreground">Qty</th>
+                          <th className="px-3 py-2 text-right text-xs text-muted-foreground">Unit Price</th>
+                          <th className="px-3 py-2 text-right text-xs text-muted-foreground">Tax</th>
+                          <th className="px-3 py-2 text-right text-xs text-muted-foreground">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(inv.lineItems ?? []).map((l: any, i: number) => {
+                          const lineTotal = Number(l.quantity) * Number(l.unitPrice);
+                          const lineTax = lineTotal * (Number(l.taxRate ?? 0) / 100);
+                          return (
+                            <tr key={i} className="border-b border-border/50 last:border-0">
+                              <td className="px-3 py-2">{l.description}</td>
+                              <td className="px-3 py-2 text-right">{Number(l.quantity)}</td>
+                              <td className="px-3 py-2 text-right">${Number(l.unitPrice).toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right text-muted-foreground">{Number(l.taxRate ?? 0)}%</td>
+                              <td className="px-3 py-2 text-right font-medium">${(lineTotal + lineTax).toFixed(2)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Totals */}
+                <div className="rounded-xl border border-border p-4 space-y-2 mb-6">
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Tax</span><span>${tax.toFixed(2)}</span></div>
+                  <Separator />
+                  <div className="flex justify-between font-bold"><span>Total</span><span>${total.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-sm text-green-400"><span>Paid</span><span>${paid.toFixed(2)}</span></div>
+                  {balance > 0 && <div className="flex justify-between font-semibold text-amber-400"><span>Balance Due</span><span>${balance.toFixed(2)}</span></div>}
+                </div>
+
+                {inv.notes && (
+                  <div className="mb-6">
+                    <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                    <p className="text-sm">{inv.notes}</p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  {inv.status === 'DRAFT' && (
+                    <Button className="flex-1" onClick={() => { sendMutation.mutate(inv.id); setPreviewId(null); }}
+                      disabled={sendMutation.isPending}>Mark as Sent</Button>
+                  )}
+                  {['SENT', 'PARTIALLY_PAID', 'OVERDUE'].includes(inv.status) && (
+                    <Button className="flex-1" onClick={() => { setMarkPaidId(inv.id); setPayAmount(String(balance)); setPreviewId(null); }}>
+                      Record Payment
+                    </Button>
+                  )}
+                </div>
+              </>
+            );
+          })() : null}
+        </SheetContent>
+      </Sheet>
 
       {/* Mark Paid Dialog */}
       <Dialog open={!!markPaidId} onOpenChange={(v) => { if (!v) { setMarkPaidId(null); setPayAmount(''); } }}>
