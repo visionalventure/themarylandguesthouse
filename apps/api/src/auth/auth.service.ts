@@ -13,6 +13,7 @@ import * as QRCode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { EmailService } from '../modules/email/email.service';
 import { LoginDto, RegisterDto, ChangePasswordDto } from './dto/auth.dto';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private config: ConfigService,
+    private emailService: EmailService,
   ) {}
 
   async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
@@ -255,7 +257,16 @@ export class AuthService {
       },
     });
 
-    // TODO: send reset email via email service in production
+    const appUrl = this.config.get('APP_URL') ?? 'http://localhost:3000';
+    const resetUrl = `${appUrl}/reset-password?token=${token}`;
+    this.emailService
+      .sendPasswordReset({
+        to: user.email,
+        name: `${user.firstName} ${user.lastName}`,
+        resetUrl,
+        propertyName: 'Maryland Guesthouse',
+      })
+      .catch(() => {/* fire-and-forget */});
     return { message: 'If that email exists, a reset link has been sent.' };
   }
 

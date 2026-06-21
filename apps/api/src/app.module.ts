@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { BootstrapService } from './common/bootstrap/bootstrap.service';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -26,9 +28,13 @@ import { NightAuditModule } from './modules/nightaudit/nightaudit.module';
 import { SearchModule } from './modules/search/search.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
 import { StorageModule } from './common/storage/storage.module';
+import { EmailModule } from './modules/email/email.module';
 
 @Module({
-  providers: [BootstrapService],
+  providers: [
+    BootstrapService,
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+  ],
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
@@ -56,6 +62,7 @@ import { StorageModule } from './common/storage/storage.module';
     SearchModule,
     AssistantModule,
     StorageModule,
+    EmailModule,
   ],
 })
 export class AppModule {}

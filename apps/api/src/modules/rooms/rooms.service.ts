@@ -83,4 +83,54 @@ export class RoomsService {
   async getCategories(propertyId: string) {
     return this.prisma.roomCategory.findMany({ where: { propertyId } });
   }
+
+  async getRoomPricing(roomId: string) {
+    return this.prisma.roomPricing.findMany({
+      where: { roomId },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async createRoomPricing(roomId: string, dto: any) {
+    const { name, pricePerNight, startDate, endDate, isDefault, minNights } = dto;
+    if (isDefault) {
+      await this.prisma.roomPricing.updateMany({ where: { roomId, isDefault: true }, data: { isDefault: false } });
+    }
+    return this.prisma.roomPricing.create({
+      data: {
+        roomId,
+        name,
+        pricePerNight: Number(pricePerNight),
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        isDefault: isDefault ?? false,
+        minNights: Number(minNights ?? 1),
+      },
+    });
+  }
+
+  async updateRoomPricing(pricingId: string, dto: any) {
+    const { name, pricePerNight, startDate, endDate, isDefault, minNights } = dto;
+    if (isDefault) {
+      const pricing = await this.prisma.roomPricing.findUnique({ where: { id: pricingId } });
+      if (pricing) {
+        await this.prisma.roomPricing.updateMany({ where: { roomId: pricing.roomId, isDefault: true }, data: { isDefault: false } });
+      }
+    }
+    return this.prisma.roomPricing.update({
+      where: { id: pricingId },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(pricePerNight !== undefined && { pricePerNight: Number(pricePerNight) }),
+        ...(startDate !== undefined && { startDate: startDate ? new Date(startDate) : null }),
+        ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
+        ...(isDefault !== undefined && { isDefault }),
+        ...(minNights !== undefined && { minNights: Number(minNights) }),
+      },
+    });
+  }
+
+  async deleteRoomPricing(pricingId: string) {
+    return this.prisma.roomPricing.delete({ where: { id: pricingId } });
+  }
 }

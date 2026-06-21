@@ -249,9 +249,13 @@ function EmployeesTab({ propertyId }: { propertyId: string }) {
           {isLoading ? (
             <div className="py-12 text-center text-muted-foreground text-sm">Loading employees…</div>
           ) : employees.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground text-sm">
-              <Users2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              No employees found.
+            <div className="py-16 text-center">
+              <Users2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+              <p className="text-base font-medium text-foreground">No employees yet</p>
+              <p className="text-sm text-muted-foreground mt-1">Add your first employee to manage contracts, payroll, and schedules.</p>
+              <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setEmpDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Add Employee
+              </Button>
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -367,9 +371,10 @@ function DisciplinaryTab({ propertyId }: { propertyId: string }) {
           {isLoading ? (
             <div className="py-12 text-center text-muted-foreground text-sm">Loading…</div>
           ) : cases.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground text-sm">
-              <ShieldAlert className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              No disciplinary cases found.
+            <div className="py-12 text-center">
+              <ShieldAlert className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground">No disciplinary cases</p>
+              <p className="text-xs text-muted-foreground mt-1">Disciplinary cases filed for employees will appear here.</p>
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -544,7 +549,11 @@ function PayrollDeductionsTab({ propertyId }: { propertyId: string }) {
           {isLoading ? (
             <div className="py-8 text-center text-muted-foreground text-sm">Loading…</div>
           ) : deductions.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground text-sm">No deductions found.</div>
+            <div className="py-12 text-center">
+              <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground">No deductions found</p>
+              <p className="text-xs text-muted-foreground mt-1">Deductions are created when you process payroll for employees.</p>
+            </div>
           ) : (
             <table className="w-full text-sm">
               <thead>
@@ -704,7 +713,11 @@ function AnomaliesTab({ propertyId }: { propertyId: string }) {
           {isLoading ? (
             <div className="py-8 text-center text-muted-foreground text-sm">Loading…</div>
           ) : anomalies.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground text-sm">No anomalies found for this filter.</div>
+            <div className="py-12 text-center">
+              <AlertTriangle className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground">No anomalies detected</p>
+              <p className="text-xs text-muted-foreground mt-1">Attendance anomalies will appear here when flagged by the system.</p>
+            </div>
           ) : (
             <table className="w-full text-sm">
               <thead>
@@ -821,7 +834,11 @@ function LoansTab({ propertyId }: { propertyId: string }) {
           {isLoading ? (
             <div className="py-8 text-center text-muted-foreground text-sm">Loading…</div>
           ) : loans.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground text-sm">No loans found.</div>
+            <div className="py-12 text-center">
+              <FileClock className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground">No loans found</p>
+              <p className="text-xs text-muted-foreground mt-1">Employee loan records will appear here once created.</p>
+            </div>
           ) : (
             <table className="w-full text-sm">
               <thead>
@@ -1046,7 +1063,11 @@ function AttendanceTabContent({ propertyId, queryClient }: any) {
           {isLoading ? (
             <div className="py-8 text-center text-muted-foreground text-sm">Loading…</div>
           ) : records.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground text-sm">No attendance records for this range.</div>
+            <div className="py-12 text-center">
+              <Clock className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground">No attendance records</p>
+              <p className="text-xs text-muted-foreground mt-1">Attendance records for this date range will appear here.</p>
+            </div>
           ) : (
             <table className="w-full text-sm">
               <thead>
@@ -1140,7 +1161,11 @@ function LeaveTabContent({ propertyId, queryClient, toast }: any) {
       <Card>
         <CardContent className="p-0">
           {requests.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground text-sm">No leave requests found.</div>
+            <div className="py-12 text-center">
+              <CalendarCheck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground">No leave requests</p>
+              <p className="text-xs text-muted-foreground mt-1">Leave requests submitted by employees will appear here for approval.</p>
+            </div>
           ) : (
             <table className="w-full text-sm">
               <thead>
@@ -1230,7 +1255,14 @@ function PayrollTabContent({ propertyId, queryClient, toast }: any) {
           {isLoading ? (
             <div className="py-8 text-center text-muted-foreground text-sm">Loading…</div>
           ) : records.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground text-sm">No payroll records. Run payroll to generate.</div>
+            <div className="py-12 text-center">
+              <UserCheck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground">No payroll records yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Run payroll to generate records for the current period.</p>
+              <Button className="mt-3 bg-primary hover:bg-primary/90 text-primary-foreground" size="sm" onClick={() => setPayrollOpen(true)}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Run Payroll
+              </Button>
+            </div>
           ) : (
             <table className="w-full text-sm">
               <thead>

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RoomsService } from './rooms.service';
@@ -50,5 +50,29 @@ export class RoomsController {
   @ApiOperation({ summary: 'Update room status' })
   updateStatus(@Param('id') id: string, @Body() body: { status: string }) {
     return this.service.updateStatus(id, body.status);
+  }
+
+  @Get(':id/pricing')
+  @ApiOperation({ summary: 'Get pricing rules for a room' })
+  getRoomPricing(@Param('id') id: string) {
+    return this.service.getRoomPricing(id);
+  }
+
+  @Post(':id/pricing')
+  @ApiOperation({ summary: 'Add a pricing rule to a room' })
+  createRoomPricing(@Param('id') id: string, @Body() dto: any) {
+    return this.service.createRoomPricing(id, dto);
+  }
+
+  @Put('pricing/:pricingId')
+  @ApiOperation({ summary: 'Update a room pricing rule' })
+  updateRoomPricing(@Param('pricingId') pricingId: string, @Body() dto: any) {
+    return this.service.updateRoomPricing(pricingId, dto);
+  }
+
+  @Delete('pricing/:pricingId')
+  @ApiOperation({ summary: 'Delete a room pricing rule' })
+  deleteRoomPricing(@Param('pricingId') pricingId: string) {
+    return this.service.deleteRoomPricing(pricingId);
   }
 }

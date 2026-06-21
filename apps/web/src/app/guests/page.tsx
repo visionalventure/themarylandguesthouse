@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import {
-  Plus, Search, Star, Crown, Phone, Mail, Globe, Shield, Loader2,
+  Plus, Search, Star, Crown, Phone, Mail, Globe, Shield, Loader2, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +56,7 @@ export default function GuestsPage() {
   const [privacyType, setPrivacyType] = useState('STANDARD');
   const debouncedSearch = useDebouncedValue(search, 300);
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['guests', debouncedSearch, page],
     queryFn: () => guestsApi.list({ tenantId: propertyId, search: debouncedSearch, limit: 24, page }).then((r) => r.data),
   });
@@ -128,6 +128,18 @@ export default function GuestsPage() {
       </Card>
 
       {/* Guest Cards */}
+      {guests.length === 0 && !isLoading && (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-base font-medium text-foreground">No guests yet</p>
+            <p className="text-sm text-muted-foreground mt-1">Add your first guest to start tracking stays and loyalty points.</p>
+            <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" /> Add Guest
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       <StaggerGrid className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {guests.map((guest: any) => {
           const tier = guest.loyaltyAccount?.tier || 'BRONZE';

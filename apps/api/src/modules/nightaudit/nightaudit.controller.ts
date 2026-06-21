@@ -12,6 +12,14 @@ import { NightAuditService } from './nightaudit.service';
 export class NightAuditController {
   constructor(private readonly service: NightAuditService) {}
 
+  @Post('preview')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'Preview night audit — returns expected summary without posting any charges' })
+  previewAudit(@Body() dto: { propertyId: string; auditDate: string }) {
+    return this.service.previewAudit(dto.propertyId, dto.auditDate);
+  }
+
   @Post('run')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')

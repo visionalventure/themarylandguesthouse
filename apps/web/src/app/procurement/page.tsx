@@ -132,7 +132,14 @@ export default function ProcurementPage() {
           <Card className="mt-4">
             <CardContent className="p-0">
               {prs.length === 0 ? (
-                <div className="py-16 text-center text-muted-foreground text-sm">No purchase requests yet.</div>
+                <div className="py-16 text-center">
+                  <ShoppingCart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                  <p className="text-base font-medium text-foreground">No purchase requests yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">Create a purchase request to initiate the procurement workflow.</p>
+                  <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setPrDialogOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" /> New Request
+                  </Button>
+                </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10 bg-background">
@@ -188,7 +195,11 @@ export default function ProcurementPage() {
           <Card className="mt-4">
             <CardContent className="p-0">
               {pos.length === 0 ? (
-                <div className="py-16 text-center text-muted-foreground text-sm">No purchase orders yet.</div>
+                <div className="py-16 text-center">
+                  <Package className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                  <p className="text-base font-medium text-foreground">No purchase orders yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">Purchase orders are generated when purchase requests are approved.</p>
+                </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10 bg-background">
@@ -226,7 +237,14 @@ export default function ProcurementPage() {
         <TabsContent value="suppliers">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
             {suppliers.length === 0 ? (
-              <div className="col-span-full py-16 text-center text-muted-foreground text-sm">No suppliers added yet.</div>
+              <div className="col-span-full py-16 text-center">
+                <Building2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                <p className="text-base font-medium text-foreground">No suppliers added yet</p>
+                <p className="text-sm text-muted-foreground mt-1">Add suppliers to link them to purchase orders and track vendor relationships.</p>
+                <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setSupplierDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" /> Add Supplier
+                </Button>
+              </div>
             ) : (
               suppliers.map(s => (
                 <Card key={s.id}>

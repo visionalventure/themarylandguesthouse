@@ -113,7 +113,7 @@ export class SettingsService {
     const { entityType, userId, page = 1, limit = 50 } = query;
     const skip = (Number(page) - 1) * Number(limit);
     const where: any = { tenantId };
-    if (entityType) where.entityType = entityType;
+    if (entityType) where.entity = entityType;
     if (userId) where.userId = userId;
 
     const [data, total] = await Promise.all([

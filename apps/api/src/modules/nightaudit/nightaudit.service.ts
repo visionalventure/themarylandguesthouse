@@ -127,6 +127,58 @@ export class NightAuditService {
     };
   }
 
+  async previewAudit(propertyId: string, auditDateStr: string) {
+    const auditDate = new Date(auditDateStr);
+    const dayStart = startOfDay(auditDate);
+    const dayEnd = endOfDay(auditDate);
+
+    const [arrivals, departures, occupied, allRooms, revenueData, paymentData] = await Promise.all([
+      this.prisma.reservation.count({
+        where: { propertyId, checkIn: { gte: dayStart, lte: dayEnd }, status: { in: ['CHECKED_IN', 'RESERVED', 'CONFIRMED'] } },
+      }),
+      this.prisma.reservation.count({
+        where: { propertyId, checkOut: { gte: dayStart, lte: dayEnd }, status: 'CHECKED_OUT' },
+      }),
+      this.prisma.room.count({ where: { propertyId, status: 'OCCUPIED' } }),
+      this.prisma.room.count({ where: { propertyId, isActive: true } }),
+      this.prisma.reservationCharge.aggregate({
+        _sum: { amount: true },
+        where: { reservation: { propertyId }, createdAt: { gte: dayStart, lte: dayEnd } },
+      }),
+      this.prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: { reservation: { propertyId }, status: 'COMPLETED', processedAt: { gte: dayStart, lte: dayEnd } },
+      }),
+    ]);
+
+    // Count charges that WOULD be posted (without creating them)
+    const checkedInReservations = await this.prisma.reservation.findMany({
+      where: { propertyId, status: 'CHECKED_IN' },
+      include: { rooms: true },
+    });
+    const wouldPostCharges = checkedInReservations.reduce((sum, r) => sum + r.rooms.length, 0);
+
+    const noShowCount = await this.prisma.reservation.count({
+      where: { propertyId, status: { in: ['RESERVED', 'CONFIRMED'] }, checkIn: { lt: dayStart } },
+    });
+
+    const occupancyRate = allRooms > 0 ? Math.round((occupied / allRooms) * 100) : 0;
+
+    return {
+      summary: {
+        arrivals,
+        departures,
+        noShows: noShowCount,
+        occupancyRate,
+        roomsOccupied: occupied,
+        roomsAvailable: allRooms - occupied,
+        totalRevenue: Number(revenueData._sum.amount ?? 0),
+        totalPayments: Number(paymentData._sum.amount ?? 0),
+        nightlyChargesPosted: wouldPostCharges,
+      },
+    };
+  }
+
   async closeAudit(id: string) {
     return this.prisma.nightAudit.update({
       where: { id },

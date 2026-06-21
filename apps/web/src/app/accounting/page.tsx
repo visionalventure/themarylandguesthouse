@@ -7,8 +7,12 @@ import { format } from 'date-fns';
 import {
   BookOpen, TrendingUp, TrendingDown, DollarSign,
   FileText, Building2, Receipt, BarChart3, Plus, ChevronRight,
-  CreditCard, Loader2, Download,
+  CreditCard, Loader2, Download, PiggyBank,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,7 +50,7 @@ function AccountingContent() {
   const router = useRouter();
   const initialTab = searchParams.get('tab');
   const [tab, setTab] = useState(
-    initialTab && ['overview', 'accounts', 'trial', 'journal', 'banking', 'receivables'].includes(initialTab)
+    initialTab && ['overview', 'accounts', 'trial', 'journal', 'banking', 'receivables', 'budget'].includes(initialTab)
       ? initialTab : 'overview',
   );
   const [selectedBankAccountId, setSelectedBankAccountId] = useState<string | null>(null);
@@ -268,6 +272,7 @@ function AccountingContent() {
           <TabsTrigger value="journal">Journal Entries</TabsTrigger>
           <TabsTrigger value="banking">Banking</TabsTrigger>
           <TabsTrigger value="receivables">Aged Receivables</TabsTrigger>
+          <TabsTrigger value="budget">Budget</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -629,8 +634,177 @@ function AccountingContent() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Budget Tab */}
+        <TabsContent value="budget" className="mt-4">
+          <BudgetTab propertyId={propertyId} />
+        </TabsContent>
       </Tabs>
     </FadeIn>
+  );
+}
+
+function BudgetTab({ propertyId }: { propertyId: string }) {
+  const queryClient = useQueryClient();
+  const [selectedBudgetId, setSelectedBudgetId] = useState<string>('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newBudget, setNewBudget] = useState({ name: '', period: 'ANNUAL', startDate: '', endDate: '' });
+
+  const { data: budgets = [] } = useQuery({
+    queryKey: ['budgets', propertyId],
+    queryFn: () => accountingApi.getBudgets(propertyId).then(r => r.data),
+    enabled: !!propertyId,
+  });
+
+  const budgetList: any[] = Array.isArray(budgets) ? budgets : (budgets as any).data ?? [];
+  const activeBudgetId = selectedBudgetId || budgetList[0]?.id;
+
+  const { data: budgetDetail, isLoading: loadingDetail } = useQuery({
+    queryKey: ['budget-detail', activeBudgetId],
+    queryFn: () => accountingApi.getBudget(activeBudgetId).then(r => r.data),
+    enabled: !!activeBudgetId,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: () => accountingApi.createBudget({ ...newBudget, propertyId }).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['budgets', propertyId] });
+      setCreateOpen(false);
+      setNewBudget({ name: '', period: 'ANNUAL', startDate: '', endDate: '' });
+    },
+  });
+
+  const lines: any[] = budgetDetail?.lines ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Select value={activeBudgetId ?? ''} onValueChange={setSelectedBudgetId}>
+            <SelectTrigger className="w-52 h-9 text-sm">
+              <SelectValue placeholder="Select budget" />
+            </SelectTrigger>
+            <SelectContent>
+              {budgetList.map((b: any) => (
+                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {budgetDetail && (
+            <span className="text-xs text-muted-foreground">
+              {format(new Date(budgetDetail.startDate), 'dd MMM yyyy')} — {format(new Date(budgetDetail.endDate), 'dd MMM yyyy')}
+            </span>
+          )}
+        </div>
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" /> New Budget
+        </Button>
+      </div>
+
+      {budgetList.length === 0 ? (
+        <Card><CardContent className="py-16 text-center">
+          <PiggyBank className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+          <p className="text-base font-medium text-foreground">No budgets yet</p>
+          <p className="text-sm text-muted-foreground mt-1">Create your first budget to track spending against targets.</p>
+          <Button className="mt-4" onClick={() => setCreateOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Create Budget
+          </Button>
+        </CardContent></Card>
+      ) : loadingDetail ? (
+        <div className="py-12 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+      ) : lines.length === 0 ? (
+        <Card><CardContent className="py-12 text-center text-muted-foreground text-sm">No budget lines added yet.</CardContent></Card>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40">
+                    {['Account', 'Budgeted', 'Actual', 'Variance', 'Status'].map(h => (
+                      <th key={h} className={cn('px-4 py-3 text-xs font-semibold text-muted-foreground', h !== 'Account' && 'text-right')}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((line: any) => {
+                    const variance = Number(line.amount) - (Number(line.actual) || 0);
+                    const overBudget = variance < 0;
+                    return (
+                      <tr key={line.id} className="border-b border-border/50 hover:bg-muted/20">
+                        <td className="px-4 py-3 font-medium text-foreground">{line.accountName}</td>
+                        <td className="px-4 py-3 text-right">${Number(line.amount).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right">${Number(line.actual ?? 0).toLocaleString()}</td>
+                        <td className={cn('px-4 py-3 text-right font-semibold', overBudget ? 'text-red-400' : 'text-green-400')}>
+                          {overBudget ? '-' : '+'}${Math.abs(variance).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Badge variant="outline" className={overBudget
+                            ? 'border-red-500/20 bg-red-500/10 text-red-400 text-[10px]'
+                            : 'border-green-500/20 bg-green-500/10 text-green-400 text-[10px]'}>
+                            {overBudget ? 'Over' : 'On Track'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-border bg-muted/30">
+                    <td className="px-4 py-3 font-semibold">Total</td>
+                    <td className="px-4 py-3 text-right font-semibold">${lines.reduce((s, l) => s + Number(l.amount), 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right font-semibold">${lines.reduce((s, l) => s + Number(l.actual ?? 0), 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right font-semibold"></td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Create Budget Dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Create Budget</DialogTitle></DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div className="space-y-1.5">
+              <Label>Budget Name</Label>
+              <Input placeholder="e.g. 2025 Annual Budget" value={newBudget.name} onChange={e => setNewBudget(p => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Period</Label>
+              <Select value={newBudget.period} onValueChange={v => setNewBudget(p => ({ ...p, period: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MONTHLY">Monthly</SelectItem>
+                  <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                  <SelectItem value="ANNUAL">Annual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Start Date</Label>
+                <Input type="date" value={newBudget.startDate} onChange={e => setNewBudget(p => ({ ...p, startDate: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>End Date</Label>
+                <Input type="date" value={newBudget.endDate} onChange={e => setNewBudget(p => ({ ...p, endDate: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !newBudget.name || !newBudget.startDate || !newBudget.endDate}>
+              {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 

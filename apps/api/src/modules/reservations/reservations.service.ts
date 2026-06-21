@@ -1,9 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { EmailService } from '../email/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { format } from 'date-fns';
 
 @Injectable()
 export class ReservationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   async findAll(propertyId: string, tenantId: string, query: any = {}) {
     const { status, checkIn, checkOut, guestName, page = 1, limit = 20 } = query;
@@ -121,6 +128,36 @@ export class ReservationsService {
           notes: 'Deposit collected at booking',
         },
       });
+    }
+
+    // Fire notification for ADMIN/MANAGER
+    const notifTenantId = tenantId ?? propertyId;
+    if (notifTenantId) {
+      this.notificationsService
+        .createNotification({
+          tenantId: notifTenantId,
+          title: 'New Reservation',
+          body: `${reservation.guest ? `${reservation.guest.firstName} ${reservation.guest.lastName}` : 'Guest'} — ${reservation.reservationNo}, Check-in ${format(new Date(checkIn), 'dd MMM yyyy')}`,
+          type: 'INFO',
+          referenceId: reservation.id,
+          referenceType: 'RESERVATION',
+        })
+        .catch(() => {/* fire-and-forget */});
+    }
+
+    if (reservation.guest?.email) {
+      const roomNumbers = roomRecords.map((r) => r.roomNumber);
+      this.emailService
+        .sendBookingConfirmation({
+          to: reservation.guest.email,
+          guestName: `${reservation.guest.firstName} ${reservation.guest.lastName}`,
+          reservationNo: reservation.reservationNo,
+          checkIn: format(new Date(checkIn), 'dd MMM yyyy'),
+          checkOut: format(new Date(checkOut), 'dd MMM yyyy'),
+          roomNumbers,
+          propertyName: 'Maryland Guesthouse',
+        })
+        .catch(() => {/* fire-and-forget */});
     }
 
     return reservation;

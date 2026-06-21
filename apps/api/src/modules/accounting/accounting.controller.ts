@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Request, Delete } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -132,5 +132,69 @@ export class AccountingController {
   @ApiOperation({ summary: 'Get bank account transactions' })
   getBankTransactions(@Param('id') id: string, @Query() query: any) {
     return this.service.getBankTransactions(id, query);
+  }
+
+  @Post('reconciliation/start')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
+  @ApiOperation({ summary: 'Start bank reconciliation session' })
+  startReconciliation(@Body() dto: { bankAccountId: string; closingBalance: number; statementDate: string }) {
+    return this.service.startReconciliation(dto.bankAccountId, dto.closingBalance, dto.statementDate);
+  }
+
+  @Get('reconciliation/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
+  @ApiOperation({ summary: 'Get reconciliation session and unreconciled transactions' })
+  getReconciliation(@Param('id') id: string) {
+    return this.service.getReconciliation(id);
+  }
+
+  @Patch('reconciliation/:id/transaction/:txnId')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
+  @ApiOperation({ summary: 'Mark transaction as reconciled' })
+  reconcileTransaction(@Param('id') reconId: string, @Param('txnId') txnId: string) {
+    return this.service.reconcileTransaction(reconId, txnId);
+  }
+
+  @Patch('reconciliation/:id/finalize')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
+  @ApiOperation({ summary: 'Finalize reconciliation session' })
+  finalizeReconciliation(@Param('id') id: string) {
+    return this.service.finalizeReconciliation(id);
+  }
+
+  @Get('budgets')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
+  @ApiOperation({ summary: 'List budgets for a property' })
+  getBudgets(@Query('propertyId') propertyId: string) {
+    return this.service.getBudgets(propertyId);
+  }
+
+  @Post('budgets')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
+  @ApiOperation({ summary: 'Create a budget with line items' })
+  createBudget(@Body() dto: any, @Request() req: any) {
+    return this.service.createBudget({ ...dto, propertyId: dto.propertyId ?? req.user.tenantId });
+  }
+
+  @Get('budgets/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
+  @ApiOperation({ summary: 'Get budget with actuals vs. budget comparison' })
+  getBudget(@Param('id') id: string) {
+    return this.service.getBudget(id);
+  }
+
+  @Patch('budgets/:id/lines/:lineId')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
+  @ApiOperation({ summary: 'Update a budget line amount' })
+  updateBudgetLine(@Param('id') budgetId: string, @Param('lineId') lineId: string, @Body() dto: { amount: number }) {
+    return this.service.updateBudgetLine(budgetId, lineId, dto);
   }
 }

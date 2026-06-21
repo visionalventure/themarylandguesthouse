@@ -25,6 +25,7 @@ import {
   Hotel,
   Moon,
   Search,
+  Activity,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -86,6 +87,7 @@ const navSections = [
     items: [
       { name: 'Documents',   href: '/documents',   icon: FileText },
       { name: 'Properties',  href: '/properties',  icon: Building2 },
+      { name: 'Activity Log', href: '/activity',   icon: Activity },
       { name: 'Settings',    href: '/settings',    icon: Settings },
     ],
   },

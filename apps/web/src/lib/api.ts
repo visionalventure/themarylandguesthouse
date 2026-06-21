@@ -88,6 +88,7 @@ export const folioApi = {
 };
 
 export const nightAuditApi = {
+  preview: (data: { propertyId: string; auditDate: string }) => api.post('/v1/nightaudit/preview', data),
   run:     (data: { propertyId: string; auditDate: string }) => api.post('/v1/nightaudit/run', data),
   history: (propertyId: string) => api.get('/v1/nightaudit/history', { params: { propertyId } }),
   get:     (id: string) => api.get(`/v1/nightaudit/${id}`),
@@ -123,6 +124,10 @@ export const roomsApi = {
   update: (id: string, data: any) => api.put(`/v1/rooms/${id}`, data),
   updateStatus: (id: string, status: string) => api.patch(`/v1/rooms/${id}/status`, { status }),
   categories: (propertyId: string) => api.get(`/v1/rooms/categories?propertyId=${propertyId}`),
+  getPricing: (roomId: string) => api.get(`/v1/rooms/${roomId}/pricing`),
+  createPricing: (roomId: string, data: any) => api.post(`/v1/rooms/${roomId}/pricing`, data),
+  updatePricing: (pricingId: string, data: any) => api.put(`/v1/rooms/pricing/${pricingId}`, data),
+  deletePricing: (pricingId: string) => api.delete(`/v1/rooms/pricing/${pricingId}`),
 };
 
 export const accountingApi = {
@@ -145,6 +150,19 @@ export const accountingApi = {
   createInvoice: (data: any) => api.post('/v1/accounting/invoices', data),
   sendInvoice: (id: string) => api.patch(`/v1/accounting/invoices/${id}/send`, {}),
   markInvoicePaid: (id: string, data: any) => api.patch(`/v1/accounting/invoices/${id}/mark-paid`, data),
+  // Bank reconciliation
+  startReconciliation: (data: { bankAccountId: string; closingBalance: number; statementDate: string }) =>
+    api.post('/v1/accounting/reconciliation/start', data),
+  getReconciliation: (id: string) => api.get(`/v1/accounting/reconciliation/${id}`),
+  reconcileTransaction: (reconId: string, txnId: string) =>
+    api.patch(`/v1/accounting/reconciliation/${reconId}/transaction/${txnId}`, {}),
+  finalizeReconciliation: (id: string) => api.patch(`/v1/accounting/reconciliation/${id}/finalize`, {}),
+  // Budgets
+  getBudgets: (propertyId: string) => api.get('/v1/accounting/budgets', { params: { propertyId } }),
+  createBudget: (data: any) => api.post('/v1/accounting/budgets', data),
+  getBudget: (id: string) => api.get(`/v1/accounting/budgets/${id}`),
+  updateBudgetLine: (budgetId: string, lineId: string, data: { amount: number }) =>
+    api.patch(`/v1/accounting/budgets/${budgetId}/lines/${lineId}`, data),
 };
 
 export const hrApi = {

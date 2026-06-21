@@ -295,7 +295,9 @@ export default function InvoicesPage() {
                     <div className="flex items-center gap-2">
                       <Badge className={cn('text-[10px] border', cfg.color)}>{cfg.label}</Badge>
                       <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5"
-                        onClick={() => window.print()}><Printer className="w-3.5 h-3.5" /> Print</Button>
+                        onClick={() => window.open(`/accounting/invoices/${inv.id}/print`, '_blank')}>
+                        <Printer className="w-3.5 h-3.5" /> Download PDF
+                      </Button>
                     </div>
                   </div>
                 </SheetHeader>

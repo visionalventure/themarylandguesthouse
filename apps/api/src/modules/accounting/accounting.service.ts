@@ -1,9 +1,16 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { EmailService } from '../email/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { format } from 'date-fns';
 
 @Injectable()
 export class AccountingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   // Chart of Accounts
   async getChartOfAccounts(propertyId: string) {
@@ -288,10 +295,36 @@ export class AccountingService {
   }
 
   async sendInvoice(id: string) {
-    const invoice = await this.prisma.invoice.findUnique({ where: { id } });
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id },
+      include: { guest: { select: { firstName: true, lastName: true, email: true } } },
+    });
     if (!invoice) throw new NotFoundException();
     if (invoice.status !== 'DRAFT') throw new BadRequestException('Only DRAFT invoices can be sent');
-    return this.prisma.invoice.update({ where: { id }, data: { status: 'SENT', sentAt: new Date() } });
+    const updated = await this.prisma.invoice.update({ where: { id }, data: { status: 'SENT', sentAt: new Date() } });
+    this.notificationsService
+      .createNotification({
+        tenantId: invoice.tenantId,
+        title: 'Invoice Sent',
+        body: `Invoice ${invoice.invoiceNumber} sent to ${invoice.guest ? `${invoice.guest.firstName} ${invoice.guest.lastName}` : 'guest'} — $${Number(invoice.totalAmount).toLocaleString()}`,
+        type: 'SUCCESS',
+        referenceId: invoice.id,
+        referenceType: 'INVOICE',
+      })
+      .catch(() => {/* fire-and-forget */});
+    if (invoice.guest?.email) {
+      this.emailService
+        .sendInvoiceEmail({
+          to: invoice.guest.email,
+          guestName: `${invoice.guest.firstName} ${invoice.guest.lastName}`,
+          invoiceNumber: invoice.invoiceNumber,
+          dueDate: format(new Date(invoice.dueDate), 'dd MMM yyyy'),
+          totalAmount: `$${Number(invoice.totalAmount).toLocaleString()}`,
+          propertyName: 'Maryland Guesthouse',
+        })
+        .catch(() => {/* fire-and-forget */});
+    }
+    return updated;
   }
 
   async markInvoicePaid(id: string, dto: { amount: number }) {
@@ -302,6 +335,132 @@ export class AccountingService {
     return this.prisma.invoice.update({
       where: { id },
       data: { paidAmount: newPaid, status, ...(status === 'PAID' ? { paidAt: new Date() } : {}) },
+    });
+  }
+
+  // ─── Bank Reconciliation ──────────────────────────────────────────────────
+  async startReconciliation(bankAccountId: string, closingBalance: number, statementDate: string) {
+    const recon = await this.prisma.bankReconciliation.create({
+      data: {
+        bankAccountId,
+        statementDate: new Date(statementDate),
+        openingBalance: 0,
+        closingBalance,
+        reconciledBalance: 0,
+        difference: closingBalance,
+        status: 'IN_PROGRESS',
+      },
+    });
+    const transactions = await this.prisma.bankTransaction.findMany({
+      where: { bankAccountId, isReconciled: false },
+      orderBy: { date: 'desc' },
+    });
+    return { reconciliation: recon, transactions };
+  }
+
+  async getReconciliation(id: string) {
+    const recon = await this.prisma.bankReconciliation.findUnique({ where: { id } });
+    if (!recon) throw new NotFoundException('Reconciliation not found');
+    const transactions = await this.prisma.bankTransaction.findMany({
+      where: { bankAccountId: recon.bankAccountId, isReconciled: false },
+      orderBy: { date: 'desc' },
+    });
+    return { reconciliation: recon, transactions };
+  }
+
+  async reconcileTransaction(reconciliationId: string, transactionId: string) {
+    return this.prisma.bankTransaction.update({
+      where: { id: transactionId },
+      data: { isReconciled: true, reconciledAt: new Date() },
+    });
+  }
+
+  async finalizeReconciliation(id: string) {
+    const recon = await this.prisma.bankReconciliation.findUnique({ where: { id } });
+    if (!recon) throw new NotFoundException('Reconciliation not found');
+    const reconciledTxns = await this.prisma.bankTransaction.findMany({
+      where: { bankAccountId: recon.bankAccountId, isReconciled: true, reconciledAt: { gte: recon.createdAt } },
+    });
+    const reconciledBalance = reconciledTxns.reduce((sum, t) => {
+      return sum + (t.type === 'CREDIT' ? Number(t.amount) : -Number(t.amount));
+    }, 0);
+    const difference = Number(recon.closingBalance) - reconciledBalance;
+    return this.prisma.bankReconciliation.update({
+      where: { id },
+      data: { reconciledBalance, difference, status: 'COMPLETED', completedAt: new Date() },
+    });
+  }
+
+  // ─── Budget Management ────────────────────────────────────────────────────
+  async getBudgets(propertyId: string) {
+    return this.prisma.budget.findMany({
+      where: { propertyId },
+      include: { lines: true },
+      orderBy: { startDate: 'desc' },
+    });
+  }
+
+  async createBudget(dto: any) {
+    const { propertyId, name, period, startDate, endDate, notes, lines } = dto;
+    return this.prisma.budget.create({
+      data: {
+        propertyId,
+        name,
+        period,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        notes,
+        status: 'DRAFT',
+        lines: {
+          create: (lines ?? []).map((l: any) => ({
+            accountId: l.accountId ?? null,
+            accountName: l.accountName,
+            month: l.month ?? null,
+            amount: Number(l.amount),
+          })),
+        },
+      },
+      include: { lines: true },
+    });
+  }
+
+  async getBudget(id: string) {
+    const budget = await this.prisma.budget.findUnique({
+      where: { id },
+      include: { lines: true },
+    });
+    if (!budget) throw new NotFoundException('Budget not found');
+    // Calculate actual spend per accountId from journal entry lines within the budget period
+    const accountIds = budget.lines.map((l) => l.accountId).filter(Boolean) as string[];
+    if (accountIds.length > 0) {
+      const actuals = await this.prisma.journalLine.groupBy({
+        by: ['accountId'],
+        where: {
+          accountId: { in: accountIds },
+          journalEntry: {
+            date: { gte: budget.startDate, lte: budget.endDate },
+            status: 'POSTED',
+          },
+        },
+        _sum: { amount: true },
+      });
+      const actualMap = Object.fromEntries(actuals.map((a) => [a.accountId, Number(a._sum.amount ?? 0)]));
+      return {
+        ...budget,
+        lines: budget.lines.map((l) => ({
+          ...l,
+          actual: l.accountId ? (actualMap[l.accountId] ?? 0) : 0,
+          variance: Number(l.amount) - (l.accountId ? (actualMap[l.accountId] ?? 0) : 0),
+        })),
+      };
+    }
+    return budget;
+  }
+
+  async updateBudgetLine(budgetId: string, lineId: string, dto: { amount: number }) {
+    return this.prisma.budgetLine.update({
+      where: { id: lineId },
+      data: { amount: Number(dto.amount) },
     });
   }
 

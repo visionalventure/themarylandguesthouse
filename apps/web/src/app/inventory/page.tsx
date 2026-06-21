@@ -152,6 +152,16 @@ export default function InventoryPage() {
           <CardTitle className="text-base">Items ({items.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
+          {items.length === 0 ? (
+            <div className="py-16 text-center">
+              <Package className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+              <p className="text-base font-medium text-foreground">No inventory items yet</p>
+              <p className="text-sm text-muted-foreground mt-1">Add items to track stock levels, costs, and reorder points.</p>
+              <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setItemDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Add Item
+              </Button>
+            </div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 bg-background">
@@ -247,6 +257,7 @@ export default function InventoryPage() {
               </tbody>
             </table>
           </div>
+          )}
         </CardContent>
       </Card>
 
