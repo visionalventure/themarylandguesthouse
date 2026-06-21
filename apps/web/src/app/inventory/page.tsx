@@ -20,18 +20,6 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { usePageTitle } from '@/hooks/use-page-title';
 import { useAuthStore } from '@/store/auth';
 
-const demoItems = [
-  {
-    id: '1', sku: 'TWL-001', name: 'Bath Towels', unit: 'PCS', currentStock: 45,
-    reorderPoint: 20, unitCost: 8, totalValue: 360, isLowStock: false,
-    category: { name: 'Linen' },
-  },
-  {
-    id: '2', sku: 'SOAP-001', name: 'Hand Soap', unit: 'BOX', currentStock: 5,
-    reorderPoint: 10, unitCost: 12, totalValue: 60, isLowStock: true,
-    category: { name: 'Toiletries' },
-  },
-];
 
 export default function InventoryPage() {
   usePageTitle('Inventory');
@@ -60,22 +48,19 @@ export default function InventoryPage() {
   const { data } = useQuery({
     queryKey: ['inventory', { propertyId: propertyId, search: debouncedSearch, sortBy, sortOrder }],
     queryFn: () => inventoryApi.list({ propertyId: propertyId, search: debouncedSearch, limit: 50, sortBy, sortOrder }).then((r) => r.data),
-    placeholderData: { data: demoItems, total: demoItems.length },
   });
 
   const { data: lowStock } = useQuery({
     queryKey: ['inventory-low-stock', propertyId],
     queryFn: () => inventoryApi.lowStock(propertyId).then((r) => r.data),
-    placeholderData: [demoItems[1]],
   });
 
   const { data: valuation } = useQuery({
     queryKey: ['inventory-valuation', propertyId],
     queryFn: () => inventoryApi.valuation(propertyId).then((r) => r.data),
-    placeholderData: { totalValue: 420, byCategory: {} },
   });
 
-  const items = data?.data || demoItems;
+  const items: any[] = data?.data ?? [];
 
   const autoPRMutation = useMutation({
     mutationFn: (item: any) => procurementApi.createPR({

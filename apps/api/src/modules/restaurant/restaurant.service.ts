@@ -104,6 +104,14 @@ export class RestaurantService {
       }),
     );
 
+    const restaurant = await this.prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { propertyId: true } });
+    const taxRateRecord = restaurant
+      ? await this.prisma.taxRate.findFirst({ where: { tenantId: restaurant.propertyId, isActive: true }, orderBy: { createdAt: 'asc' } })
+      : null;
+    const taxRate = taxRateRecord ? Number(taxRateRecord.rate) / 100 : 0;
+    const taxAmount = subtotal * taxRate;
+    const totalAmount = subtotal + taxAmount;
+
     const order = await this.prisma.restaurantOrder.create({
       data: {
         restaurantId,
@@ -114,8 +122,8 @@ export class RestaurantService {
         notes,
         orderType: orderType || 'DINE_IN',
         subtotal,
-        taxAmount: subtotal * 0.05,
-        totalAmount: subtotal * 1.05,
+        taxAmount,
+        totalAmount,
         items: { create: resolvedItems },
       },
       include: {

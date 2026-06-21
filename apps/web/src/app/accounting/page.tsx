@@ -39,44 +39,6 @@ const accountTypeColors: Record<string, string> = {
   EXPENSE:   'text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400',
 };
 
-const demoAccounts = [
-  { id: '1', code: '1000', name: 'Cash', type: 'ASSET', currentBalance: 125000 },
-  { id: '2', code: '1100', name: 'Bank Account - Ecobank', type: 'ASSET', currentBalance: 350000 },
-  { id: '3', code: '1200', name: 'Accounts Receivable', type: 'ASSET', currentBalance: 45000 },
-  { id: '4', code: '1300', name: 'Inventory', type: 'ASSET', currentBalance: 28000 },
-  { id: '5', code: '2000', name: 'Accounts Payable', type: 'LIABILITY', currentBalance: -32000 },
-  { id: '6', code: '2100', name: 'Accrued Expenses', type: 'LIABILITY', currentBalance: -8500 },
-  { id: '7', code: '3000', name: 'Owner Equity', type: 'EQUITY', currentBalance: -500000 },
-  { id: '8', code: '4000', name: 'Room Revenue', type: 'REVENUE', currentBalance: -125000 },
-  { id: '9', code: '4100', name: 'Food & Beverage Revenue', type: 'REVENUE', currentBalance: -45000 },
-  { id: '10', code: '5000', name: 'Salaries & Wages', type: 'EXPENSE', currentBalance: 85000 },
-  { id: '11', code: '5100', name: 'Utilities', type: 'EXPENSE', currentBalance: 12000 },
-  { id: '12', code: '5200', name: 'Repairs & Maintenance', type: 'EXPENSE', currentBalance: 8500 },
-];
-
-const demoPL = {
-  totalRevenue: 170000,
-  totalExpenses: 105500,
-  netProfit: 64500,
-  revenue: [
-    { name: 'Room Revenue', amount: 125000 },
-    { name: 'Food & Beverage', amount: 45000 },
-  ],
-  expenses: [
-    { name: 'Salaries', amount: 85000 },
-    { name: 'Utilities', amount: 12000 },
-    { name: 'Repairs', amount: 8500 },
-  ],
-};
-
-const monthlyData = [
-  { month: 'Jul', revenue: 95000, expenses: 72000 },
-  { month: 'Aug', revenue: 105000, expenses: 78000 },
-  { month: 'Sep', revenue: 88000, expenses: 68000 },
-  { month: 'Oct', revenue: 112000, expenses: 82000 },
-  { month: 'Nov', revenue: 125000, expenses: 89000 },
-  { month: 'Dec', revenue: 170000, expenses: 105500 },
-];
 
 function AccountingContent() {
   usePageTitle('Accounting');
@@ -101,7 +63,7 @@ function AccountingContent() {
     if (type === 'chart-of-accounts') {
       const csvRows = [
         ['Code', 'Name', 'Type', 'Balance'],
-        ...(Array.isArray(accounts) ? accounts : demoAccounts).map((a: any) => [
+        ...accountList.map((a: any) => [
           a.code, a.name, a.type, Number(a.currentBalance ?? 0).toFixed(2),
         ]),
       ];
@@ -113,18 +75,26 @@ function AccountingContent() {
       triggerDownload(blob, `${type}-report.csv`);
     }
   };
-  const TENANT_ID = 'demo-tenant-id';
   const chartColors = useChartColors();
 
   const { data: accounts } = useQuery({
     queryKey: ['chart-of-accounts', propertyId],
     queryFn: () => accountingApi.chartOfAccounts(propertyId).then((r) => r.data),
-    placeholderData: demoAccounts,
+  });
+
+  const { data: plData } = useQuery({
+    queryKey: ['profit-loss', propertyId],
+    queryFn: () => accountingApi.profitAndLoss({
+      propertyId,
+      startDate: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
+      endDate: new Date().toISOString().split('T')[0],
+    }).then((r) => r.data),
+    enabled: tab === 'overview',
   });
 
   const { data: journalData } = useQuery({
-    queryKey: ['journal-entries', TENANT_ID],
-    queryFn: () => accountingApi.journalEntries({ tenantId: TENANT_ID, limit: 30 }).then((r) => r.data),
+    queryKey: ['journal-entries', propertyId],
+    queryFn: () => accountingApi.journalEntries({ tenantId: propertyId, limit: 30 }).then((r) => r.data),
     enabled: tab === 'journal',
   });
 
@@ -150,7 +120,7 @@ function AccountingContent() {
     mutationFn: (id: string) => accountingApi.postEntry(id),
   });
 
-  const accountList = Array.isArray(accounts) ? accounts : demoAccounts;
+  const accountList: any[] = Array.isArray(accounts) ? accounts : [];
   const journalEntries: any[] = journalData?.data ?? [];
   const bankAccountList: any[] = Array.isArray(bankAccounts) ? bankAccounts : [];
   const txnList: any[] = Array.isArray(bankTxns) ? bankTxns : [];
@@ -243,11 +213,11 @@ function AccountingContent() {
                 <p className="text-sm font-medium text-green-700 dark:text-green-400">Total Revenue</p>
               </div>
               <AnimatedCounter
-                value={demoPL.totalRevenue}
+                value={Number(plData?.totalRevenue ?? 0)}
                 formatter={(v) => `$${v.toLocaleString()}`}
                 className="text-3xl font-bold text-green-700 dark:text-green-300 block"
               />
-              <p className="text-xs text-green-600 mt-1">This month</p>
+              <p className="text-xs text-green-600 mt-1">Year to date</p>
             </CardContent>
           </Card>
         </StaggerItem>
@@ -260,11 +230,11 @@ function AccountingContent() {
                 <p className="text-sm font-medium text-red-700 dark:text-red-400">Total Expenses</p>
               </div>
               <AnimatedCounter
-                value={demoPL.totalExpenses}
+                value={Number(plData?.totalExpenses ?? 0)}
                 formatter={(v) => `$${v.toLocaleString()}`}
                 className="text-3xl font-bold text-red-700 dark:text-red-300 block"
               />
-              <p className="text-xs text-red-600 mt-1">This month</p>
+              <p className="text-xs text-red-600 mt-1">Year to date</p>
             </CardContent>
           </Card>
         </StaggerItem>
@@ -277,12 +247,12 @@ function AccountingContent() {
                 <p className="text-sm font-medium text-blue-700 dark:text-blue-400">Net Profit</p>
               </div>
               <AnimatedCounter
-                value={demoPL.netProfit}
+                value={Number(plData?.netProfit ?? 0)}
                 formatter={(v) => `$${v.toLocaleString()}`}
                 className="text-3xl font-bold text-blue-700 dark:text-blue-300 block"
               />
               <p className="text-xs text-blue-600 mt-1">
-                {((demoPL.netProfit / demoPL.totalRevenue) * 100).toFixed(1)}% margin
+                {plData?.totalRevenue ? ((Number(plData.netProfit) / Number(plData.totalRevenue)) * 100).toFixed(1) : '0'}% margin
               </p>
             </CardContent>
           </Card>
@@ -303,20 +273,31 @@ function AccountingContent() {
         <TabsContent value="overview" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Revenue vs Expenses — Last 6 Months</CardTitle>
+              <CardTitle className="text-base">Revenue &amp; Expenses by Account — Year to Date</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyData} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                  <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(val: any) => [`$${Number(val).toLocaleString()}`, '']} />
-                  <Legend />
-                  <Bar dataKey="revenue" name="Revenue" fill={chartColors.chart2} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="expenses" name="Expenses" fill={chartColors.destructive} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {(!plData || (plData.revenue?.length === 0 && plData.expenses?.length === 0)) ? (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
+                  No posted journal entries found for this period.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={[
+                      ...(plData.revenue ?? []).map((r: any) => ({ name: r.name, amount: Math.abs(Number(r.amount)), type: 'Revenue' })),
+                      ...(plData.expenses ?? []).map((e: any) => ({ name: e.name, amount: Math.abs(Number(e.amount)), type: 'Expense' })),
+                    ]}
+                    barGap={4}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={50} />
+                    <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(val: any) => [`$${Number(val).toLocaleString()}`, '']} />
+                    <Legend />
+                    <Bar dataKey="amount" name="Amount" fill={chartColors.chart2} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -13,18 +13,6 @@ import { FadeIn } from '@/components/ui/fade-in';
 import { cn } from '@/lib/utils';
 import { usePageTitle } from '@/hooks/use-page-title';
 
-const demoAccounts = [
-  { id: '1', bankName: 'Trust Bank Liberia', accountName: 'Main Operating', accountNumber: '****4521', currency: 'LRD', currentBalance: 284500, isActive: true },
-  { id: '2', bankName: 'Ecobank',            accountName: 'USD Account',    accountNumber: '****8834', currency: 'USD', currentBalance: 12340,  isActive: true },
-  { id: '3', bankName: 'United Bank',        accountName: 'Petty Cash',     accountNumber: '****2210', currency: 'LRD', currentBalance: 3200,   isActive: true },
-];
-
-const demoTxns = [
-  { id: 't1', date: new Date(), description: 'Room revenue', reference: 'RES-001', amount: 4500, type: 'CREDIT', isReconciled: true },
-  { id: 't2', date: new Date(), description: 'Supplier payment – Fresh Foods',  reference: 'BILL-2024-0012', amount: 1200, type: 'DEBIT',  isReconciled: true },
-  { id: 't3', date: new Date(), description: 'Staff payroll',  reference: 'PAY-JAN', amount: 8400, type: 'DEBIT',  isReconciled: false },
-  { id: 't4', date: new Date(), description: 'Corporate booking – Firestone',  reference: 'RES-003', amount: 12000, type: 'CREDIT', isReconciled: false },
-];
 
 export default function BankingPage() {
   usePageTitle('Banking');
@@ -34,10 +22,9 @@ export default function BankingPage() {
   const { data: accountsData, isLoading: loadingAccounts } = useQuery({
     queryKey: ['bank-accounts', propertyId],
     queryFn: () => accountingApi.bankAccounts(propertyId).then(r => r.data),
-    placeholderData: demoAccounts,
   });
 
-  const accounts: any[] = Array.isArray(accountsData) ? accountsData : (accountsData?.data ?? demoAccounts);
+  const accounts: any[] = Array.isArray(accountsData) ? accountsData : (accountsData?.data ?? []);
   const activeId = selectedAccountId || accounts[0]?.id;
   const selectedAccount = accounts.find((a: any) => a.id === activeId) ?? accounts[0];
 
@@ -45,10 +32,9 @@ export default function BankingPage() {
     queryKey: ['bank-transactions', activeId],
     queryFn: () => accountingApi.bankTransactions(activeId, { limit: 50 }).then(r => r.data),
     enabled: !!activeId,
-    placeholderData: demoTxns,
   });
 
-  const transactions: any[] = Array.isArray(txnData) ? txnData : (txnData?.data ?? demoTxns);
+  const transactions: any[] = Array.isArray(txnData) ? txnData : (txnData?.data ?? []);
 
   const totalAssets = accounts.reduce((s: number, a: any) => s + (Number(a.currentBalance) > 0 ? Number(a.currentBalance) : 0), 0);
   const totalCredits = transactions.filter((t: any) => t.type === 'CREDIT').reduce((s: number, t: any) => s + Number(t.amount ?? 0), 0);

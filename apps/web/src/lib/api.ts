@@ -76,6 +76,7 @@ export const dashboardApi = {
   getRecentActivity: (propertyId: string) =>
     api.get(`/v1/dashboard/recent-activity?propertyId=${propertyId}`),
   frontDesk: (propertyId: string) => api.get('/v1/dashboard/front-desk', { params: { propertyId } }),
+  bookingSources: (propertyId: string) => api.get('/v1/dashboard/booking-sources', { params: { propertyId } }),
 };
 
 export const folioApi = {

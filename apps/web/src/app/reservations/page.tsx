@@ -61,29 +61,6 @@ const PAYMENT_BADGE: Record<string, string> = {
 
 // ── Demo fallback data ────────────────────────────────────────────────────────
 
-const DEMO_ROOMS = [
-  { id: 'r1', roomNumber: '101', status: 'OCCUPIED',     category: { id: 'c1', name: 'Standard' } },
-  { id: 'r2', roomNumber: '102', status: 'AVAILABLE',    category: { id: 'c1', name: 'Standard' } },
-  { id: 'r3', roomNumber: '103', status: 'AVAILABLE',    category: { id: 'c1', name: 'Standard' } },
-  { id: 'r4', roomNumber: '201', status: 'OCCUPIED',     category: { id: 'c2', name: 'Comfort' } },
-  { id: 'r5', roomNumber: '202', status: 'AVAILABLE',    category: { id: 'c2', name: 'Comfort' } },
-  { id: 'r6', roomNumber: '301', status: 'OCCUPIED',     category: { id: 'c3', name: 'Suite' } },
-  { id: 'r7', roomNumber: '302', status: 'MAINTENANCE',  category: { id: 'c3', name: 'Suite' } },
-];
-
-function makeDemoReservations() {
-  const t = startOfToday();
-  return [
-    { id: '1', reservationNo: 'RES-001', status: 'CHECKED_IN', source: 'DIRECT',    paymentStatus: 'PAID',      guest: { firstName: 'James',   lastName: 'Wilson'   }, checkIn: format(addDays(t, -2), 'yyyy-MM-dd'), checkOut: format(addDays(t, 2),  'yyyy-MM-dd'), rooms: [{ roomId: 'r1' }] },
-    { id: '2', reservationNo: 'RES-002', status: 'CONFIRMED',  source: 'OTA',       paymentStatus: 'PART_PAID', guest: { firstName: 'Sarah',   lastName: 'Johnson'  }, checkIn: format(addDays(t,  1), 'yyyy-MM-dd'), checkOut: format(addDays(t, 4),  'yyyy-MM-dd'), rooms: [{ roomId: 'r2' }] },
-    { id: '3', reservationNo: 'RES-003', status: 'RESERVED',   source: 'ONLINE',    paymentStatus: 'UNPAID',    guest: { firstName: 'Michael', lastName: 'Brown'    }, checkIn: format(addDays(t,  3), 'yyyy-MM-dd'), checkOut: format(addDays(t, 6),  'yyyy-MM-dd'), rooms: [{ roomId: 'r3' }] },
-    { id: '4', reservationNo: 'RES-004', status: 'CHECKED_IN', source: 'DIRECT',    paymentStatus: 'PAID',      guest: { firstName: 'Emma',    lastName: 'Davis'    }, checkIn: format(addDays(t, -1), 'yyyy-MM-dd'), checkOut: format(addDays(t, 3),  'yyyy-MM-dd'), rooms: [{ roomId: 'r4' }] },
-    { id: '5', reservationNo: 'RES-005', status: 'CONFIRMED',  source: 'CORPORATE', paymentStatus: 'PAID',      guest: { firstName: 'Robert',  lastName: 'Smith'    }, checkIn: format(addDays(t,  2), 'yyyy-MM-dd'), checkOut: format(addDays(t, 5),  'yyyy-MM-dd'), rooms: [{ roomId: 'r6' }] },
-    { id: '6', reservationNo: 'RES-006', status: 'CHECKED_IN', source: 'WALK_IN',   paymentStatus: 'PAID',      guest: { firstName: 'Lisa',    lastName: 'Martinez' }, checkIn: format(t,             'yyyy-MM-dd'), checkOut: format(addDays(t, 2),  'yyyy-MM-dd'), rooms: [{ roomId: 'r5' }] },
-    { id: '7', reservationNo: 'RES-007', status: 'RESERVED',   source: 'ONLINE',    paymentStatus: 'UNPAID',    guest: { firstName: 'Carlos',  lastName: 'Reyes'    }, checkIn: format(addDays(t,  5), 'yyyy-MM-dd'), checkOut: format(addDays(t, 9),  'yyyy-MM-dd'), rooms: [{ roomId: 'r7' }] },
-    { id: '8', reservationNo: 'RES-008', status: 'CONFIRMED',  source: 'DIRECT',    paymentStatus: 'PART_PAID', guest: { firstName: 'Anna',    lastName: 'Kovacs'   }, checkIn: format(addDays(t,  6), 'yyyy-MM-dd'), checkOut: format(addDays(t, 10), 'yyyy-MM-dd'), rooms: [{ roomId: 'r1' }] },
-  ];
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -139,7 +116,6 @@ export default function ReservationsPage() {
   const { data: roomsData } = useQuery({
     queryKey: ['rooms', propertyId],
     queryFn: () => roomsApi.list({ propertyId: propertyId, limit: 200 }).then((r) => r.data),
-    placeholderData: { data: DEMO_ROOMS },
   });
 
   const { data: calendarData } = useQuery({
@@ -154,17 +130,10 @@ export default function ReservationsPage() {
         startDate: format(windowStart, 'yyyy-MM-dd'),
         endDate:   format(windowEnd, 'yyyy-MM-dd'),
       }).then((r) => r.data),
-    placeholderData: makeDemoReservations(),
   });
 
-  // Fall back to demo data when DB is empty so the Gantt has something to show
-  const roomsArray: any[] = roomsData?.data ?? (Array.isArray(roomsData) ? roomsData : []);
-  const rooms: any[] = roomsArray.length ? roomsArray : DEMO_ROOMS;
-  const rawCalendar: any[] = Array.isArray(calendarData) ? calendarData : [];
-
-  // Normalise calendar entries: real data uses rooms[].roomId, demo uses rooms[].roomId
-  // When DB is empty, show demo reservations keyed to DEMO_ROOMS so bars render
-  const reservations: any[] = rawCalendar.length > 0 ? rawCalendar : makeDemoReservations();
+  const rooms: any[] = roomsData?.data ?? (Array.isArray(roomsData) ? roomsData : []);
+  const reservations: any[] = Array.isArray(calendarData) ? calendarData : [];
 
   // ── Filtered + grouped rooms ───────────────────────────────────────────────
 

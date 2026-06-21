@@ -163,24 +163,15 @@ export default function DashboardPage() {
     refetchInterval: 60000,
   });
 
-  // Demo data for charts when API data isn't available
-  const demoRevenueData = [
-    { date: 'Jan 1', revenue: 2400 }, { date: 'Jan 2', revenue: 1398 },
-    { date: 'Jan 3', revenue: 9800 }, { date: 'Jan 4', revenue: 3908 },
-    { date: 'Jan 5', revenue: 4800 }, { date: 'Jan 6', revenue: 3800 },
-    { date: 'Jan 7', revenue: 4300 }, { date: 'Jan 8', revenue: 5200 },
-    { date: 'Jan 9', revenue: 7800 }, { date: 'Jan 10', revenue: 6200 },
-  ];
+  const { data: bookingSourcesData } = useQuery({
+    queryKey: ['booking-sources', propertyId],
+    queryFn: () => dashboardApi.bookingSources(propertyId).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const demoCategoryData = [
-    { category: 'Room Revenue', amount: 45000 },
-    { category: 'Food & Beverage', amount: 18000 },
-    { category: 'Events', amount: 8000 },
-    { category: 'Other', amount: 3500 },
-  ];
-
-  const chartData = revenueChart || demoRevenueData;
-  const categoryData = revenueByCategory || demoCategoryData;
+  const chartData: any[] = revenueChart ?? [];
+  const categoryData: any[] = revenueByCategory ?? [];
+  const bookingSources: any[] = bookingSourcesData ?? [];
 
   return (
     <FadeIn className="space-y-6">
@@ -206,8 +197,6 @@ export default function DashboardPage() {
             subtitle={`${kpis?.occupiedRooms ?? 0} of ${kpis?.totalRooms ?? 0} rooms`}
             icon={Percent}
             color="blue"
-            trendValue="+5% vs last week"
-            trend="up"
             loading={kpisLoading}
           />
         </StaggerItem>
@@ -219,8 +208,6 @@ export default function DashboardPage() {
             formatter={(v) => `$${v.toLocaleString()}`}
             icon={TrendingUp}
             color="green"
-            trendValue="+12% vs yesterday"
-            trend="up"
             loading={kpisLoading}
           />
         </StaggerItem>
@@ -406,15 +393,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart
-                data={[
-                  { source: 'Direct', count: 45 },
-                  { source: 'OTA', count: 28 },
-                  { source: 'Walk-in', count: 18 },
-                  { source: 'Corporate', count: 12 },
-                  { source: 'Online', count: 8 },
-                ]}
-              >
+              <BarChart data={bookingSources}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} opacity={0.5} />
                 <XAxis dataKey="source" tick={{ fontSize: 11, fill: chartColors.muted }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: chartColors.muted }} tickLine={false} axisLine={false} />
@@ -432,7 +411,10 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {(activity?.recentReservations || demoActivity).slice(0, 6).map((res: any, i: number) => (
+              {(activity?.recentReservations ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">No recent reservations.</p>
+              ) : null}
+              {(activity?.recentReservations ?? []).slice(0, 6).map((res: any, i: number) => (
                 <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
@@ -486,11 +468,3 @@ function getGreeting() {
   return 'evening';
 }
 
-const demoActivity = [
-  { guest: { firstName: 'James', lastName: 'Wilson' }, reservationNo: 'RES-0001', status: 'CHECKED_IN', checkIn: new Date() },
-  { guest: { firstName: 'Sarah', lastName: 'Johnson' }, reservationNo: 'RES-0002', status: 'CONFIRMED', checkIn: new Date() },
-  { guest: { firstName: 'Michael', lastName: 'Brown' }, reservationNo: 'RES-0003', status: 'PENDING', checkIn: new Date() },
-  { guest: { firstName: 'Emily', lastName: 'Davis' }, reservationNo: 'RES-0004', status: 'CHECKED_OUT', checkIn: new Date() },
-  { guest: { firstName: 'Robert', lastName: 'Miller' }, reservationNo: 'RES-0005', status: 'CONFIRMED', checkIn: new Date() },
-  { guest: { firstName: 'Lisa', lastName: 'Garcia' }, reservationNo: 'RES-0006', status: 'CHECKED_IN', checkIn: new Date() },
-];

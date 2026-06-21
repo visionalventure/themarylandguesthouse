@@ -33,11 +33,6 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
   OUT_OF_ORDER: { label: 'Out of Order', color: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800',                   icon: Ban },
 };
 
-const demoRooms = [
-  { id: '1', roomNumber: '101', floor: 1, status: 'AVAILABLE', category: { name: 'Standard Single', basePrice: 75 } },
-  { id: '2', roomNumber: '102', floor: 1, status: 'OCCUPIED', category: { name: 'Standard Single', basePrice: 75 } },
-  { id: '3', roomNumber: '201', floor: 2, status: 'CLEANING', category: { name: 'Deluxe Double', basePrice: 120 } },
-];
 
 export default function RoomsPage() {
   usePageTitle('Rooms');
@@ -56,10 +51,9 @@ export default function RoomsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['rooms', params],
     queryFn: () => roomsApi.list(params).then((r) => r.data),
-    placeholderData: demoRooms,
   });
 
-  const rooms = data || demoRooms;
+  const rooms: any[] = data ?? [];
 
   const stats = useMemo(() => {
     const counts: Record<string, number> = {};

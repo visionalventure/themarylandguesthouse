@@ -45,6 +45,12 @@ export class NightAuditService {
       include: { rooms: { include: { room: true } } },
     });
 
+    const taxRateRecord = await this.prisma.taxRate.findFirst({
+      where: { tenantId: propertyId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const taxRate = taxRateRecord ? Number(taxRateRecord.rate) : 0;
+
     const chargesPosted: string[] = [];
     for (const res of checkedInReservations) {
       for (const rr of res.rooms) {
@@ -56,7 +62,7 @@ export class NightAuditService {
             amount: rr.ratePerNight,
             unitPrice: rr.ratePerNight,
             quantity: 1,
-            taxRate: 0,
+            taxRate,
           },
         });
         chargesPosted.push(charge.id);

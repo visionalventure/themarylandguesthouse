@@ -42,12 +42,6 @@ const NATIONALITIES = [
   { code: 'GN', label: 'Guinea' }, { code: 'CI', label: "Côte d'Ivoire" }, { code: 'SN', label: 'Senegal' },
 ];
 
-const demoGuests = [
-  { id: '1', firstName: 'James', lastName: 'Wilson', email: 'james.wilson@example.com', phone: '+231 880 123 456', nationality: 'LR', totalStays: 8, totalSpent: 2400, loyaltyAccount: { tier: 'GOLD', points: 2400, memberNumber: 'MGH-00001' } },
-  { id: '2', firstName: 'Sarah', lastName: 'Johnson', email: 'sarah.j@example.com', phone: '+1 555 234 5678', nationality: 'US', totalStays: 3, totalSpent: 840, loyaltyAccount: { tier: 'SILVER', points: 840, memberNumber: 'MGH-00002' } },
-  { id: '3', firstName: 'Emmanuel', lastName: 'Kamara', email: 'e.kamara@email.com', phone: '+231 777 987 654', nationality: 'LR', totalStays: 15, totalSpent: 4200, loyaltyAccount: { tier: 'PLATINUM', points: 4200, memberNumber: 'MGH-00003' } },
-  { id: '4', firstName: 'Amara', lastName: 'Sesay', email: 'amara@gmail.com', phone: '+232 76 123 456', nationality: 'SL', totalStays: 1, totalSpent: 180, loyaltyAccount: { tier: 'BRONZE', points: 180, memberNumber: 'MGH-00004' } },
-];
 
 export default function GuestsPage() {
   usePageTitle('Guest CRM');
@@ -65,10 +59,9 @@ export default function GuestsPage() {
   const { data } = useQuery({
     queryKey: ['guests', debouncedSearch, page],
     queryFn: () => guestsApi.list({ tenantId: propertyId, search: debouncedSearch, limit: 24, page }).then((r) => r.data),
-    placeholderData: { data: demoGuests, total: 4 },
   });
 
-  const guests = data?.data || demoGuests;
+  const guests: any[] = data?.data ?? [];
   const totalPages = Math.ceil((data?.total ?? 0) / 24);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({

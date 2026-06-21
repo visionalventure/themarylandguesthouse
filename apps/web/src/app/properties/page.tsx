@@ -16,15 +16,6 @@ import { StaggerGrid, StaggerItem } from '@/components/ui/stagger-grid';
 
 import { usePageTitle } from '@/hooks/use-page-title';
 
-const demoProperties = [
-  {
-    id: 'demo-property-id', name: 'Maryland Guesthouse - Monrovia', code: 'MGH-001',
-    type: 'GUESTHOUSE', address: '14 Broad Street, Sinkor', city: 'Monrovia', country: 'Liberia',
-    phone: '+231 777 123 456', email: 'reception@marylandguesthouse.com', starRating: 3,
-    checkInTime: '14:00', checkOutTime: '12:00',
-    _count: { rooms: 12, employees: 3, reservations: 0 },
-  },
-];
 
 export default function PropertiesPage() {
   usePageTitle('Properties');
@@ -34,10 +25,9 @@ export default function PropertiesPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['properties'],
     queryFn: () => propertiesApi.list().then((r) => r.data),
-    placeholderData: demoProperties,
   });
 
-  const properties = data || demoProperties;
+  const properties: any[] = data ?? [];
 
   const openCreate = () => {
     setEditTarget(null);
