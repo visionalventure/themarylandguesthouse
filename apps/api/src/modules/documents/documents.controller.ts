@@ -1,12 +1,13 @@
 import {
   Controller, Get, Post, Put, Delete, Body, Param, Query,
-  UseGuards, Request, UseInterceptors, UploadedFile, Res,
+  UseGuards, Request, UseInterceptors, UploadedFile,
   BadRequestException, Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { DocumentsService } from './documents.service';
+import { StorageService } from '../../common/storage/storage.service';
 import { memoryStorage } from 'multer';
 
 @ApiTags('documents')
@@ -15,7 +16,10 @@ import { memoryStorage } from 'multer';
 @Controller({ path: 'documents', version: '1' })
 export class DocumentsController {
   private readonly logger = new Logger(DocumentsController.name);
-  constructor(private readonly service: DocumentsService) {}
+  constructor(
+    private readonly service: DocumentsService,
+    private readonly storage: StorageService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List documents with category/search filter' })
@@ -39,10 +43,9 @@ export class DocumentsController {
       cb(null, allowed.test(file.mimetype));
     },
   }))
-  uploadFile(@UploadedFile() file: Express.Multer.File) {
+  async uploadFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file received');
-    const b64 = file.buffer.toString('base64');
-    const fileUrl = `data:${file.mimetype};base64,${b64}`;
+    const fileUrl = await this.storage.upload(file, 'documents');
     return { fileUrl, fileName: file.originalname, fileSize: file.size, mimeType: file.mimetype };
   }
 
@@ -78,8 +81,13 @@ export class DocumentsController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete document' })
-  deleteDocument(@Param('id') id: string) {
-    return this.service.deleteDocument(id);
+  async deleteDocument(@Param('id') id: string) {
+    const { fileUrl, versionUrls } = await this.service.deleteDocument(id);
+    await Promise.all([
+      this.storage.delete(fileUrl),
+      ...versionUrls.map((u) => this.storage.delete(u)),
+    ]);
+    return { success: true };
   }
 
   @Get(':id/versions')

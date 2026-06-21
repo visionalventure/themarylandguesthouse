@@ -120,9 +120,13 @@ export class DocumentsService {
     });
   }
 
-  async deleteDocument(id: string) {
+  async deleteDocument(id: string): Promise<{ fileUrl: string; versionUrls: string[] }> {
+    const doc = await this.prisma.document.findUnique({ where: { id } });
+    if (!doc) throw new NotFoundException('Document not found');
+    const versions = await this.prisma.documentVersion.findMany({ where: { documentId: id }, select: { fileUrl: true } });
     await this.prisma.documentVersion.deleteMany({ where: { documentId: id } });
-    return this.prisma.document.delete({ where: { id } });
+    await this.prisma.document.delete({ where: { id } });
+    return { fileUrl: doc.fileUrl, versionUrls: versions.map((v) => v.fileUrl) };
   }
 
   async getVersions(id: string) {

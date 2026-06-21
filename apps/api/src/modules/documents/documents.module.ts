@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
+import { StorageModule } from '../../common/storage/storage.module';
 
-@Module({ controllers: [DocumentsController], providers: [DocumentsService] })
+@Module({
+  imports: [StorageModule],
+  controllers: [DocumentsController],
+  providers: [DocumentsService],
+})
 export class DocumentsModule {}

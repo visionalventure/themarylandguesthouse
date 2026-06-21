@@ -25,6 +25,7 @@ import { FolioModule } from './modules/folio/folio.module';
 import { NightAuditModule } from './modules/nightaudit/nightaudit.module';
 import { SearchModule } from './modules/search/search.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
+import { StorageModule } from './common/storage/storage.module';
 
 @Module({
   providers: [BootstrapService],
@@ -54,6 +55,7 @@ import { AssistantModule } from './modules/assistant/assistant.module';
     NightAuditModule,
     SearchModule,
     AssistantModule,
+    StorageModule,
   ],
 })
 export class AppModule {}
