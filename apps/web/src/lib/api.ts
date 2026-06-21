@@ -106,6 +106,7 @@ export const reservationsApi = {
 };
 
 export const guestsApi = {
+  stats: () => api.get('/v1/guests/stats'),
   list: (params: any) => api.get('/v1/guests', { params }),
   get: (id: string) => api.get(`/v1/guests/${id}`),
   create: (data: any) => api.post('/v1/guests', data),

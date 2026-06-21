@@ -56,6 +56,7 @@ function KPICard({
   trendValue,
   color = 'blue',
   loading,
+  error,
 }: {
   title: string;
   value: string | number;
@@ -67,6 +68,7 @@ function KPICard({
   trendValue?: string;
   color?: string;
   loading?: boolean;
+  error?: boolean;
 }) {
   const colorMap: Record<string, string> = {
     blue: 'bg-primary/10 text-primary',
@@ -95,7 +97,9 @@ function KPICard({
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            {numericValue !== undefined ? (
+            {error ? (
+              <p className="text-sm text-muted-foreground/50 mt-1">Unavailable</p>
+            ) : numericValue !== undefined ? (
               <AnimatedCounter
                 value={numericValue}
                 formatter={formatter}
@@ -141,7 +145,7 @@ export default function DashboardPage() {
     chartColors.primary,
   ];
 
-  const { data: kpis, isLoading: kpisLoading } = useQuery({
+  const { data: kpis, isLoading: kpisLoading, isError: kpisError } = useQuery({
     queryKey: ['dashboard-kpis', propertyId],
     queryFn: () => dashboardApi.getKPIs(propertyId).then((r) => r.data),
     refetchInterval: 30000,
@@ -198,6 +202,7 @@ export default function DashboardPage() {
             icon={Percent}
             color="blue"
             loading={kpisLoading}
+            error={kpisError}
           />
         </StaggerItem>
         <StaggerItem>
@@ -209,6 +214,7 @@ export default function DashboardPage() {
             icon={TrendingUp}
             color="green"
             loading={kpisLoading}
+            error={kpisError}
           />
         </StaggerItem>
         <StaggerItem>
@@ -221,6 +227,7 @@ export default function DashboardPage() {
             icon={TrendingUp}
             color="purple"
             loading={kpisLoading}
+            error={kpisError}
           />
         </StaggerItem>
         <StaggerItem>
@@ -231,6 +238,7 @@ export default function DashboardPage() {
             icon={ArrowDownToLine}
             color="cyan"
             loading={kpisLoading}
+            error={kpisError}
           />
         </StaggerItem>
         <StaggerItem>
@@ -241,6 +249,7 @@ export default function DashboardPage() {
             icon={ArrowUpFromLine}
             color="amber"
             loading={kpisLoading}
+            error={kpisError}
           />
         </StaggerItem>
         <StaggerItem>
@@ -252,6 +261,7 @@ export default function DashboardPage() {
             icon={BedDouble}
             color="green"
             loading={kpisLoading}
+            error={kpisError}
           />
         </StaggerItem>
         <StaggerItem>
@@ -264,6 +274,7 @@ export default function DashboardPage() {
             icon={Receipt}
             color="red"
             loading={kpisLoading}
+            error={kpisError}
           />
         </StaggerItem>
         <StaggerItem>
@@ -274,6 +285,7 @@ export default function DashboardPage() {
             icon={AlertTriangle}
             color="amber"
             loading={kpisLoading}
+            error={kpisError}
           />
         </StaggerItem>
         <StaggerItem>
@@ -284,6 +296,7 @@ export default function DashboardPage() {
             icon={Wrench}
             color="red"
             loading={kpisLoading}
+            error={kpisError}
           />
         </StaggerItem>
         <StaggerItem>
@@ -294,6 +307,7 @@ export default function DashboardPage() {
             icon={UserCheck}
             color="green"
             loading={kpisLoading}
+            error={kpisError}
           />
         </StaggerItem>
       </StaggerGrid>

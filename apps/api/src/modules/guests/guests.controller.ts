@@ -12,6 +12,12 @@ import { GuestsService } from './guests.service';
 export class GuestsController {
   constructor(private readonly service: GuestsService) {}
 
+  @Get('stats')
+  @ApiOperation({ summary: 'Get guest dashboard stats' })
+  getStats(@Request() req: any) {
+    return this.service.getStats(req.user.tenantId);
+  }
+
   @Get()
   @ApiOperation({ summary: 'List guests with search and filters' })
   findAll(@Query() query: any, @Request() req: any) {

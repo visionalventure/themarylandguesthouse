@@ -342,6 +342,19 @@ function AccountingContent() {
         </TabsContent>
 
         <TabsContent value="trial" className="mt-4">
+          {accountList.length > 0 && (() => {
+            const totalDebits = accountList.filter((a: any) => Number(a.currentBalance) > 0).reduce((s: number, a: any) => s + Number(a.currentBalance), 0);
+            const totalCredits = accountList.filter((a: any) => Number(a.currentBalance) < 0).reduce((s: number, a: any) => s + Math.abs(Number(a.currentBalance)), 0);
+            if (Math.abs(totalDebits - totalCredits) > 0.01) {
+              return (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-400">
+                  <span className="font-semibold">⚠ Trial balance does not balance</span>
+                  <span className="text-amber-400/70">— Debits ${totalDebits.toLocaleString()} vs Credits ${totalCredits.toLocaleString()}. Check for unposted entries.</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Trial Balance</CardTitle>

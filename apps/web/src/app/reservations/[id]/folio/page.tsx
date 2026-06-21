@@ -46,6 +46,7 @@ export default function FolioPage() {
   const [chargeOpen, setChargeOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [discountOpen, setDiscountOpen] = useState(false);
+  const [checkoutWarningOpen, setCheckoutWarningOpen] = useState(false);
   const [chargeForm, setChargeForm] = useState({ chargeType: 'ROOM', description: '', amount: '', quantity: '1', taxRate: '0' });
   const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'CASH', notes: '' });
   const [discountForm, setDiscountForm] = useState({ discountType: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED', value: '', reason: '' });
@@ -221,7 +222,13 @@ export default function FolioPage() {
           <Button
             size="sm"
             className="bg-amber-500 hover:bg-amber-600 text-white ml-auto"
-            onClick={() => checkOutMutation.mutate()}
+            onClick={() => {
+              if (Number(balance) > 0) {
+                setCheckoutWarningOpen(true);
+              } else {
+                checkOutMutation.mutate();
+              }
+            }}
             disabled={checkOutMutation.isPending}
           >
             {checkOutMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
@@ -500,6 +507,31 @@ export default function FolioPage() {
             >
               {collectPaymentMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
               Collect & Generate Receipt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Balance-due checkout warning */}
+      <Dialog open={checkoutWarningOpen} onOpenChange={setCheckoutWarningOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Outstanding Balance</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This guest has an outstanding balance of{' '}
+            <span className="font-semibold text-red-500">${Number(balance).toFixed(2)}</span>.
+            Checking out without collecting full payment will leave an unpaid balance on the folio.
+          </p>
+          <DialogFooter className="gap-2 pt-2">
+            <Button variant="outline" onClick={() => setCheckoutWarningOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={() => { setCheckoutWarningOpen(false); checkOutMutation.mutate(); }}
+              disabled={checkOutMutation.isPending}
+            >
+              {checkOutMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              Check Out Anyway
             </Button>
           </DialogFooter>
         </DialogContent>

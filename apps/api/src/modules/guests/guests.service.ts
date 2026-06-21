@@ -75,6 +75,23 @@ export class GuestsService {
     return `${prefix}-${year}-${String(count + 1).padStart(3, '0')}`;
   }
 
+  // ── Stats ──────────────────────────────────────────────────
+
+  async getStats(tenantId: string) {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const [total, loyaltyMembers, vipGuests, newThisMonth] = await Promise.all([
+      this.prisma.guest.count({ where: { tenantId } }),
+      this.prisma.loyaltyAccount.count({ where: { guest: { tenantId } } }),
+      this.prisma.guest.count({ where: { tenantId, privacyType: 'VIP' } }),
+      this.prisma.guest.count({ where: { tenantId, createdAt: { gte: startOfMonth } } }),
+    ]);
+
+    return { total, loyaltyMembers, vipGuests, newThisMonth };
+  }
+
   // ── Core CRUD ──────────────────────────────────────────────
 
   async findAll(tenantId: string, query: any = {}, role = 'FRONT_DESK') {

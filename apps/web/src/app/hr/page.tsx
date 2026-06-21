@@ -57,7 +57,7 @@ const CASE_STATUS_COLORS: Record<string, string> = {
 
 // ─── HR DASHBOARD ─────────────────────────────────────────────────────────────
 
-function HRDashboard({ propertyId }: { propertyId: string }) {
+function HRDashboard({ propertyId, onNavigate }: { propertyId: string; onNavigate: (tab: string) => void }) {
   const { data: stats } = useQuery({
     queryKey: ['hr-dashboard', propertyId],
     queryFn: () => hrApi.dashboard(propertyId).then(r => r.data),
@@ -103,13 +103,17 @@ function HRDashboard({ propertyId }: { propertyId: string }) {
           <CardHeader className="pb-2"><CardTitle className="text-sm">Quick Actions</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {[
-              { label: 'Add Employee', href: '#', tab: 'employees' },
-              { label: 'Run Payroll', href: '#', tab: 'payroll' },
-              { label: 'Review Leave Requests', href: '#', tab: 'leave' },
-              { label: 'Open Disciplinary Cases', href: '#', tab: 'disciplinary' },
-              { label: 'Attendance Anomalies', href: '#', tab: 'anomalies' },
-            ].map(({ label }) => (
-              <div key={label} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-muted/50 cursor-pointer group">
+              { label: 'Add Employee',           tab: 'employees' },
+              { label: 'Run Payroll',             tab: 'payroll' },
+              { label: 'Review Leave Requests',   tab: 'leave' },
+              { label: 'Open Disciplinary Cases', tab: 'disciplinary' },
+              { label: 'Attendance Anomalies',    tab: 'anomalies' },
+            ].map(({ label, tab: targetTab }) => (
+              <div
+                key={label}
+                className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-muted/50 cursor-pointer group"
+                onClick={() => onNavigate(targetTab)}
+              >
                 <span className="text-sm">{label}</span>
                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground" />
               </div>
@@ -947,7 +951,7 @@ export default function HrPage() {
         </TabsList>
 
         <TabsContent value="dashboard">
-          <HRDashboard propertyId={propertyId} />
+          <HRDashboard propertyId={propertyId} onNavigate={setTab} />
         </TabsContent>
 
         <TabsContent value="employees">

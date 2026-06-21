@@ -61,6 +61,12 @@ export default function GuestsPage() {
     queryFn: () => guestsApi.list({ tenantId: propertyId, search: debouncedSearch, limit: 24, page }).then((r) => r.data),
   });
 
+  const { data: stats } = useQuery({
+    queryKey: ['guest-stats'],
+    queryFn: () => guestsApi.stats().then((r) => r.data),
+    staleTime: 2 * 60 * 1000,
+  });
+
   const guests: any[] = data?.data ?? [];
   const totalPages = Math.ceil((data?.total ?? 0) / 24);
 
@@ -95,19 +101,15 @@ export default function GuestsPage() {
       {/* Stats */}
       <StaggerGrid className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Guests',    value: data?.total, fallback: '1,248', color: 'text-primary' },
-          { label: 'Loyalty Members', value: undefined,   fallback: '847',   color: 'text-violet-400' },
-          { label: 'VIP Guests',      value: undefined,   fallback: '23',    color: 'text-amber-400' },
-          { label: 'New This Month',  value: undefined,   fallback: '34',    color: 'text-green-400' },
+          { label: 'Total Guests',    value: stats?.total,          color: 'text-primary' },
+          { label: 'Loyalty Members', value: stats?.loyaltyMembers, color: 'text-violet-400' },
+          { label: 'VIP Guests',      value: stats?.vipGuests,      color: 'text-amber-400' },
+          { label: 'New This Month',  value: stats?.newThisMonth,   color: 'text-green-400' },
         ].map((s) => (
           <StaggerItem key={s.label}>
             <Card>
               <CardContent className="pt-4 pb-4 text-center">
-                {typeof s.value === 'number' ? (
-                  <AnimatedCounter value={s.value} className={cn('text-3xl font-bold block', s.color)} />
-                ) : (
-                  <p className={cn('text-3xl font-bold', s.color)}>{s.fallback}</p>
-                )}
+                <AnimatedCounter value={s.value ?? 0} className={cn('text-3xl font-bold block', s.color)} />
                 <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
               </CardContent>
             </Card>
