@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class HousekeepingService {
+  private readonly logger = new Logger(HousekeepingService.name);
+
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
@@ -55,14 +57,14 @@ export class HousekeepingService {
 
     if (dto.assignedToId) {
       this.notifications.createNotification({
-        tenantId: dto.propertyId,
-        userId: dto.assignedToId,
+        tenantId: task.propertyId,
+        userId: task.assignedToId,
         title: 'New Task Assigned',
-        body: `You have a new ${(dto.taskType ?? '').replace(/_/g, ' ')} for Room ${task.room?.roomNumber ?? ''}`,
+        body: `You have a new ${(task.taskType ?? '').replace(/_/g, ' ')} for Room ${task.room?.roomNumber ?? ''}`,
         type: 'INFO',
         referenceId: task.id,
         referenceType: 'HOUSEKEEPING_TASK',
-      }).catch(() => {});
+      }).catch((err) => this.logger.warn(`Failed to send task-assigned notification: ${err?.message}`));
     }
 
     return task;
@@ -71,9 +73,24 @@ export class HousekeepingService {
   async updateTask(id: string, dto: any) {
     const task = await this.prisma.housekeepingTask.findUnique({
       where: { id },
-      include: { room: { select: { roomNumber: true } } },
+      include: {
+        room: { select: { roomNumber: true } },
+        property: { select: { tenantId: true } },
+      },
     });
     if (!task) throw new NotFoundException('Task not found');
+
+    // Validate the new assignee belongs to the same tenant before persisting.
+    const isReassign = dto.assignedToId && dto.assignedToId !== task.assignedToId;
+    if (isReassign) {
+      const assignee = await this.prisma.user.findUnique({
+        where: { id: dto.assignedToId },
+        select: { tenantId: true },
+      });
+      if (!assignee || assignee.tenantId !== task.property.tenantId) {
+        throw new BadRequestException('Assignee does not belong to this property');
+      }
+    }
 
     const data: any = { ...dto };
     if (dto.status === 'IN_PROGRESS' && !task.startedAt) data.startedAt = new Date();
@@ -85,7 +102,17 @@ export class HousekeepingService {
       });
     }
 
-    if (dto.assignedToId && dto.assignedToId !== task.assignedToId) {
+    const updated = await this.prisma.housekeepingTask.update({
+      where: { id },
+      data,
+      include: {
+        room: { select: { roomNumber: true, floor: true } },
+        assignedTo: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    // Fire notification only after the DB update succeeds.
+    if (isReassign) {
       this.notifications.createNotification({
         tenantId: task.propertyId,
         userId: dto.assignedToId,
@@ -94,17 +121,10 @@ export class HousekeepingService {
         type: 'INFO',
         referenceId: task.id,
         referenceType: 'HOUSEKEEPING_TASK',
-      }).catch(() => {});
+      }).catch((err) => this.logger.warn(`Failed to send reassign notification: ${err?.message}`));
     }
 
-    return this.prisma.housekeepingTask.update({
-      where: { id },
-      data,
-      include: {
-        room: { select: { roomNumber: true, floor: true } },
-        assignedTo: { select: { id: true, firstName: true, lastName: true } },
-      },
-    });
+    return updated;
   }
 
   async getDailySchedule(propertyId: string, date?: string) {
