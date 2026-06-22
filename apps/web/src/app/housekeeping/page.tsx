@@ -2,17 +2,18 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, CheckCircle2, Clock, AlertCircle, BedDouble } from 'lucide-react';
+import { Plus, CheckCircle2, Clock, AlertCircle, BedDouble, UserRoundCog } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { FadeIn } from '@/components/ui/fade-in';
 import { StaggerGrid, StaggerItem } from '@/components/ui/stagger-grid';
 import { AnimatedCounter } from '@/components/ui/animated-counter';
-import { housekeepingApi, roomsApi } from '@/lib/api';
+import { housekeepingApi, hrApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { HousekeepingTaskDialog } from './components/housekeeping-task-dialog';
@@ -48,9 +49,19 @@ const ROOM_STATUS_COLORS: Record<string, string> = {
   RESERVED: 'bg-blue-500/15 border-blue-500/30 text-blue-600 dark:text-blue-400',
 };
 
-function TaskCard({ task, onUpdate }: { task: any; onUpdate: (id: string, status: string) => void }) {
+function TaskCard({
+  task,
+  onUpdate,
+  staff,
+  onReassign,
+}: {
+  task: any;
+  onUpdate: (id: string, status: string) => void;
+  staff: any[];
+  onReassign: (id: string, userId: string) => void;
+}) {
+  const [reassignOpen, setReassignOpen] = useState(false);
   const statusCfg = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.PENDING;
-  const StatusIcon = statusCfg.icon;
   return (
     <div className={cn('bg-card border-l-4 border border-border rounded-lg p-3 space-y-2', statusCfg.color)}>
       <div className="flex items-start justify-between gap-2">
@@ -73,7 +84,7 @@ function TaskCard({ task, onUpdate }: { task: any; onUpdate: (id: string, status
         </p>
       )}
       {task.notes && <p className="text-xs text-muted-foreground italic truncate">{task.notes}</p>}
-      <div className="flex gap-1 pt-1">
+      <div className="flex gap-1 pt-1 flex-wrap">
         {task.status === 'PENDING' && (
           <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => onUpdate(task.id, 'IN_PROGRESS')}>
             Start
@@ -84,6 +95,32 @@ function TaskCard({ task, onUpdate }: { task: any; onUpdate: (id: string, status
             Complete
           </Button>
         )}
+        <Popover open={reassignOpen} onOpenChange={setReassignOpen}>
+          <PopoverTrigger asChild>
+            <Button size="sm" variant="ghost" className="h-6 text-xs text-muted-foreground px-1.5">
+              <UserRoundCog className="w-3 h-3 mr-1" />
+              Re-assign
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-52 p-1" align="start">
+            {staff.length === 0 ? (
+              <p className="text-xs text-muted-foreground px-2 py-1.5">No staff found</p>
+            ) : (
+              staff.map((s: any) => (
+                <button
+                  key={s.id}
+                  className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors"
+                  onClick={() => { onReassign(task.id, s.id); setReassignOpen(false); }}
+                >
+                  {s.firstName} {s.lastName}
+                  {s.id === task.assignedTo?.id && (
+                    <span className="ml-1 text-[10px] text-muted-foreground">(current)</span>
+                  )}
+                </button>
+              ))
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );
@@ -110,6 +147,12 @@ export default function HousekeepingPage() {
     queryFn: () => housekeepingApi.roomsStatus(propertyId).then(r => r.data),
   });
 
+  const { data: staffData } = useQuery({
+    queryKey: ['hk-staff', propertyId],
+    queryFn: () => hrApi.employees({ propertyId }).then(r => r.data?.data ?? r.data ?? []),
+  });
+  const staff: any[] = Array.isArray(staffData) ? staffData : (staffData?.data ?? []);
+
   const tasks: any[] = tasksData?.data ?? [];
   const rooms: any[] = Array.isArray(roomsData) ? roomsData : [];
 
@@ -131,7 +174,18 @@ export default function HousekeepingPage() {
     onError: () => toast({ variant: 'destructive', title: 'Failed to update task' }),
   });
 
+  const reassignMutation = useMutation({
+    mutationFn: ({ id, assignedToId }: { id: string; assignedToId: string }) =>
+      housekeepingApi.updateTask(id, { assignedToId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['housekeeping-tasks'] });
+      toast({ title: 'Task reassigned' });
+    },
+    onError: () => toast({ variant: 'destructive', title: 'Failed to reassign task' }),
+  });
+
   const handleUpdate = (id: string, status: string) => updateMutation.mutate({ id, status });
+  const handleReassign = (id: string, userId: string) => reassignMutation.mutate({ id, assignedToId: userId });
 
   const pending   = tasks.filter(t => t.status === 'PENDING');
   const inProgress = tasks.filter(t => t.status === 'IN_PROGRESS');
@@ -213,7 +267,7 @@ export default function HousekeepingPage() {
                     </div>
                   ) : (
                     col.tasks.map(task => (
-                      <TaskCard key={task.id} task={task} onUpdate={handleUpdate} />
+                      <TaskCard key={task.id} task={task} onUpdate={handleUpdate} staff={staff} onReassign={handleReassign} />
                     ))
                   )}
                 </div>

@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class HousekeepingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async getTasks(propertyId: string, query: any = {}) {
     const { status, roomId, assignedToId, date, page = 1, limit = 50 } = query;
@@ -38,7 +42,7 @@ export class HousekeepingService {
   }
 
   async createTask(dto: any) {
-    return this.prisma.housekeepingTask.create({
+    const task = await this.prisma.housekeepingTask.create({
       data: {
         ...dto,
         scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
@@ -48,10 +52,27 @@ export class HousekeepingService {
         assignedTo: { select: { id: true, firstName: true, lastName: true } },
       },
     });
+
+    if (dto.assignedToId) {
+      this.notifications.createNotification({
+        tenantId: dto.propertyId,
+        userId: dto.assignedToId,
+        title: 'New Task Assigned',
+        body: `You have a new ${(dto.taskType ?? '').replace(/_/g, ' ')} for Room ${task.room?.roomNumber ?? ''}`,
+        type: 'INFO',
+        referenceId: task.id,
+        referenceType: 'HOUSEKEEPING_TASK',
+      }).catch(() => {});
+    }
+
+    return task;
   }
 
   async updateTask(id: string, dto: any) {
-    const task = await this.prisma.housekeepingTask.findUnique({ where: { id } });
+    const task = await this.prisma.housekeepingTask.findUnique({
+      where: { id },
+      include: { room: { select: { roomNumber: true } } },
+    });
     if (!task) throw new NotFoundException('Task not found');
 
     const data: any = { ...dto };
@@ -62,6 +83,18 @@ export class HousekeepingService {
         where: { id: task.roomId },
         data: { status: 'AVAILABLE' },
       });
+    }
+
+    if (dto.assignedToId && dto.assignedToId !== task.assignedToId) {
+      this.notifications.createNotification({
+        tenantId: task.propertyId,
+        userId: dto.assignedToId,
+        title: 'Task Assigned to You',
+        body: `You have been assigned a ${(task.taskType ?? '').replace(/_/g, ' ')} for Room ${task.room?.roomNumber ?? ''}`,
+        type: 'INFO',
+        referenceId: task.id,
+        referenceType: 'HOUSEKEEPING_TASK',
+      }).catch(() => {});
     }
 
     return this.prisma.housekeepingTask.update({
