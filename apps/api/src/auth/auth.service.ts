@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   UnauthorizedException,
   BadRequestException,
   ConflictException,
@@ -18,6 +19,8 @@ import { LoginDto, RegisterDto, ChangePasswordDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -69,6 +72,19 @@ export class AuthService {
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
+
+    this.prisma.auditLog.create({
+      data: {
+        tenantId: user.tenantId,
+        userId: user.id,
+        action: 'LOGIN',
+        entity: 'USER',
+        entityId: user.id,
+        description: `${user.firstName} ${user.lastName} (${user.email}) logged in`,
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent ?? null,
+      },
+    }).catch((err) => this.logger.warn(`Failed to write login audit log: ${err?.message}`));
 
     return {
       accessToken: tokens.accessToken,
