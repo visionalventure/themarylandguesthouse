@@ -45,17 +45,17 @@ export default function ProcurementPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: prData } = useQuery({
+  const { data: prData, isLoading: prLoading } = useQuery({
     queryKey: ['purchase-requests', propertyId],
     queryFn: () => procurementApi.purchaseRequests({ propertyId: propertyId }).then(r => r.data),
   });
 
-  const { data: poData } = useQuery({
+  const { data: poData, isLoading: poLoading } = useQuery({
     queryKey: ['purchase-orders', propertyId],
     queryFn: () => procurementApi.purchaseOrders({ propertyId: propertyId }).then(r => r.data),
   });
 
-  const { data: suppliersRaw } = useQuery({
+  const { data: suppliersRaw, isLoading: suppliersLoading } = useQuery({
     queryKey: ['suppliers', propertyId],
     queryFn: () => procurementApi.suppliers({ propertyId: propertyId }).then(r => r.data),
   });
@@ -131,7 +131,9 @@ export default function ProcurementPage() {
         <TabsContent value="requests">
           <Card className="mt-4">
             <CardContent className="p-0">
-              {prs.length === 0 ? (
+              {prLoading ? (
+                <div className="py-12 text-center text-muted-foreground text-sm">Loading…</div>
+              ) : prs.length === 0 ? (
                 <div className="py-16 text-center">
                   <ShoppingCart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
                   <p className="text-base font-medium text-foreground">No purchase requests yet</p>
@@ -194,7 +196,9 @@ export default function ProcurementPage() {
         <TabsContent value="orders">
           <Card className="mt-4">
             <CardContent className="p-0">
-              {pos.length === 0 ? (
+              {poLoading ? (
+                <div className="py-12 text-center text-muted-foreground text-sm">Loading…</div>
+              ) : pos.length === 0 ? (
                 <div className="py-16 text-center">
                   <Package className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
                   <p className="text-base font-medium text-foreground">No purchase orders yet</p>
@@ -236,7 +240,9 @@ export default function ProcurementPage() {
 
         <TabsContent value="suppliers">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-            {suppliers.length === 0 ? (
+            {suppliersLoading ? (
+              <div className="col-span-full py-12 text-center text-muted-foreground text-sm">Loading…</div>
+            ) : suppliers.length === 0 ? (
               <div className="col-span-full py-16 text-center">
                 <Building2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
                 <p className="text-base font-medium text-foreground">No suppliers added yet</p>

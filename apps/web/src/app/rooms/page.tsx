@@ -48,7 +48,7 @@ function RoomPricingSheet({ room, open, onClose }: { room: any; open: boolean; o
   const createMutation = useMutation({
     mutationFn: () => roomsApi.createPricing(room.id, { ...form, pricePerNight: Number(form.pricePerNight), minNights: Number(form.minNights) }).then(r => r.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['room-pricing', room.id] });
+      queryClient.invalidateQueries({ queryKey: ['room-pricing', room?.id] });
       setAddOpen(false);
       setForm({ name: '', pricePerNight: '', startDate: '', endDate: '', isDefault: false, minNights: '1' });
       toast({ title: 'Pricing rule added' });
@@ -62,6 +62,7 @@ function RoomPricingSheet({ room, open, onClose }: { room: any; open: boolean; o
       queryClient.invalidateQueries({ queryKey: ['room-pricing', room?.id] });
       toast({ title: 'Pricing rule removed' });
     },
+    onError: () => toast({ variant: 'destructive', title: 'Failed to remove pricing rule' }),
   });
 
   const pricingList: any[] = Array.isArray(pricing) ? pricing : [];

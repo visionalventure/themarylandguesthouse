@@ -251,11 +251,17 @@ function EmployeesTab({ propertyId }: { propertyId: string }) {
           ) : employees.length === 0 ? (
             <div className="py-16 text-center">
               <Users2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="text-base font-medium text-foreground">No employees yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Add your first employee to manage contracts, payroll, and schedules.</p>
-              <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setEmpDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" /> Add Employee
-              </Button>
+              <p className="text-base font-medium text-foreground">
+                {debouncedSearch || statusFilter !== 'ALL' || departmentFilter !== 'ALL' ? 'No employees match your filters' : 'No employees yet'}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {debouncedSearch || statusFilter !== 'ALL' || departmentFilter !== 'ALL' ? 'Try adjusting the search or filters.' : 'Add your first employee to manage contracts, payroll, and schedules.'}
+              </p>
+              {!(debouncedSearch || statusFilter !== 'ALL' || departmentFilter !== 'ALL') && (
+                <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setEmpDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" /> Add Employee
+                </Button>
+              )}
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -1114,7 +1120,7 @@ function LeaveTabContent({ propertyId, queryClient, toast }: any) {
   });
   const employees: any[] = empData?.data ?? [];
 
-  const { data } = useQuery({
+  const { data, isLoading: leaveLoading } = useQuery({
     queryKey: ['leave-requests', propertyId, statusFilter],
     queryFn: () => hrApi.listLeaveRequests({ propertyId, status: statusFilter !== 'ALL' ? statusFilter : undefined }).then(r => r.data),
   });
@@ -1160,7 +1166,9 @@ function LeaveTabContent({ propertyId, queryClient, toast }: any) {
       </div>
       <Card>
         <CardContent className="p-0">
-          {requests.length === 0 ? (
+          {leaveLoading ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">Loading leave requests…</div>
+          ) : requests.length === 0 ? (
             <div className="py-12 text-center">
               <CalendarCheck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm font-medium text-foreground">No leave requests</p>

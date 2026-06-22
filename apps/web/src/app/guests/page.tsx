@@ -132,11 +132,17 @@ export default function GuestsPage() {
         <Card>
           <CardContent className="py-16 text-center">
             <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-base font-medium text-foreground">No guests yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Add your first guest to start tracking stays and loyalty points.</p>
-            <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" /> Add Guest
-            </Button>
+            <p className="text-base font-medium text-foreground">
+              {debouncedSearch ? 'No guests match your search' : 'No guests yet'}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {debouncedSearch ? 'Try a different search term.' : 'Add your first guest to start tracking stays and loyalty points.'}
+            </p>
+            {!debouncedSearch && (
+              <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Add Guest
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

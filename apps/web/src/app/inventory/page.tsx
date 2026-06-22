@@ -45,7 +45,7 @@ export default function InventoryPage() {
       : <ChevronDown className="inline w-3 h-3 ml-1 text-primary" />;
   };
 
-  const { data } = useQuery({
+  const { data, isLoading: inventoryLoading } = useQuery({
     queryKey: ['inventory', { propertyId: propertyId, search: debouncedSearch, sortBy, sortOrder }],
     queryFn: () => inventoryApi.list({ propertyId: propertyId, search: debouncedSearch, limit: 50, sortBy, sortOrder }).then((r) => r.data),
   });
@@ -152,14 +152,22 @@ export default function InventoryPage() {
           <CardTitle className="text-base">Items ({items.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {items.length === 0 ? (
+          {inventoryLoading ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">Loading inventory…</div>
+          ) : items.length === 0 ? (
             <div className="py-16 text-center">
               <Package className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="text-base font-medium text-foreground">No inventory items yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Add items to track stock levels, costs, and reorder points.</p>
-              <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setItemDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" /> Add Item
-              </Button>
+              <p className="text-base font-medium text-foreground">
+                {debouncedSearch ? 'No items match your search' : 'No inventory items yet'}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {debouncedSearch ? 'Try a different search term.' : 'Add items to track stock levels, costs, and reorder points.'}
+              </p>
+              {!debouncedSearch && (
+                <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setItemDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" /> Add Item
+                </Button>
+              )}
             </div>
           ) : (
           <div className="overflow-x-auto">

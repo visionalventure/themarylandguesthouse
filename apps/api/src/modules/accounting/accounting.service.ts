@@ -297,7 +297,10 @@ export class AccountingService {
   async sendInvoice(id: string) {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id },
-      include: { guest: { select: { firstName: true, lastName: true, email: true } } },
+      include: {
+        guest: { select: { firstName: true, lastName: true, email: true } },
+        tenant: { select: { name: true } },
+      },
     });
     if (!invoice) throw new NotFoundException();
     if (invoice.status !== 'DRAFT') throw new BadRequestException('Only DRAFT invoices can be sent');
@@ -320,7 +323,7 @@ export class AccountingService {
           invoiceNumber: invoice.invoiceNumber,
           dueDate: format(new Date(invoice.dueDate), 'dd MMM yyyy'),
           totalAmount: `$${Number(invoice.totalAmount).toLocaleString()}`,
-          propertyName: 'Maryland Guesthouse',
+          propertyName: invoice.tenant?.name ?? 'Maryland Guesthouse',
         })
         .catch(() => {/* fire-and-forget */});
     }
@@ -340,11 +343,16 @@ export class AccountingService {
 
   // ─── Bank Reconciliation ──────────────────────────────────────────────────
   async startReconciliation(bankAccountId: string, closingBalance: number, statementDate: string) {
+    const bankAccount = await this.prisma.bankAccount.findUnique({
+      where: { id: bankAccountId },
+      select: { currentBalance: true },
+    });
+    const openingBalance = bankAccount ? Number(bankAccount.currentBalance) : 0;
     const recon = await this.prisma.bankReconciliation.create({
       data: {
         bankAccountId,
         statementDate: new Date(statementDate),
-        openingBalance: 0,
+        openingBalance,
         closingBalance,
         reconciledBalance: 0,
         difference: closingBalance,
@@ -369,6 +377,19 @@ export class AccountingService {
   }
 
   async reconcileTransaction(reconciliationId: string, transactionId: string) {
+    const recon = await this.prisma.bankReconciliation.findUnique({
+      where: { id: reconciliationId },
+      select: { bankAccountId: true },
+    });
+    if (!recon) throw new NotFoundException('Reconciliation not found');
+    const txn = await this.prisma.bankTransaction.findUnique({
+      where: { id: transactionId },
+      select: { bankAccountId: true },
+    });
+    if (!txn) throw new NotFoundException('Transaction not found');
+    if (txn.bankAccountId !== recon.bankAccountId) {
+      throw new BadRequestException('Transaction does not belong to this reconciliation account');
+    }
     return this.prisma.bankTransaction.update({
       where: { id: transactionId },
       data: { isReconciled: true, reconciledAt: new Date() },

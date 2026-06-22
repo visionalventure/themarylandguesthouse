@@ -71,6 +71,7 @@ export default function BankingPage() {
       setCheckedTxns((prev) => new Set([...prev, txnId]));
       queryClient.invalidateQueries({ queryKey: ['bank-transactions', activeId] });
     },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message ?? 'Failed to reconcile transaction' }),
   });
 
   const finalizeMutation = useMutation({
@@ -322,7 +323,7 @@ export default function BankingPage() {
                 <Button
                   className="w-full"
                   onClick={() => finalizeMutation.mutate()}
-                  disabled={finalizeMutation.isPending}
+                  disabled={finalizeMutation.isPending || Math.abs(difference) >= 0.01}
                 >
                   {finalizeMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Finalize Reconciliation

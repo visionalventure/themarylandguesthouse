@@ -1,6 +1,6 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { finalize } from 'rxjs/operators';
 import { PrismaService } from '../prisma/prisma.service';
 
 const SKIP_PATHS = ['/auth/login', '/auth/logout', '/auth/refresh', '/auth/forgot-password', '/auth/reset-password'];
@@ -51,6 +51,21 @@ function deriveEntityId(path: string): string | null {
   return null;
 }
 
+const SENSITIVE_KEYS = new Set([
+  'password', 'passwordHash', 'currentPassword', 'newPassword',
+  'secret', 'token', 'refreshToken', 'accessToken',
+  'apiKey', 'api_key', 'twoFactorSecret', 'totpCode',
+]);
+
+function sanitizeBody(body: any): any {
+  if (!body || typeof body !== 'object') return body;
+  const result: any = {};
+  for (const [key, value] of Object.entries(body)) {
+    result[key] = SENSITIVE_KEYS.has(key) ? '[REDACTED]' : value;
+  }
+  return result;
+}
+
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
   constructor(private readonly prisma: PrismaService) {}
@@ -73,10 +88,13 @@ export class AuditInterceptor implements NestInterceptor {
     const entityId = deriveEntityId(path);
     const userId = req.user?.sub;
     const tenantId = req.user?.tenantId;
+    const xff = req.headers?.['x-forwarded-for'] as string | undefined;
+    const ipAddress = xff ? xff.split(',')[0].trim() : req.ip;
 
     return next.handle().pipe(
-      tap(() => {
+      finalize(() => {
         if (!tenantId) return;
+        const body = req.body && Object.keys(req.body).length > 0 ? sanitizeBody(req.body) : undefined;
         this.prisma.auditLog
           .create({
             data: {
@@ -86,9 +104,9 @@ export class AuditInterceptor implements NestInterceptor {
               entity,
               entityId,
               description: `${action} ${entity}${entityId ? ` (${entityId.slice(0, 8)}...)` : ''}`,
-              ipAddress: req.ip,
+              ipAddress: ipAddress ?? null,
               userAgent: req.headers?.['user-agent'] ?? null,
-              newValues: req.body && Object.keys(req.body).length > 0 ? req.body : undefined,
+              newValues: body,
             },
           })
           .catch(() => {/* fire-and-forget, never block response */});

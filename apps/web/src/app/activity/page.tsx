@@ -96,7 +96,7 @@ export default function ActivityPage() {
         <Input
           placeholder="Search by user, action, entity…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           className="h-9 w-64 text-sm"
         />
         {(entityFilter || search) && (
@@ -138,7 +138,7 @@ export default function ActivityPage() {
                   {logs.map((log: any) => (
                     <tr key={log.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                       <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                        {log.createdAt ? format(new Date(log.createdAt), 'MMM d, HH:mm:ss') : '—'}
+                        {(() => { const d = log.createdAt ? new Date(log.createdAt) : null; return d && !isNaN(d.getTime()) ? format(d, 'MMM d, HH:mm:ss') : '—'; })()}
                       </td>
                       <td className="px-4 py-3">
                         {log.user ? (
@@ -176,8 +176,8 @@ export default function ActivityPage() {
         </CardContent>
       </Card>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
+      {/* Pagination — hidden when search is active (client-side filter doesn't align with server-side page totals) */}
+      {totalPages > 1 && !search && (
         <div className="flex items-center justify-center gap-2">
           <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             Previous

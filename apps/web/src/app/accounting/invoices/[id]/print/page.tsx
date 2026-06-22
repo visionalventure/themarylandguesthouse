@@ -92,7 +92,7 @@ export default function InvoicePrintPage() {
         {/* Header */}
         <div style={{ background: brandColor, padding: '24px 32px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            {property?.logoUrl && (
+            {property?.logoUrl && /^https?:\/\//i.test(property.logoUrl) && (
               <img src={property.logoUrl} alt="" style={{ height: 48, marginBottom: 8, objectFit: 'contain' }} />
             )}
             <h1 style={{ color: 'white', margin: 0, fontSize: 22, fontWeight: 700 }}>{tpl.companyHeader ?? property?.name ?? 'Maryland Guesthouse'}</h1>
@@ -119,12 +119,12 @@ export default function InvoicePrintPage() {
                 <tbody>
                   <tr>
                     <td style={{ color: '#6b7280', fontSize: 12, paddingRight: 16, paddingBottom: 4 }}>Issue Date</td>
-                    <td style={{ fontWeight: 600, fontSize: 13, paddingBottom: 4 }}>{invoice.issueDate ? format(new Date(invoice.issueDate), 'dd MMM yyyy') : '—'}</td>
+                    <td style={{ fontWeight: 600, fontSize: 13, paddingBottom: 4 }}>{(() => { const d = invoice.issueDate ? new Date(invoice.issueDate) : null; return d && !isNaN(d.getTime()) ? format(d, 'dd MMM yyyy') : '—'; })()}</td>
                   </tr>
                   <tr>
                     <td style={{ color: '#6b7280', fontSize: 12, paddingRight: 16, paddingBottom: 4 }}>Due Date</td>
                     <td style={{ fontWeight: 600, fontSize: 13, paddingBottom: 4, color: balanceDue > 0 ? '#ef4444' : '#16a34a' }}>
-                      {invoice.dueDate ? format(new Date(invoice.dueDate), 'dd MMM yyyy') : '—'}
+                      {(() => { const d = invoice.dueDate ? new Date(invoice.dueDate) : null; return d && !isNaN(d.getTime()) ? format(d, 'dd MMM yyyy') : '—'; })()}
                     </td>
                   </tr>
                   <tr>

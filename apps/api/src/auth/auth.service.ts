@@ -260,7 +260,10 @@ export class AuthService {
   }
 
   async forgotPassword(email: string) {
-    const user = await this.prisma.user.findFirst({ where: { email } });
+    const user = await this.prisma.user.findFirst({
+      where: { email },
+      include: { tenant: { select: { name: true } } },
+    });
     // Always return success to prevent email enumeration
     if (!user) return { message: 'If that email exists, a reset link has been sent.' };
 
@@ -280,7 +283,7 @@ export class AuthService {
         to: user.email,
         name: `${user.firstName} ${user.lastName}`,
         resetUrl,
-        propertyName: 'Maryland Guesthouse',
+        propertyName: user.tenant?.name ?? this.config.get('PROPERTY_NAME', 'Maryland Guesthouse'),
       })
       .catch(() => {/* fire-and-forget */});
     return { message: 'If that email exists, a reset link has been sent.' };

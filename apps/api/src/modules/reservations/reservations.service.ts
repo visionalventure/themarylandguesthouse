@@ -74,10 +74,13 @@ export class ReservationsService {
     // Extract room IDs from the nested-write shape the frontend sends
     const roomIds: string[] = dto.rooms?.create?.map((r: any) => r.roomId).filter(Boolean) ?? [];
 
-    // Look up each room's base price from its category
-    const roomRecords = roomIds.length
-      ? await this.prisma.room.findMany({ where: { id: { in: roomIds } }, include: { category: true } })
-      : [];
+    // Look up each room's base price from its category; fetch property name in parallel
+    const [roomRecords, property] = await Promise.all([
+      roomIds.length
+        ? this.prisma.room.findMany({ where: { id: { in: roomIds } }, include: { category: true } })
+        : Promise.resolve([]),
+      this.prisma.property.findUnique({ where: { id: propertyId }, select: { name: true } }),
+    ]);
 
     const roomsCreate = roomRecords.map((room) => ({
       roomId: room.id,
@@ -155,7 +158,7 @@ export class ReservationsService {
           checkIn: format(new Date(checkIn), 'dd MMM yyyy'),
           checkOut: format(new Date(checkOut), 'dd MMM yyyy'),
           roomNumbers,
-          propertyName: 'Maryland Guesthouse',
+          propertyName: property?.name ?? 'Maryland Guesthouse',
         })
         .catch(() => {/* fire-and-forget */});
     }

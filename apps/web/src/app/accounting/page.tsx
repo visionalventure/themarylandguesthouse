@@ -31,6 +31,7 @@ import { StaggerGrid, StaggerItem } from '@/components/ui/stagger-grid';
 import { AnimatedCounter } from '@/components/ui/animated-counter';
 import { useChartColors } from '@/hooks/use-chart-colors';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 import { usePageTitle } from '@/hooks/use-page-title';
 import { useAuthStore } from '@/store/auth';
@@ -646,6 +647,7 @@ function AccountingContent() {
 
 function BudgetTab({ propertyId }: { propertyId: string }) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [selectedBudgetId, setSelectedBudgetId] = useState<string>('');
   const [createOpen, setCreateOpen] = useState(false);
   const [newBudget, setNewBudget] = useState({ name: '', period: 'ANNUAL', startDate: '', endDate: '' });
@@ -672,6 +674,7 @@ function BudgetTab({ propertyId }: { propertyId: string }) {
       setCreateOpen(false);
       setNewBudget({ name: '', period: 'ANNUAL', startDate: '', endDate: '' });
     },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message ?? 'Failed to create budget' }),
   });
 
   const lines: any[] = budgetDetail?.lines ?? [];
