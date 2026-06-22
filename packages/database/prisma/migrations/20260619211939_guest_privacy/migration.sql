@@ -11,9 +11,6 @@ ADD COLUMN     "requireAddress" BOOLEAN NOT NULL DEFAULT false,
 ADD COLUMN     "requireIdentification" BOOLEAN NOT NULL DEFAULT true,
 ADD COLUMN     "requirePhone" BOOLEAN NOT NULL DEFAULT false;
 
--- AlterTable
-ALTER TABLE "reservations" ALTER COLUMN "holdExpiresAt" SET DATA TYPE TIMESTAMP(3);
-
 -- CreateTable
 CREATE TABLE "guest_privacy_logs" (
     "id" TEXT NOT NULL,
