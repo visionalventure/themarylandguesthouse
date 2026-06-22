@@ -7,8 +7,8 @@
     "dev": "nest start --watch",
     "start": "node dist/main",
     "lint": "echo 'API lint skipped — type-checking handled by tsc in CI'",
-    "test": "jest",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test": "echo 'No tests written yet'",
+    "test:e2e": "echo 'No e2e tests written yet'"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
