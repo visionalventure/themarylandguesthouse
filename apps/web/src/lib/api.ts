@@ -403,6 +403,8 @@ export const settingsApi = {
   getDepartments: () => api.get('/v1/settings/departments'),
   createDepartment: (data: any) => api.post('/v1/settings/departments', data),
   updateDepartment: (id: string, data: any) => api.put(`/v1/settings/departments/${id}`, data),
+  getPolicyConfig: (propertyId: string) => api.get('/v1/settings/policy', { params: { propertyId } }),
+  updatePolicyConfig: (propertyId: string, data: any) => api.put('/v1/settings/policy', data, { params: { propertyId } }),
 };
 
 export const documentsApi = {

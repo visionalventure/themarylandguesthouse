@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { format } from 'date-fns';
-import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard, AlignLeft, AlignCenter, AlignRight, Users } from 'lucide-react';
+import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard, AlignLeft, AlignCenter, AlignRight, Users, Star, Clock, BookOpen, ShoppingCart, Gift, Bell, CalendarDays, UserCheck, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,6 +58,55 @@ const ROLE_COLORS: Record<string, string> = {
   MANAGER:     'bg-primary/15 text-primary border-primary/40',
   FRONT_DESK:  'bg-blue-100 text-blue-700 border-blue-200 dark:bg-primary/20 dark:text-primary',
 };
+
+const PROPERTY_TYPES = ['GUESTHOUSE', 'HOTEL', 'LODGE', 'RESORT', 'APARTMENT'];
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const POLICY_DEFAULTS = {
+  booking: {
+    holdDurationMinutes: 60, defaultDepositPercent: 0, depositRequiredDaysOut: 0,
+    freeCancellationHours: 24, cancellationRefundPercent: 100, allowOverbooking: false, overbookingPercent: 5,
+  },
+  nightAudit: { autoChargeEnabled: true, noShowGraceMinutes: 120, scheduledTime: '03:00' },
+  attendance: {
+    graceMinutes: 15, halfDayThresholdHours: 4, earlyDepartureTolerance: 15,
+    highSeverityThresholdMinutes: 60, probationAlertDays: 30, contractAlertDays: 60,
+  },
+  accounting: { fiscalYearStartMonth: 1, defaultInvoiceDueDays: 30, invoicePrefix: 'INV', journalPrefix: 'JE' },
+  procurement: { approvalThreshold: 0, defaultPaymentTermsDays: 30 },
+  loyalty: {
+    tierThresholds: { BRONZE: 0, SILVER: 500, GOLD: 2000, PLATINUM: 5000, VIP: 10000 },
+    defaultEarningRate: 1,
+  },
+  notifications: {
+    emailOnNewReservation: true, emailOnCheckOut: true, emailOnInvoiceCreated: true, emailOnPaymentReceived: true,
+    inAppOnNewReservation: true, inAppOnPaymentReceived: true, inAppOnMaintenanceAlert: true, inAppOnLowInventory: true,
+  },
+};
+
+function usePolicyConfig() {
+  const propertyId = useAuthStore((s) => s.propertyId);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data, isLoading } = useQuery({
+    queryKey: ['policy-config', propertyId],
+    queryFn: () => settingsApi.getPolicyConfig(propertyId).then(r => r.data),
+    enabled: !!propertyId,
+  });
+  const save = useMutation({
+    mutationFn: (patch: any) => settingsApi.updatePolicyConfig(propertyId, patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['policy-config', propertyId] });
+      toast({ title: 'Settings saved' });
+    },
+    onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed to save' }),
+  });
+  return { data, isLoading, save, propertyId };
+}
 
 function PropertyTab() {
   const propertyId = useAuthStore((s) => s.propertyId);
@@ -146,6 +195,64 @@ function PropertyTab() {
           <div className="space-y-2">
             <Label>Address</Label>
             <Input {...register('address')} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>City</Label>
+              <Input {...register('city')} />
+            </div>
+            <div className="space-y-2">
+              <Label>Country</Label>
+              <Input {...register('country')} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Property Type</Label>
+              <Controller
+                name="type"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                    <SelectTrigger><SelectValue placeholder="Select type…" /></SelectTrigger>
+                    <SelectContent>
+                      {PROPERTY_TYPES.map(t => (
+                        <SelectItem key={t} value={t}>{t.charAt(0) + t.slice(1).toLowerCase()}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Star Rating</Label>
+              <Controller
+                name="starRating"
+                control={control}
+                render={({ field }) => (
+                  <div className="flex items-center gap-1 h-9">
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <button key={n} type="button" onClick={() => field.onChange(n)}>
+                        <Star className={cn('w-5 h-5 transition-colors', (field.value ?? 0) >= n ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30')} />
+                      </button>
+                    ))}
+                    {field.value && (
+                      <button type="button" onClick={() => field.onChange(null)} className="ml-1 text-xs text-muted-foreground hover:text-foreground">Clear</button>
+                    )}
+                  </div>
+                )}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Check-In Time</Label>
+              <Input type="time" {...register('checkInTime')} />
+            </div>
+            <div className="space-y-2">
+              <Label>Check-Out Time</Label>
+              <Input type="time" {...register('checkOutTime')} />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
@@ -1060,6 +1167,369 @@ function DepartmentsTab() {
   );
 }
 
+function PolicyRow({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-3 border-b border-border last:border-0">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{label}</p>
+        {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+      </div>
+      <div className="flex-shrink-0">{children}</div>
+    </div>
+  );
+}
+
+function NumInput({ value, onChange, min, max, step, unit }: { value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number; unit?: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Input
+        type="number"
+        className="w-24 text-sm"
+        value={value}
+        min={min}
+        max={max}
+        step={step ?? 1}
+        onChange={e => onChange(Number(e.target.value))}
+      />
+      {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
+    </div>
+  );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0',
+        checked ? 'bg-primary' : 'bg-muted-foreground/30',
+      )}
+    >
+      <span className={cn('inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform', checked ? 'translate-x-4' : 'translate-x-0.5')} />
+    </button>
+  );
+}
+
+function BookingPolicyTab() {
+  const { data, save } = usePolicyConfig();
+  const [cfg, setCfg] = useState({ ...POLICY_DEFAULTS.booking });
+  useEffect(() => { if (data?.booking) setCfg({ ...POLICY_DEFAULTS.booking, ...data.booking }); }, [data]);
+  const up = (k: keyof typeof cfg, v: any) => setCfg(p => ({ ...p, [k]: v }));
+
+  return (
+    <div className="pt-6 max-w-2xl space-y-4">
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Clock className="w-4 h-4" />Hold & Deposit</CardTitle></CardHeader>
+        <CardContent>
+          <PolicyRow label="Hold Duration" description="How long a room hold lasts before auto-release">
+            <NumInput value={cfg.holdDurationMinutes} onChange={v => up('holdDurationMinutes', v)} min={5} unit="min" />
+          </PolicyRow>
+          <PolicyRow label="Default Deposit %" description="Percent of total required as deposit at booking">
+            <NumInput value={cfg.defaultDepositPercent} onChange={v => up('defaultDepositPercent', v)} min={0} max={100} unit="%" />
+          </PolicyRow>
+          <PolicyRow label="Deposit Required When" description="Require deposit only if arrival is ≥N days away (0 = always)">
+            <NumInput value={cfg.depositRequiredDaysOut} onChange={v => up('depositRequiredDaysOut', v)} min={0} unit="days out" />
+          </PolicyRow>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><CalendarDays className="w-4 h-4" />Cancellation Policy</CardTitle></CardHeader>
+        <CardContent>
+          <PolicyRow label="Free Cancellation Window" description="Guests can cancel free within this many hours of check-in">
+            <NumInput value={cfg.freeCancellationHours} onChange={v => up('freeCancellationHours', v)} min={0} unit="hrs" />
+          </PolicyRow>
+          <PolicyRow label="Refund After Window %" description="Refund percentage once the free cancellation window has passed">
+            <NumInput value={cfg.cancellationRefundPercent} onChange={v => up('cancellationRefundPercent', v)} min={0} max={100} unit="%" />
+          </PolicyRow>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Building className="w-4 h-4" />Capacity</CardTitle></CardHeader>
+        <CardContent>
+          <PolicyRow label="Allow Overbooking" description="Accept reservations beyond 100% room capacity">
+            <Toggle checked={cfg.allowOverbooking} onChange={v => up('allowOverbooking', v)} />
+          </PolicyRow>
+          {cfg.allowOverbooking && (
+            <PolicyRow label="Overbooking Buffer %" description="How far over capacity to accept (e.g. 5%)">
+              <NumInput value={cfg.overbookingPercent} onChange={v => up('overbookingPercent', v)} min={1} max={50} unit="%" />
+            </PolicyRow>
+          )}
+        </CardContent>
+      </Card>
+
+      <Button onClick={() => save.mutate({ booking: cfg })} disabled={save.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+        {save.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save Booking Policy
+      </Button>
+    </div>
+  );
+}
+
+function NightAuditSettingsTab() {
+  const { data, save } = usePolicyConfig();
+  const [cfg, setCfg] = useState({ ...POLICY_DEFAULTS.nightAudit });
+  useEffect(() => { if (data?.nightAudit) setCfg({ ...POLICY_DEFAULTS.nightAudit, ...data.nightAudit }); }, [data]);
+  const up = (k: keyof typeof cfg, v: any) => setCfg(p => ({ ...p, [k]: v }));
+
+  return (
+    <div className="pt-6 max-w-2xl space-y-4">
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Moon className="w-4 h-4" />Night Audit Configuration</CardTitle></CardHeader>
+        <CardContent>
+          <PolicyRow label="Auto-Charge Room Rates" description="Automatically post nightly room charges when audit runs">
+            <Toggle checked={cfg.autoChargeEnabled} onChange={v => up('autoChargeEnabled', v)} />
+          </PolicyRow>
+          <PolicyRow label="No-Show Grace Period" description="Minutes after scheduled check-in before marking reservation as no-show">
+            <NumInput value={cfg.noShowGraceMinutes} onChange={v => up('noShowGraceMinutes', v)} min={0} unit="min" />
+          </PolicyRow>
+          <PolicyRow label="Scheduled Audit Time" description="Reference time for nightly audit (audit is manually triggered)">
+            <Input type="time" value={cfg.scheduledTime} onChange={e => up('scheduledTime', e.target.value)} className="w-32 text-sm" />
+          </PolicyRow>
+        </CardContent>
+      </Card>
+      <Button onClick={() => save.mutate({ nightAudit: cfg })} disabled={save.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+        {save.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save Night Audit Settings
+      </Button>
+    </div>
+  );
+}
+
+function AttendancePolicyTab() {
+  const { data, save } = usePolicyConfig();
+  const [cfg, setCfg] = useState({ ...POLICY_DEFAULTS.attendance });
+  useEffect(() => { if (data?.attendance) setCfg({ ...POLICY_DEFAULTS.attendance, ...data.attendance }); }, [data]);
+  const up = (k: keyof typeof cfg, v: any) => setCfg(p => ({ ...p, [k]: v }));
+
+  return (
+    <div className="pt-6 max-w-2xl space-y-4">
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><UserCheck className="w-4 h-4" />Clock-In / Clock-Out Tolerances</CardTitle></CardHeader>
+        <CardContent>
+          <PolicyRow label="Late Clock-In Grace" description="Not marked late if clocking in within this many minutes of shift start">
+            <NumInput value={cfg.graceMinutes} onChange={v => up('graceMinutes', v)} min={0} unit="min" />
+          </PolicyRow>
+          <PolicyRow label="Early Departure Tolerance" description="Not flagged as early departure within this many minutes of shift end">
+            <NumInput value={cfg.earlyDepartureTolerance} onChange={v => up('earlyDepartureTolerance', v)} min={0} unit="min" />
+          </PolicyRow>
+          <PolicyRow label="Half-Day Threshold" description="Shifts shorter than this count as a half-day attendance record">
+            <NumInput value={cfg.halfDayThresholdHours} onChange={v => up('halfDayThresholdHours', v)} min={1} max={12} unit="hrs" />
+          </PolicyRow>
+          <PolicyRow label="High-Severity Late Threshold" description="Lateness beyond this is classified as HIGH severity anomaly">
+            <NumInput value={cfg.highSeverityThresholdMinutes} onChange={v => up('highSeverityThresholdMinutes', v)} min={15} unit="min" />
+          </PolicyRow>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Bell className="w-4 h-4" />Contract Alerts</CardTitle></CardHeader>
+        <CardContent>
+          <PolicyRow label="Probation Expiry Alert" description="Alert HR managers this many days before an employee's probation period ends">
+            <NumInput value={cfg.probationAlertDays} onChange={v => up('probationAlertDays', v)} min={1} unit="days" />
+          </PolicyRow>
+          <PolicyRow label="Contract Expiry Alert" description="Alert HR managers this many days before an employee's contract ends">
+            <NumInput value={cfg.contractAlertDays} onChange={v => up('contractAlertDays', v)} min={1} unit="days" />
+          </PolicyRow>
+        </CardContent>
+      </Card>
+
+      <Button onClick={() => save.mutate({ attendance: cfg })} disabled={save.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+        {save.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save Attendance Policy
+      </Button>
+    </div>
+  );
+}
+
+function AccountingDefaultsTab() {
+  const { data, save } = usePolicyConfig();
+  const [cfg, setCfg] = useState({ ...POLICY_DEFAULTS.accounting });
+  useEffect(() => { if (data?.accounting) setCfg({ ...POLICY_DEFAULTS.accounting, ...data.accounting }); }, [data]);
+  const up = (k: keyof typeof cfg, v: any) => setCfg(p => ({ ...p, [k]: v }));
+
+  const year = new Date().getFullYear();
+  const invoicePreview = `${cfg.invoicePrefix || 'INV'}-${year}-0001`;
+  const journalPreview = `${cfg.journalPrefix || 'JE'}-${year}-00001`;
+
+  return (
+    <div className="pt-6 max-w-2xl space-y-4">
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><BookOpen className="w-4 h-4" />Fiscal Year & Payment Terms</CardTitle></CardHeader>
+        <CardContent>
+          <PolicyRow label="Fiscal Year Start" description="Month when the accounting year begins">
+            <Select value={String(cfg.fiscalYearStartMonth)} onValueChange={v => up('fiscalYearStartMonth', Number(v))}>
+              <SelectTrigger className="w-36 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {MONTHS.map((m, i) => <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </PolicyRow>
+          <PolicyRow label="Default Invoice Due Days" description="Days from invoice date until payment is due">
+            <NumInput value={cfg.defaultInvoiceDueDays} onChange={v => up('defaultInvoiceDueDays', v)} min={1} unit="days" />
+          </PolicyRow>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><FileText className="w-4 h-4" />Document Numbering</CardTitle></CardHeader>
+        <CardContent>
+          <PolicyRow label="Invoice Prefix" description={`Preview: ${invoicePreview}`}>
+            <Input value={cfg.invoicePrefix} onChange={e => up('invoicePrefix', e.target.value.toUpperCase().slice(0, 6))} className="w-24 text-sm font-mono uppercase" maxLength={6} />
+          </PolicyRow>
+          <PolicyRow label="Journal Entry Prefix" description={`Preview: ${journalPreview}`}>
+            <Input value={cfg.journalPrefix} onChange={e => up('journalPrefix', e.target.value.toUpperCase().slice(0, 6))} className="w-24 text-sm font-mono uppercase" maxLength={6} />
+          </PolicyRow>
+        </CardContent>
+      </Card>
+
+      <Button onClick={() => save.mutate({ accounting: cfg })} disabled={save.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+        {save.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save Accounting Defaults
+      </Button>
+    </div>
+  );
+}
+
+function ProcurementPolicyTab() {
+  const { data, save } = usePolicyConfig();
+  const [cfg, setCfg] = useState({ ...POLICY_DEFAULTS.procurement });
+  useEffect(() => { if (data?.procurement) setCfg({ ...POLICY_DEFAULTS.procurement, ...data.procurement }); }, [data]);
+  const up = (k: keyof typeof cfg, v: any) => setCfg(p => ({ ...p, [k]: v }));
+
+  return (
+    <div className="pt-6 max-w-2xl space-y-4">
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><ShoppingCart className="w-4 h-4" />Approval & Payment Rules</CardTitle></CardHeader>
+        <CardContent>
+          <PolicyRow label="PO Approval Threshold" description="Purchase orders above this amount require explicit manager approval (0 = approval always optional)">
+            <NumInput value={cfg.approvalThreshold} onChange={v => up('approvalThreshold', v)} min={0} unit="USD" />
+          </PolicyRow>
+          <PolicyRow label="Default Supplier Payment Terms" description="Default number of days from bill date until supplier payment is due">
+            <NumInput value={cfg.defaultPaymentTermsDays} onChange={v => up('defaultPaymentTermsDays', v)} min={1} unit="days" />
+          </PolicyRow>
+        </CardContent>
+      </Card>
+      <Button onClick={() => save.mutate({ procurement: cfg })} disabled={save.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+        {save.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save Procurement Policy
+      </Button>
+    </div>
+  );
+}
+
+const TIER_COLORS: Record<string, string> = {
+  BRONZE: 'bg-amber-800/20 text-amber-700 border-amber-700/30',
+  SILVER: 'bg-slate-100 text-slate-600 border-slate-300',
+  GOLD:   'bg-amber-100 text-amber-700 border-amber-400',
+  PLATINUM: 'bg-sky-100 text-sky-700 border-sky-400',
+  VIP:    'bg-violet-100 text-violet-700 border-violet-400',
+};
+
+function LoyaltyConfigTab() {
+  const { data, save } = usePolicyConfig();
+  const [cfg, setCfg] = useState({ ...POLICY_DEFAULTS.loyalty });
+  useEffect(() => {
+    if (data?.loyalty) {
+      setCfg({
+        ...POLICY_DEFAULTS.loyalty,
+        ...data.loyalty,
+        tierThresholds: { ...POLICY_DEFAULTS.loyalty.tierThresholds, ...(data.loyalty.tierThresholds ?? {}) },
+      });
+    }
+  }, [data]);
+
+  const tiers = ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'VIP'] as const;
+
+  return (
+    <div className="pt-6 max-w-2xl space-y-4">
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Gift className="w-4 h-4" />Tier Point Thresholds</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-4">Minimum cumulative points required to reach each tier.</p>
+          <div className="grid grid-cols-5 gap-2 mb-2">
+            {tiers.map(t => (
+              <div key={t} className={cn('text-center text-[10px] font-semibold px-1 py-0.5 rounded border', TIER_COLORS[t])}>{t.charAt(0) + t.slice(1).toLowerCase()}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {tiers.map(t => (
+              <Input
+                key={t}
+                type="number"
+                min={0}
+                className="text-center text-sm"
+                value={cfg.tierThresholds[t]}
+                onChange={e => setCfg(p => ({ ...p, tierThresholds: { ...p.tierThresholds, [t]: Number(e.target.value) } }))}
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Earning Rate</CardTitle></CardHeader>
+        <CardContent>
+          <PolicyRow label="Points per $1 spent" description="Base number of loyalty points earned per dollar of guest spending">
+            <NumInput value={cfg.defaultEarningRate} onChange={v => setCfg(p => ({ ...p, defaultEarningRate: v }))} min={0} step={0.1} unit="pts/$1" />
+          </PolicyRow>
+        </CardContent>
+      </Card>
+
+      <Button onClick={() => save.mutate({ loyalty: cfg })} disabled={save.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+        {save.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save Loyalty Config
+      </Button>
+    </div>
+  );
+}
+
+function NotificationsTab() {
+  const { data, save } = usePolicyConfig();
+  const [cfg, setCfg] = useState({ ...POLICY_DEFAULTS.notifications });
+  useEffect(() => { if (data?.notifications) setCfg({ ...POLICY_DEFAULTS.notifications, ...data.notifications }); }, [data]);
+  const up = (k: keyof typeof cfg) => setCfg(p => ({ ...p, [k]: !p[k] }));
+
+  const emailRows: { key: keyof typeof POLICY_DEFAULTS.notifications; label: string }[] = [
+    { key: 'emailOnNewReservation', label: 'New Reservation Received' },
+    { key: 'emailOnCheckOut',       label: 'Check-Out / Stay Summary' },
+    { key: 'emailOnInvoiceCreated', label: 'Invoice Created' },
+    { key: 'emailOnPaymentReceived', label: 'Payment Received' },
+  ];
+  const inAppRows: { key: keyof typeof POLICY_DEFAULTS.notifications; label: string }[] = [
+    { key: 'inAppOnNewReservation',    label: 'New Reservation Received' },
+    { key: 'inAppOnPaymentReceived',   label: 'Payment Received' },
+    { key: 'inAppOnMaintenanceAlert',  label: 'Maintenance Alert' },
+    { key: 'inAppOnLowInventory',      label: 'Low Inventory Alert' },
+  ];
+
+  return (
+    <div className="pt-6 max-w-2xl space-y-4">
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Bell className="w-4 h-4" />Email Notifications</CardTitle></CardHeader>
+        <CardContent>
+          {emailRows.map(({ key, label }) => (
+            <PolicyRow key={key} label={label}>
+              <Toggle checked={cfg[key]} onChange={() => up(key)} />
+            </PolicyRow>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">In-App Notifications</CardTitle></CardHeader>
+        <CardContent>
+          {inAppRows.map(({ key, label }) => (
+            <PolicyRow key={key} label={label}>
+              <Toggle checked={cfg[key]} onChange={() => up(key)} />
+            </PolicyRow>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Button onClick={() => save.mutate({ notifications: cfg })} disabled={save.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+        {save.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save Notification Settings
+      </Button>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   usePageTitle('Settings');
   return (
@@ -1073,12 +1543,19 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="property">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="property">Property</TabsTrigger>
           <TabsTrigger value="users">Users & Roles</TabsTrigger>
           <TabsTrigger value="departments">Departments</TabsTrigger>
           <TabsTrigger value="tax">Tax Rates</TabsTrigger>
           <TabsTrigger value="invoice">Invoice Template</TabsTrigger>
+          <TabsTrigger value="booking">Booking Policy</TabsTrigger>
+          <TabsTrigger value="nightaudit">Night Audit</TabsTrigger>
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="accounting">Accounting</TabsTrigger>
+          <TabsTrigger value="procurement">Procurement</TabsTrigger>
+          <TabsTrigger value="loyalty">Loyalty</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="audit">Audit Log</TabsTrigger>
           <TabsTrigger value="privacy">Privacy</TabsTrigger>
         </TabsList>
@@ -1087,6 +1564,13 @@ export default function SettingsPage() {
         <TabsContent value="departments"><DepartmentsTab /></TabsContent>
         <TabsContent value="tax"><TaxRatesTab /></TabsContent>
         <TabsContent value="invoice"><InvoiceTemplateTab /></TabsContent>
+        <TabsContent value="booking"><BookingPolicyTab /></TabsContent>
+        <TabsContent value="nightaudit"><NightAuditSettingsTab /></TabsContent>
+        <TabsContent value="attendance"><AttendancePolicyTab /></TabsContent>
+        <TabsContent value="accounting"><AccountingDefaultsTab /></TabsContent>
+        <TabsContent value="procurement"><ProcurementPolicyTab /></TabsContent>
+        <TabsContent value="loyalty"><LoyaltyConfigTab /></TabsContent>
+        <TabsContent value="notifications"><NotificationsTab /></TabsContent>
         <TabsContent value="audit"><AuditLogTab /></TabsContent>
         <TabsContent value="privacy"><PrivacyTab /></TabsContent>
       </Tabs>

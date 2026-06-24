@@ -68,6 +68,22 @@ export class SettingsController {
     return this.service.createTaxRate(dto);
   }
 
+  @Get('policy')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'Get merged property policy config with defaults' })
+  getPolicyConfig(@Query('propertyId') propertyId: string) {
+    return this.service.getPolicyConfig(propertyId);
+  }
+
+  @Put('policy')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'Update property policy config (deep-merged)' })
+  updatePolicyConfig(@Query('propertyId') propertyId: string, @Body() dto: any) {
+    return this.service.updatePolicyConfig(propertyId, dto);
+  }
+
   @Get('profile')
   @ApiOperation({ summary: 'Get own profile' })
   getProfile(@Request() req: any) {

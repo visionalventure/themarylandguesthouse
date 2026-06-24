@@ -109,6 +109,105 @@ export class SettingsService {
     return this.prisma.department.update({ where: { id }, data: dto });
   }
 
+  getPolicyDefaults() {
+    return {
+      booking: {
+        holdDurationMinutes: 60,
+        defaultDepositPercent: 0,
+        depositRequiredDaysOut: 0,
+        freeCancellationHours: 24,
+        cancellationRefundPercent: 100,
+        allowOverbooking: false,
+        overbookingPercent: 5,
+      },
+      nightAudit: {
+        autoChargeEnabled: true,
+        noShowGraceMinutes: 120,
+        scheduledTime: '03:00',
+      },
+      attendance: {
+        graceMinutes: 15,
+        halfDayThresholdHours: 4,
+        earlyDepartureTolerance: 15,
+        highSeverityThresholdMinutes: 60,
+        probationAlertDays: 30,
+        contractAlertDays: 60,
+      },
+      accounting: {
+        fiscalYearStartMonth: 1,
+        defaultInvoiceDueDays: 30,
+        invoicePrefix: 'INV',
+        journalPrefix: 'JE',
+      },
+      procurement: {
+        approvalThreshold: 0,
+        defaultPaymentTermsDays: 30,
+      },
+      loyalty: {
+        tierThresholds: { BRONZE: 0, SILVER: 500, GOLD: 2000, PLATINUM: 5000, VIP: 10000 },
+        defaultEarningRate: 1,
+      },
+      notifications: {
+        emailOnNewReservation: true,
+        emailOnCheckOut: true,
+        emailOnInvoiceCreated: true,
+        emailOnPaymentReceived: true,
+        inAppOnNewReservation: true,
+        inAppOnPaymentReceived: true,
+        inAppOnMaintenanceAlert: true,
+        inAppOnLowInventory: true,
+      },
+    };
+  }
+
+  async getPolicyConfig(propertyId: string) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { policyConfig: true },
+    });
+    if (!property) throw new NotFoundException('Property not found');
+    const defaults = this.getPolicyDefaults();
+    const stored = (property.policyConfig as any) ?? {};
+    // Deep merge: stored values override defaults section by section
+    return {
+      booking: { ...defaults.booking, ...(stored.booking ?? {}) },
+      nightAudit: { ...defaults.nightAudit, ...(stored.nightAudit ?? {}) },
+      attendance: { ...defaults.attendance, ...(stored.attendance ?? {}) },
+      accounting: { ...defaults.accounting, ...(stored.accounting ?? {}) },
+      procurement: { ...defaults.procurement, ...(stored.procurement ?? {}) },
+      loyalty: {
+        ...defaults.loyalty,
+        ...(stored.loyalty ?? {}),
+        tierThresholds: { ...defaults.loyalty.tierThresholds, ...(stored.loyalty?.tierThresholds ?? {}) },
+      },
+      notifications: { ...defaults.notifications, ...(stored.notifications ?? {}) },
+    };
+  }
+
+  async updatePolicyConfig(propertyId: string, patch: any) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { policyConfig: true },
+    });
+    if (!property) throw new NotFoundException('Property not found');
+    const current = (property.policyConfig as any) ?? {};
+    // Deep merge patch sections into current
+    const merged: any = { ...current };
+    for (const section of Object.keys(patch)) {
+      if (section === 'loyalty' && patch.loyalty?.tierThresholds) {
+        merged.loyalty = {
+          ...(current.loyalty ?? {}),
+          ...patch.loyalty,
+          tierThresholds: { ...(current.loyalty?.tierThresholds ?? {}), ...patch.loyalty.tierThresholds },
+        };
+      } else {
+        merged[section] = { ...(current[section] ?? {}), ...patch[section] };
+      }
+    }
+    await this.prisma.property.update({ where: { id: propertyId }, data: { policyConfig: merged } });
+    return this.getPolicyConfig(propertyId);
+  }
+
   async getAuditLog(tenantId: string, query: any = {}) {
     const { entityType, userId, page = 1, limit = 50 } = query;
     const skip = (Number(page) - 1) * Number(limit);
