@@ -116,6 +116,30 @@ export class SettingsController {
     return this.service.updatePolicyConfig(propertyId, dto, req.user.tenantId);
   }
 
+  @Get('email')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'Get email configuration for property' })
+  getEmailConfig(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getEmailConfig(propertyId, req.user.tenantId);
+  }
+
+  @Put('email')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Update email sender configuration' })
+  updateEmailConfig(@Query('propertyId') propertyId: string, @Body() dto: any, @Request() req: any) {
+    return this.service.updateEmailConfig(propertyId, dto, req.user.tenantId);
+  }
+
+  @Post('email/test')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Send a test email using current configuration' })
+  sendTestEmail(@Query('propertyId') propertyId: string, @Body('to') to: string, @Request() req: any) {
+    return this.service.sendTestEmail(propertyId, to, req.user.tenantId);
+  }
+
   @Get('profile')
   @ApiOperation({ summary: 'Get own profile' })
   getProfile(@Request() req: any) {

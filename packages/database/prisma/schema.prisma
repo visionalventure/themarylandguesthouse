@@ -457,6 +457,7 @@ model Property {
   timezone        String       @default("Africa/Monrovia")
   invoiceTemplate Json?
   policyConfig    Json?
+  emailConfig     Json?
   isActive        Boolean      @default(true)
   // Privacy & Identification Policy
   requireIdentification Boolean @default(true)

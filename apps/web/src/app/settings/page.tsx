@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { format } from 'date-fns';
-import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard, AlignLeft, AlignCenter, AlignRight, Users, Star, Clock, BookOpen, ShoppingCart, Gift, Bell, CalendarDays, UserCheck, Moon, Search, Copy, Check, AlertTriangle } from 'lucide-react';
+import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard, AlignLeft, AlignCenter, AlignRight, Users, Star, Clock, BookOpen, ShoppingCart, Gift, Bell, CalendarDays, UserCheck, Moon, Search, Copy, Check, AlertTriangle, Mail, Send, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -118,6 +118,7 @@ function PropertyTab() {
   const { data, isLoading } = useQuery({
     queryKey: ['settings-property', propertyId],
     queryFn: () => settingsApi.getProperty(propertyId).then(r => r.data),
+    enabled: !!propertyId,
   });
 
   const { register, handleSubmit, reset, watch, setValue, control } = useForm({ defaultValues: data ?? {} });
@@ -569,6 +570,7 @@ function ManageUserDialog({ user, open, onClose, currentUser, queryClient, toast
 function UsersTab() {
   const propertyId = useAuthStore((s) => s.propertyId);
   const currentUser = useAuthStore((s) => s.user);
+  const tenantId = currentUser?.tenantId;
   const [inviteOpen, setInviteOpen] = useState(false);
   const [managingUser, setManagingUser] = useState<any | null>(null);
   const [search, setSearch] = useState('');
@@ -578,8 +580,9 @@ function UsersTab() {
   const { toast } = useToast();
 
   const { data: usersData } = useQuery({
-    queryKey: ['settings-users', propertyId],
-    queryFn: () => settingsApi.getUsers(propertyId).then(r => r.data),
+    queryKey: ['settings-users', tenantId],
+    queryFn: () => settingsApi.getUsers(tenantId!).then(r => r.data),
+    enabled: !!tenantId,
   });
   const allUsers: any[] = Array.isArray(usersData) ? usersData : (usersData?.data ?? []);
 
@@ -595,9 +598,9 @@ function UsersTab() {
   });
 
   const inviteMutation = useMutation({
-    mutationFn: (values: any) => settingsApi.inviteUser({ propertyId, ...values }),
+    mutationFn: (values: any) => settingsApi.inviteUser({ propertyId, tenantId, ...values }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings-users'] });
+      queryClient.invalidateQueries({ queryKey: ['settings-users', tenantId] });
       toast({ title: 'User invited successfully' });
       setInviteOpen(false);
       resetInvite();
@@ -1817,6 +1820,228 @@ function NotificationsTab() {
   );
 }
 
+const EMAIL_TEMPLATE_PREVIEWS = [
+  {
+    key: 'booking',
+    label: 'Booking Confirmation',
+    description: 'Sent to guests when a reservation is confirmed',
+    html: (prop: string) => `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+      <div style="background:#D4AF37;padding:20px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:#fff;margin:0;font-size:24px">${prop}</h1></div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:30px;border-radius:0 0 8px 8px">
+        <h2 style="color:#1f2937">Booking Confirmed!</h2><p>Dear John Doe,</p><p>Your reservation has been confirmed.</p>
+        <table style="width:100%;border-collapse:collapse;margin:20px 0">
+          <tr style="background:#f9fafb"><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Reservation No.</td><td style="padding:12px;border:1px solid #e5e7eb">RES-2024-001</td></tr>
+          <tr><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Check-In</td><td style="padding:12px;border:1px solid #e5e7eb">Jun 25, 2026</td></tr>
+          <tr style="background:#f9fafb"><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Check-Out</td><td style="padding:12px;border:1px solid #e5e7eb">Jun 28, 2026</td></tr>
+          <tr><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Room(s)</td><td style="padding:12px;border:1px solid #e5e7eb">101, 102</td></tr>
+        </table>
+        <p>Warm regards,<br><strong>${prop}</strong></p>
+      </div></body></html>`,
+  },
+  {
+    key: 'invoice',
+    label: 'Invoice',
+    description: 'Sent when an invoice is issued to a guest',
+    html: (prop: string) => `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+      <div style="background:#D4AF37;padding:20px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:#fff;margin:0;font-size:24px">${prop}</h1></div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:30px;border-radius:0 0 8px 8px">
+        <h2 style="color:#1f2937">Invoice INV-2024-001</h2><p>Dear John Doe,</p>
+        <table style="width:100%;border-collapse:collapse;margin:20px 0">
+          <tr style="background:#f9fafb"><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Invoice No.</td><td style="padding:12px;border:1px solid #e5e7eb">INV-2024-001</td></tr>
+          <tr><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Amount Due</td><td style="padding:12px;border:1px solid #e5e7eb;font-size:18px;color:#D4AF37"><strong>$435.60</strong></td></tr>
+          <tr style="background:#f9fafb"><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Due Date</td><td style="padding:12px;border:1px solid #e5e7eb">Jul 1, 2026</td></tr>
+        </table>
+        <p>Thank you,<br><strong>${prop}</strong></p>
+      </div></body></html>`,
+  },
+  {
+    key: 'payment',
+    label: 'Payment Receipt',
+    description: 'Sent when a payment is received',
+    html: (prop: string) => `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+      <div style="background:#16a34a;padding:20px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:#fff;margin:0;font-size:24px">Payment Received</h1></div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:30px;border-radius:0 0 8px 8px">
+        <p>Dear John Doe,</p><p>We have received your payment.</p>
+        <table style="width:100%;border-collapse:collapse;margin:20px 0">
+          <tr style="background:#f9fafb"><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Amount Paid</td><td style="padding:12px;border:1px solid #e5e7eb;color:#16a34a;font-size:18px"><strong>$435.60</strong></td></tr>
+          <tr><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Payment Method</td><td style="padding:12px;border:1px solid #e5e7eb">Credit Card</td></tr>
+          <tr style="background:#f9fafb"><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Balance Remaining</td><td style="padding:12px;border:1px solid #e5e7eb">$0.00</td></tr>
+        </table>
+        <p>Thank you,<br><strong>${prop}</strong></p>
+      </div></body></html>`,
+  },
+  {
+    key: 'password',
+    label: 'Password Reset',
+    description: 'Sent when a user requests a password reset',
+    html: (prop: string) => `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+      <div style="background:#1f2937;padding:20px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:#fff;margin:0;font-size:24px">${prop}</h1></div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:30px;border-radius:0 0 8px 8px">
+        <h2 style="color:#1f2937">Password Reset Request</h2><p>Hi John,</p>
+        <p>We received a request to reset your password. Click the button below:</p>
+        <div style="text-align:center;margin:30px 0">
+          <a href="#" style="background:#D4AF37;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Reset Password</a>
+        </div>
+        <p style="color:#6b7280;font-size:14px">This link expires in 1 hour.</p>
+      </div></body></html>`,
+  },
+];
+
+function EmailTab() {
+  const propertyId = useAuthStore((s) => s.propertyId);
+  const tenantId = useAuthStore((s) => s.user?.tenantId);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [testEmail, setTestEmail] = useState('');
+  const [previewTemplate, setPreviewTemplate] = useState<(typeof EMAIL_TEMPLATE_PREVIEWS)[0] | null>(null);
+
+  const { data: emailCfgRaw, isLoading } = useQuery({
+    queryKey: ['settings-email', propertyId],
+    queryFn: () => settingsApi.getEmailConfig(propertyId).then(r => r.data),
+    enabled: !!propertyId,
+  });
+  const emailCfg = emailCfgRaw?.data ?? emailCfgRaw ?? {};
+
+  const { register, handleSubmit, reset } = useForm({
+    defaultValues: { fromName: '', fromEmail: '', replyTo: '' },
+  });
+  useEffect(() => {
+    if (emailCfg.fromName !== undefined) reset({ fromName: emailCfg.fromName, fromEmail: emailCfg.fromEmail, replyTo: emailCfg.replyTo ?? '' });
+  }, [emailCfg.fromName, emailCfg.fromEmail, emailCfg.replyTo, reset]);
+
+  const saveMutation = useMutation({
+    mutationFn: (values: any) => settingsApi.updateEmailConfig(propertyId, values),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['settings-email', propertyId] }); toast({ title: 'Email settings saved' }); },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message || 'Failed to save' }),
+  });
+
+  const testMutation = useMutation({
+    mutationFn: () => settingsApi.sendTestEmail(propertyId, testEmail),
+    onSuccess: () => toast({ title: `Test email sent to ${testEmail}` }),
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message || 'Failed to send test email' }),
+  });
+
+  if (isLoading) return <div className="py-12 text-center text-muted-foreground text-sm"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading…</div>;
+
+  return (
+    <div className="mt-4 space-y-4 max-w-2xl">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Mail className="w-4 h-4" /> System Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            {emailCfg.active ? (
+              <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">✓ Email Active — Resend</Badge>
+            ) : (
+              <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs">⚠ Email Disabled — RESEND_API_KEY not configured</Badge>
+            )}
+            <span className="text-xs text-muted-foreground">Transport: Resend</span>
+          </div>
+          {!emailCfg.active && (
+            <p className="mt-2 text-xs text-muted-foreground">Set the <code className="bg-muted px-1 rounded">RESEND_API_KEY</code> environment variable on the API server to enable email delivery.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Mail className="w-4 h-4" />Sender Identity</CardTitle></CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(d => saveMutation.mutate(d))} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">From Name</Label>
+                <Input {...register('fromName')} placeholder="Maryland Guesthouse" />
+                <p className="text-xs text-muted-foreground">Displayed as the sender name in recipients' email clients.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">From Email</Label>
+                <Input type="email" {...register('fromEmail')} placeholder="noreply@marylandguesthouse.com" />
+                <p className="text-xs text-muted-foreground">Must be a verified sender domain in Resend.</p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Reply-To (optional)</Label>
+              <Input type="email" {...register('replyTo')} placeholder="info@marylandguesthouse.com" />
+              <p className="text-xs text-muted-foreground">Where replies from guests will land. Leave blank to use the From address.</p>
+            </div>
+            <Button type="submit" disabled={saveMutation.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              {saveMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save Sender Settings
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Send className="w-4 h-4" />Test Email</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-3">Send a test email to verify your configuration is working correctly.</p>
+          <div className="flex gap-2">
+            <Input
+              type="email"
+              placeholder="recipient@example.com"
+              value={testEmail}
+              onChange={e => setTestEmail(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              variant="outline"
+              disabled={!testEmail || testMutation.isPending}
+              onClick={() => testMutation.mutate()}
+            >
+              {testMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
+              Send Test
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Eye className="w-4 h-4" />Email Templates</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-3">Preview the built-in email templates sent by the system.</p>
+          <div className="grid grid-cols-2 gap-3">
+            {EMAIL_TEMPLATE_PREVIEWS.map(t => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setPreviewTemplate(t)}
+                className="text-left p-3 rounded-md border border-border hover:bg-muted/40 transition-colors space-y-1"
+              >
+                <p className="text-sm font-medium">{t.label}</p>
+                <p className="text-xs text-muted-foreground">{t.description}</p>
+                <span className="text-xs text-primary">Preview →</span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {previewTemplate && (
+        <Dialog open={!!previewTemplate} onOpenChange={() => setPreviewTemplate(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{previewTemplate.label} — Template Preview</DialogTitle>
+              <p className="text-xs text-muted-foreground">{previewTemplate.description}</p>
+            </DialogHeader>
+            <div className="rounded-md border border-border overflow-hidden">
+              <iframe
+                srcDoc={previewTemplate.html(emailCfg.fromName || 'Maryland Guesthouse')}
+                className="w-full h-[480px]"
+                sandbox="allow-same-origin"
+                title={`${previewTemplate.label} template preview`}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   usePageTitle('Settings');
   return (
@@ -1843,6 +2068,7 @@ export default function SettingsPage() {
           <TabsTrigger value="procurement">Procurement</TabsTrigger>
           <TabsTrigger value="loyalty">Loyalty</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="audit">Audit Log</TabsTrigger>
           <TabsTrigger value="privacy">Privacy</TabsTrigger>
         </TabsList>
@@ -1858,6 +2084,7 @@ export default function SettingsPage() {
         <TabsContent value="procurement"><ProcurementPolicyTab /></TabsContent>
         <TabsContent value="loyalty"><LoyaltyConfigTab /></TabsContent>
         <TabsContent value="notifications"><NotificationsTab /></TabsContent>
+        <TabsContent value="email"><EmailTab /></TabsContent>
         <TabsContent value="audit"><AuditLogTab /></TabsContent>
         <TabsContent value="privacy"><PrivacyTab /></TabsContent>
       </Tabs>

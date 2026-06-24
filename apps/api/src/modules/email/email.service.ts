@@ -162,6 +162,28 @@ export class EmailService {
     );
   }
 
+  async sendTestEmail(opts: { to: string; fromName: string; fromEmail: string }) {
+    const name = this.escape(opts.fromName);
+    await this.send(
+      opts.to,
+      `Test Email from ${opts.fromName}`,
+      `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+        <div style="background:#D4AF37;padding:20px;text-align:center;border-radius:8px 8px 0 0">
+          <h1 style="color:#fff;margin:0;font-size:24px">${name}</h1>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:30px;border-radius:0 0 8px 8px">
+          <h2 style="color:#1f2937">✓ Email is Working</h2>
+          <p>This is a test email confirming that your email configuration is set up correctly.</p>
+          <table style="width:100%;border-collapse:collapse;margin:20px 0">
+            <tr style="background:#f9fafb"><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">From Name</td><td style="padding:12px;border:1px solid #e5e7eb">${name}</td></tr>
+            <tr><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">From Address</td><td style="padding:12px;border:1px solid #e5e7eb">${this.escape(opts.fromEmail)}</td></tr>
+          </table>
+          <p style="color:#6b7280;font-size:14px">If you received this email, your email delivery is working correctly.</p>
+        </div>
+      </body></html>`,
+    );
+  }
+
   async sendPasswordReset(opts: { to: string; name: string; resetUrl: string; propertyName: string }) {
     const propName = this.escape(opts.propertyName);
     const name = this.escape(opts.name);

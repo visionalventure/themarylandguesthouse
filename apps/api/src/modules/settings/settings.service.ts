@@ -1,11 +1,17 @@
 import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class SettingsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+    private config: ConfigService,
+  ) {}
 
   async getProperty(propertyId: string) {
     const property = await this.prisma.property.findUnique({ where: { id: propertyId } });
@@ -272,6 +278,53 @@ export class SettingsService {
       await tx.property.update({ where: { id: propertyId }, data: { policyConfig: merged } });
     });
     return this.getPolicyConfig(propertyId, tenantId);
+  }
+
+  private getEmailDefaults(propertyName: string) {
+    return {
+      fromName: propertyName,
+      fromEmail: this.config.get('EMAIL_FROM') ?? 'noreply@marylandguesthouse.com',
+      replyTo: '',
+    };
+  }
+
+  async getEmailConfig(propertyId: string, tenantId: string) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { emailConfig: true, tenantId: true, name: true },
+    });
+    if (!property) throw new NotFoundException('Property not found');
+    if (property.tenantId !== tenantId) throw new ForbiddenException('Access denied');
+    const defaults = this.getEmailDefaults(property.name);
+    const stored = (property.emailConfig as any) ?? {};
+    return {
+      fromName: stored.fromName ?? defaults.fromName,
+      fromEmail: stored.fromEmail ?? defaults.fromEmail,
+      replyTo: stored.replyTo ?? defaults.replyTo,
+      active: !!this.config.get('RESEND_API_KEY'),
+    };
+  }
+
+  async updateEmailConfig(propertyId: string, dto: any, tenantId: string) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { emailConfig: true, tenantId: true },
+    });
+    if (!property) throw new NotFoundException('Property not found');
+    if (property.tenantId !== tenantId) throw new ForbiddenException('Access denied');
+    const current = (property.emailConfig as any) ?? {};
+    const updated: any = { ...current };
+    if ('fromName' in dto) updated.fromName = String(dto.fromName).slice(0, 100);
+    if ('fromEmail' in dto) updated.fromEmail = String(dto.fromEmail).slice(0, 200);
+    if ('replyTo' in dto) updated.replyTo = String(dto.replyTo ?? '').slice(0, 200);
+    await this.prisma.property.update({ where: { id: propertyId }, data: { emailConfig: updated } });
+    return this.getEmailConfig(propertyId, tenantId);
+  }
+
+  async sendTestEmail(propertyId: string, toEmail: string, tenantId: string) {
+    const cfg = await this.getEmailConfig(propertyId, tenantId);
+    await this.emailService.sendTestEmail({ to: toEmail, fromName: cfg.fromName, fromEmail: cfg.fromEmail });
+    return { sent: true, to: toEmail };
   }
 
   async getAuditLog(tenantId: string, query: any = {}) {
