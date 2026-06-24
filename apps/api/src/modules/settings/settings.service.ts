@@ -217,15 +217,19 @@ export class SettingsService {
     };
   }
 
-  async getPolicyConfig(propertyId: string) {
+  private readonly ALLOWED_POLICY_SECTIONS = new Set([
+    'booking', 'nightAudit', 'attendance', 'accounting', 'procurement', 'loyalty', 'notifications',
+  ]);
+
+  async getPolicyConfig(propertyId: string, tenantId: string) {
     const property = await this.prisma.property.findUnique({
       where: { id: propertyId },
-      select: { policyConfig: true },
+      select: { policyConfig: true, tenantId: true },
     });
     if (!property) throw new NotFoundException('Property not found');
+    if (property.tenantId !== tenantId) throw new ForbiddenException('Access denied');
     const defaults = this.getPolicyDefaults();
     const stored = (property.policyConfig as any) ?? {};
-    // Deep merge: stored values override defaults section by section
     return {
       booking: { ...defaults.booking, ...(stored.booking ?? {}) },
       nightAudit: { ...defaults.nightAudit, ...(stored.nightAudit ?? {}) },
@@ -241,28 +245,33 @@ export class SettingsService {
     };
   }
 
-  async updatePolicyConfig(propertyId: string, patch: any) {
-    const property = await this.prisma.property.findUnique({
-      where: { id: propertyId },
-      select: { policyConfig: true },
-    });
-    if (!property) throw new NotFoundException('Property not found');
-    const current = (property.policyConfig as any) ?? {};
-    // Deep merge patch sections into current
-    const merged: any = { ...current };
-    for (const section of Object.keys(patch)) {
-      if (section === 'loyalty' && patch.loyalty?.tierThresholds) {
-        merged.loyalty = {
-          ...(current.loyalty ?? {}),
-          ...patch.loyalty,
-          tierThresholds: { ...(current.loyalty?.tierThresholds ?? {}), ...patch.loyalty.tierThresholds },
-        };
-      } else {
-        merged[section] = { ...(current[section] ?? {}), ...patch[section] };
+  async updatePolicyConfig(propertyId: string, patch: any, tenantId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const property = await tx.property.findUnique({
+        where: { id: propertyId },
+        select: { policyConfig: true, tenantId: true },
+      });
+      if (!property) throw new NotFoundException('Property not found');
+      if (property.tenantId !== tenantId) throw new ForbiddenException('Access denied');
+      const current = (property.policyConfig as any) ?? {};
+      const merged: any = { ...current };
+      for (const section of Object.keys(patch)) {
+        if (!this.ALLOWED_POLICY_SECTIONS.has(section)) continue;
+        const sectionPatch = patch[section];
+        if (typeof sectionPatch !== 'object' || Array.isArray(sectionPatch) || sectionPatch === null) continue;
+        if (section === 'loyalty' && sectionPatch.tierThresholds) {
+          merged.loyalty = {
+            ...(current.loyalty ?? {}),
+            ...sectionPatch,
+            tierThresholds: { ...(current.loyalty?.tierThresholds ?? {}), ...sectionPatch.tierThresholds },
+          };
+        } else {
+          merged[section] = { ...(current[section] ?? {}), ...sectionPatch };
+        }
       }
-    }
-    await this.prisma.property.update({ where: { id: propertyId }, data: { policyConfig: merged } });
-    return this.getPolicyConfig(propertyId);
+      await tx.property.update({ where: { id: propertyId }, data: { policyConfig: merged } });
+    });
+    return this.getPolicyConfig(propertyId, tenantId);
   }
 
   async getAuditLog(tenantId: string, query: any = {}) {

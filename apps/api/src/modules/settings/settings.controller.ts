@@ -104,16 +104,16 @@ export class SettingsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Get merged property policy config with defaults' })
-  getPolicyConfig(@Query('propertyId') propertyId: string) {
-    return this.service.getPolicyConfig(propertyId);
+  getPolicyConfig(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getPolicyConfig(propertyId, req.user.tenantId);
   }
 
   @Put('policy')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  @ApiOperation({ summary: 'Update property policy config (deep-merged)' })
-  updatePolicyConfig(@Query('propertyId') propertyId: string, @Body() dto: any) {
-    return this.service.updatePolicyConfig(propertyId, dto);
+  @ApiOperation({ summary: 'Update property policy config (deep-merged, whitelisted sections only)' })
+  updatePolicyConfig(@Query('propertyId') propertyId: string, @Body() dto: any, @Request() req: any) {
+    return this.service.updatePolicyConfig(propertyId, dto, req.user.tenantId);
   }
 
   @Get('profile')

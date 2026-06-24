@@ -230,14 +230,20 @@ function PropertyTab() {
                 name="starRating"
                 control={control}
                 render={({ field }) => (
-                  <div className="flex items-center gap-1 h-9">
+                  <div className="flex items-center gap-1 h-9" role="group" aria-label="Star rating">
                     {[1, 2, 3, 4, 5].map(n => (
-                      <button key={n} type="button" onClick={() => field.onChange(n)}>
+                      <button
+                        key={n}
+                        type="button"
+                        aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                        aria-pressed={(field.value ?? 0) >= n}
+                        onClick={() => field.onChange(n)}
+                      >
                         <Star className={cn('w-5 h-5 transition-colors', (field.value ?? 0) >= n ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30')} />
                       </button>
                     ))}
                     {field.value && (
-                      <button type="button" onClick={() => field.onChange(null)} className="ml-1 text-xs text-muted-foreground hover:text-foreground">Clear</button>
+                      <button type="button" aria-label="Clear star rating" onClick={() => field.onChange(null)} className="ml-1 text-xs text-muted-foreground hover:text-foreground">Clear</button>
                     )}
                   </div>
                 )}
@@ -1460,17 +1466,27 @@ function NumInput({ value, onChange, min, max, step, unit }: { value: number; on
         min={min}
         max={max}
         step={step ?? 1}
-        onChange={e => onChange(Number(e.target.value))}
+        onChange={e => {
+          const raw = Number(e.target.value);
+          if (isNaN(raw)) return;
+          let v = raw;
+          if (min !== undefined) v = Math.max(min, v);
+          if (max !== undefined) v = Math.min(max, v);
+          onChange(v);
+        }}
       />
       {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
     </div>
   );
 }
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
       onClick={() => onChange(!checked)}
       className={cn(
         'relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0',
@@ -1521,7 +1537,7 @@ function BookingPolicyTab() {
         <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Building className="w-4 h-4" />Capacity</CardTitle></CardHeader>
         <CardContent>
           <PolicyRow label="Allow Overbooking" description="Accept reservations beyond 100% room capacity">
-            <Toggle checked={cfg.allowOverbooking} onChange={v => up('allowOverbooking', v)} />
+            <Toggle checked={cfg.allowOverbooking} onChange={v => up('allowOverbooking', v)} label="Allow Overbooking" />
           </PolicyRow>
           {cfg.allowOverbooking && (
             <PolicyRow label="Overbooking Buffer %" description="How far over capacity to accept (e.g. 5%)">
@@ -1550,7 +1566,7 @@ function NightAuditSettingsTab() {
         <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Moon className="w-4 h-4" />Night Audit Configuration</CardTitle></CardHeader>
         <CardContent>
           <PolicyRow label="Auto-Charge Room Rates" description="Automatically post nightly room charges when audit runs">
-            <Toggle checked={cfg.autoChargeEnabled} onChange={v => up('autoChargeEnabled', v)} />
+            <Toggle checked={cfg.autoChargeEnabled} onChange={v => up('autoChargeEnabled', v)} label="Auto-Charge Room Rates" />
           </PolicyRow>
           <PolicyRow label="No-Show Grace Period" description="Minutes after scheduled check-in before marking reservation as no-show">
             <NumInput value={cfg.noShowGraceMinutes} onChange={v => up('noShowGraceMinutes', v)} min={0} unit="min" />
@@ -1777,7 +1793,7 @@ function NotificationsTab() {
         <CardContent>
           {emailRows.map(({ key, label }) => (
             <PolicyRow key={key} label={label}>
-              <Toggle checked={cfg[key]} onChange={() => up(key)} />
+              <Toggle checked={cfg[key]} onChange={() => up(key)} label={label} />
             </PolicyRow>
           ))}
         </CardContent>
@@ -1788,7 +1804,7 @@ function NotificationsTab() {
         <CardContent>
           {inAppRows.map(({ key, label }) => (
             <PolicyRow key={key} label={label}>
-              <Toggle checked={cfg[key]} onChange={() => up(key)} />
+              <Toggle checked={cfg[key]} onChange={() => up(key)} label={label} />
             </PolicyRow>
           ))}
         </CardContent>
