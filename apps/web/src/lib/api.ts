@@ -85,6 +85,8 @@ export const folioApi = {
   voidCharge:     (reservationId: string, chargeId: string) => api.delete(`/v1/folio/${reservationId}/charges/${chargeId}`),
   collectPayment: (reservationId: string, data: any) => api.post(`/v1/folio/${reservationId}/payments`, data),
   getReceipt:     (reservationId: string, paymentId: string) => api.get(`/v1/folio/${reservationId}/receipt/${paymentId}`),
+  applyDiscount:  (reservationId: string, data: any) => api.patch(`/v1/folio/${reservationId}/discount`, data),
+  removeDiscount: (reservationId: string) => api.delete(`/v1/folio/${reservationId}/discount`),
 };
 
 export const nightAuditApi = {

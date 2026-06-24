@@ -22,6 +22,12 @@ export class AccountingService {
   }
 
   async createAccount(dto: any) {
+    const VALID_TYPES = ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'];
+    if (!dto.code?.trim()) throw new BadRequestException('Account code is required');
+    if (!dto.name?.trim()) throw new BadRequestException('Account name is required');
+    if (!VALID_TYPES.includes(dto.type)) throw new BadRequestException(`Account type must be one of: ${VALID_TYPES.join(', ')}`);
+    const existing = await this.prisma.account.findFirst({ where: { propertyId: dto.propertyId, code: dto.code } });
+    if (existing) throw new BadRequestException(`Account code ${dto.code} already exists for this property`);
     return this.prisma.account.create({ data: dto });
   }
 
@@ -138,10 +144,17 @@ export class AccountingService {
       return sum + bal;
     }, 0);
 
+    const revenueAmounts = new Map(
+      revenue.map((a) => [a.id, a.journalLines.reduce((s, l) => s + (l.type === 'CREDIT' ? Number(l.amount) : -Number(l.amount)), 0)])
+    );
+    const expenseAmounts = new Map(
+      expenses.map((a) => [a.id, a.journalLines.reduce((s, l) => s + (l.type === 'DEBIT' ? Number(l.amount) : -Number(l.amount)), 0)])
+    );
+
     return {
       period: { startDate, endDate },
-      revenue: revenue.map((a) => ({ name: a.name, code: a.code, amount: a.currentBalance })),
-      expenses: expenses.map((a) => ({ name: a.name, code: a.code, amount: a.currentBalance })),
+      revenue: revenue.map((a) => ({ name: a.name, code: a.code, amount: revenueAmounts.get(a.id) ?? 0 })),
+      expenses: expenses.map((a) => ({ name: a.name, code: a.code, amount: expenseAmounts.get(a.id) ?? 0 })),
       totalRevenue,
       totalExpenses,
       netProfit: totalRevenue - totalExpenses,

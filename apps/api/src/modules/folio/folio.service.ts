@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
 export class FolioService {
+  private readonly logger = new Logger(FolioService.name);
   constructor(private readonly prisma: PrismaService) {}
 
   async getFolio(reservationId: string) {
@@ -223,7 +224,10 @@ export class FolioService {
       this.prisma.account.findFirst({ where: { propertyId, code: '1000', isActive: true } }),
       this.prisma.account.findFirst({ where: { propertyId, code: '4000', isActive: true } }),
     ]);
-    if (!cashAccount || !revenueAccount) return;
+    if (!cashAccount || !revenueAccount) {
+      this.logger.warn(`Payment JE skipped for property ${propertyId}: GL accounts 1000/4000 not found. Set up Chart of Accounts to enable automatic journal entries.`);
+      return;
+    }
 
     const year = new Date().getFullYear();
     const count = await this.prisma.journalEntry.count({ where: { tenantId } });

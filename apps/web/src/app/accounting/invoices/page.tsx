@@ -43,6 +43,7 @@ export default function InvoicesPage() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [markPaidId, setMarkPaidId] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState('CASH');
   const [guestId, setGuestId] = useState('');
   const [issueDate, setIssueDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [dueDate, setDueDate] = useState(format(addDays(new Date(), 30), 'yyyy-MM-dd'));
@@ -104,11 +105,11 @@ export default function InvoicesPage() {
   });
 
   const paidMutation = useMutation({
-    mutationFn: () => accountingApi.markInvoicePaid(markPaidId!, { amount: parseFloat(payAmount) }),
+    mutationFn: () => accountingApi.markInvoicePaid(markPaidId!, { amount: parseFloat(payAmount), paymentMethod: payMethod }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast({ title: 'Payment recorded' });
-      setMarkPaidId(null); setPayAmount('');
+      setMarkPaidId(null); setPayAmount(''); setPayMethod('CASH');
     },
     onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed' }),
   });
@@ -397,11 +398,27 @@ export default function InvoicesPage() {
       </Sheet>
 
       {/* Mark Paid Dialog */}
-      <Dialog open={!!markPaidId} onOpenChange={(v) => { if (!v) { setMarkPaidId(null); setPayAmount(''); } }}>
+      <Dialog open={!!markPaidId} onOpenChange={(v) => { if (!v) { setMarkPaidId(null); setPayAmount(''); setPayMethod('CASH'); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
           <div className="py-2 space-y-3">
-            <div className="space-y-1.5"><Label>Amount *</Label><Input type="number" placeholder="0.00" value={payAmount} onChange={e => setPayAmount(e.target.value)} /></div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Amount <span className="text-destructive">*</span></Label>
+              <Input type="number" placeholder="0.00" value={payAmount} onChange={e => setPayAmount(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Payment Method</Label>
+              <Select value={payMethod} onValueChange={setPayMethod}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="CARD">Card</SelectItem>
+                  <SelectItem value="CHECK">Check</SelectItem>
+                  <SelectItem value="MOBILE_MONEY">Mobile Money</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMarkPaidId(null)}>Cancel</Button>

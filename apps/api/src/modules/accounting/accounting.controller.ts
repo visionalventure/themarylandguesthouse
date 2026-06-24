@@ -13,6 +13,8 @@ export class AccountingController {
   constructor(private readonly service: AccountingService) {}
 
   @Get('chart-of-accounts')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'FRONT_DESK')
   @ApiOperation({ summary: 'Get chart of accounts hierarchy' })
   getChartOfAccounts(@Query('propertyId') propertyId: string) {
     return this.service.getChartOfAccounts(propertyId);
@@ -83,12 +85,16 @@ export class AccountingController {
   }
 
   @Get('invoices')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'FRONT_DESK')
   @ApiOperation({ summary: 'List invoices' })
   getInvoices(@Query('propertyId') propertyId: string, @Query() query: any) {
     return this.service.getInvoices(propertyId, query);
   }
 
   @Get('invoices/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'FRONT_DESK')
   @ApiOperation({ summary: 'Get invoice by ID with line items' })
   getInvoice(@Param('id') id: string) {
     return this.service.getInvoice(id);
