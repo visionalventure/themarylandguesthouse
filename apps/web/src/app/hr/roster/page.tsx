@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek } from 'date-fns';
-import { Plus, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Calendar, ChevronLeft, ChevronRight, Settings2, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,27 +18,17 @@ import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 import { FadeIn } from '@/components/ui/fade-in';
 
-const SHIFT_COLORS: Record<string, string> = {
+const FALLBACK_COLORS: Record<string, string> = {
   MORNING:   'bg-amber-100 text-amber-700 border-amber-200',
   AFTERNOON: 'bg-blue-100 text-blue-700 border-blue-200',
   EVENING:   'bg-indigo-100 text-indigo-700 border-indigo-200',
   NIGHT:     'bg-purple-100 text-purple-700 border-purple-200',
   SPLIT:     'bg-green-100 text-green-700 border-green-200',
   OFF:       'bg-gray-100 text-gray-500 border-gray-200',
-  FLEXI:     'bg-pink-100 text-pink-700 border-pink-200',
-};
-
-const SHIFT_LABELS: Record<string, string> = {
-  MORNING:   '6AM–2PM',
-  AFTERNOON: '2PM–10PM',
-  EVENING:   '4PM–12AM',
-  NIGHT:     '10PM–6AM',
-  SPLIT:     'Split',
-  OFF:       'OFF',
-  FLEXI:     'Flexi',
 };
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const EMPTY_TYPE_FORM = { name: '', label: '', startTime: '08:00', endTime: '17:00', breakMinutes: 0, color: '' };
 
 export default function RosterPage() {
   usePageTitle('Shift Roster');
@@ -47,6 +38,10 @@ export default function RosterPage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [addOpen, setAddOpen] = useState(false);
   const [deptFilter, setDeptFilter] = useState('ALL');
+  const [manageTypesOpen, setManageTypesOpen] = useState(false);
+  const [typeFormOpen, setTypeFormOpen] = useState(false);
+  const [editingType, setEditingType] = useState<any>(null);
+  const [typeForm, setTypeForm] = useState(EMPTY_TYPE_FORM);
   const [form, setForm] = useState({
     employeeId: '', shiftType: 'MORNING', startDate: '', endDate: '',
     startTime: '06:00', endTime: '14:00', notes: '',
@@ -78,6 +73,16 @@ export default function RosterPage() {
   });
   const departments: any[] = Array.isArray(deptData) ? deptData : [];
 
+  const { data: shiftTypesData } = useQuery({
+    queryKey: ['shift-types', propertyId],
+    queryFn: () => hrApi.shiftTypes({ propertyId }).then(r => r.data),
+  });
+  const shiftTypes: any[] = Array.isArray(shiftTypesData) ? shiftTypesData : [];
+
+  const shiftTimeDefaults = Object.fromEntries(shiftTypes.map(s => [s.name, { startTime: s.startTime, endTime: s.endTime }]));
+
+  const getShiftColor = (name: string) => FALLBACK_COLORS[name] ?? 'bg-muted text-muted-foreground border-border';
+
   const rosters: any[] = Array.isArray(rosterData) ? rosterData : (rosterData?.data ?? []);
 
   const empDays = employees.map(emp => {
@@ -85,7 +90,10 @@ export default function RosterPage() {
     const dayShifts: Record<string, string> = {};
     for (let d = 0; d <= 6; d++) {
       const day = format(addDays(weekStart, d), 'yyyy-MM-dd');
-      const shift = shifts.find(s => format(new Date(s.startDate), 'yyyy-MM-dd') === day);
+      const shift = shifts.find(s => {
+        const date = s.shiftDate ?? s.startDate;
+        return date && format(new Date(date), 'yyyy-MM-dd') === day;
+      });
       dayShifts[day] = shift?.shiftType ?? 'OFF';
     }
     return { emp, dayShifts };
@@ -97,19 +105,59 @@ export default function RosterPage() {
       queryClient.invalidateQueries({ queryKey: ['roster'] });
       toast({ title: 'Shift assigned' });
       setAddOpen(false);
-      setForm({ employeeId: '', shiftType: 'MORNING', startDate: '', endDate: '', startTime: '06:00', endTime: '14:00', notes: '' });
+      setForm({ employeeId: '', shiftType: shiftTypes[0]?.name ?? 'MORNING', startDate: '', endDate: '', startTime: '06:00', endTime: '14:00', notes: '' });
     },
     onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed' }),
   });
 
-  const SHIFT_TIME_DEFAULTS: Record<string, { startTime: string; endTime: string }> = {
-    MORNING:   { startTime: '06:00', endTime: '14:00' },
-    AFTERNOON: { startTime: '14:00', endTime: '22:00' },
-    EVENING:   { startTime: '16:00', endTime: '00:00' },
-    NIGHT:     { startTime: '22:00', endTime: '06:00' },
-    SPLIT:     { startTime: '08:00', endTime: '20:00' },
-    OFF:       { startTime: '00:00', endTime: '00:00' },
-    FLEXI:     { startTime: '08:00', endTime: '17:00' },
+  const createTypeMutation = useMutation({
+    mutationFn: (data: any) => hrApi.createShiftType({ ...data, propertyId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shift-types'] });
+      toast({ title: 'Shift type created' });
+      setTypeFormOpen(false);
+      setTypeForm(EMPTY_TYPE_FORM);
+      setEditingType(null);
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message ?? 'Failed to create' }),
+  });
+
+  const updateTypeMutation = useMutation({
+    mutationFn: ({ id, ...data }: any) => hrApi.updateShiftType(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shift-types'] });
+      toast({ title: 'Shift type updated' });
+      setTypeFormOpen(false);
+      setTypeForm(EMPTY_TYPE_FORM);
+      setEditingType(null);
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message ?? 'Failed to update' }),
+  });
+
+  const deleteTypeMutation = useMutation({
+    mutationFn: (id: string) => hrApi.deleteShiftType(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['shift-types'] }); toast({ title: 'Shift type deleted' }); },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message ?? 'Cannot delete — shift type is in use' }),
+  });
+
+  const openEditType = (type: any) => {
+    setEditingType(type);
+    setTypeForm({ name: type.name, label: type.label, startTime: type.startTime, endTime: type.endTime, breakMinutes: type.breakMinutes ?? 0, color: type.color ?? '' });
+    setTypeFormOpen(true);
+  };
+
+  const openAddType = () => {
+    setEditingType(null);
+    setTypeForm(EMPTY_TYPE_FORM);
+    setTypeFormOpen(true);
+  };
+
+  const closeTypeForm = () => { setTypeFormOpen(false); setEditingType(null); setTypeForm(EMPTY_TYPE_FORM); };
+
+  const submitTypeForm = () => {
+    const payload = { ...typeForm, breakMinutes: Number(typeForm.breakMinutes) };
+    if (editingType) updateTypeMutation.mutate({ id: editingType.id, ...payload });
+    else createTypeMutation.mutate(payload);
   };
 
   return (
@@ -124,9 +172,9 @@ export default function RosterPage() {
 
       {/* Legend */}
       <div className="flex flex-wrap gap-2">
-        {Object.entries(SHIFT_COLORS).map(([type, cls]) => (
-          <span key={type} className={cn('text-xs px-2 py-1 rounded-full border font-medium', cls)}>
-            {type} {SHIFT_LABELS[type] ? `· ${SHIFT_LABELS[type]}` : ''}
+        {shiftTypes.map(type => (
+          <span key={type.name} className={cn('text-xs px-2 py-1 rounded-full border font-medium', getShiftColor(type.name))}>
+            {type.name}{type.label ? ` · ${type.label}` : ''}
           </span>
         ))}
       </div>
@@ -153,6 +201,9 @@ export default function RosterPage() {
           </SelectContent>
         </Select>
         <div className="flex-1" />
+        <Button variant="outline" size="sm" onClick={() => setManageTypesOpen(true)}>
+          <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Shift Types
+        </Button>
         <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setAddOpen(true)}>
           <Plus className="w-3.5 h-3.5 mr-1.5" /> Assign Shift
         </Button>
@@ -200,7 +251,7 @@ export default function RosterPage() {
                         <td key={day} className="px-1 py-2 text-center">
                           <span className={cn(
                             'inline-block rounded px-1.5 py-0.5 text-[10px] font-medium border w-full text-center',
-                            SHIFT_COLORS[shift] ?? 'bg-muted text-muted-foreground',
+                            getShiftColor(shift),
                             shift === 'OFF' ? 'opacity-50' : '',
                           )}>
                             {shift}
@@ -235,13 +286,13 @@ export default function RosterPage() {
             <div className="space-y-1.5">
               <Label>Shift Type *</Label>
               <Select value={form.shiftType} onValueChange={v => {
-                const def = SHIFT_TIME_DEFAULTS[v] ?? { startTime: '08:00', endTime: '17:00' };
+                const def = shiftTimeDefaults[v] ?? { startTime: '08:00', endTime: '17:00' };
                 setForm(f => ({ ...f, shiftType: v, ...def }));
               }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(SHIFT_LABELS).map(([v, l]) => (
-                    <SelectItem key={v} value={v}>{v} — {l}</SelectItem>
+                  {shiftTypes.map(s => (
+                    <SelectItem key={s.name} value={s.name}>{s.name} — {s.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -280,6 +331,101 @@ export default function RosterPage() {
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
               onClick={() => addMutation.mutate()}>
               Assign Shift
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Shift Types Sheet */}
+      <Sheet open={manageTypesOpen} onOpenChange={setManageTypesOpen}>
+        <SheetContent className="sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>Manage Shift Types</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 space-y-4">
+            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={openAddType}>
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Shift Type
+            </Button>
+            <div className="border border-border rounded-lg overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40">
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Name</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Label</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Hours</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {shiftTypes.length === 0 ? (
+                    <tr><td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">No shift types configured.</td></tr>
+                  ) : shiftTypes.map(type => (
+                    <tr key={type.id} className="border-b border-border hover:bg-muted/20">
+                      <td className="px-3 py-2 font-medium">{type.name}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{type.label}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{type.startTime}–{type.endTime}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1 justify-end">
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => openEditType(type)}>
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                            disabled={deleteTypeMutation.isPending}
+                            onClick={() => deleteTypeMutation.mutate(type.id)}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Add / Edit Shift Type Dialog */}
+      <Dialog open={typeFormOpen} onOpenChange={v => { if (!v) closeTypeForm(); else setTypeFormOpen(true); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{editingType ? 'Edit Shift Type' : 'Add Shift Type'}</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="space-y-1.5">
+              <Label>Name * <span className="text-muted-foreground text-xs">(e.g. MORNING, no spaces)</span></Label>
+              <Input
+                value={typeForm.name}
+                onChange={e => setTypeForm(f => ({ ...f, name: e.target.value.toUpperCase().replace(/\s+/g, '_') }))}
+                placeholder="MORNING"
+                disabled={!!editingType}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Display Label *</Label>
+              <Input value={typeForm.label} onChange={e => setTypeForm(f => ({ ...f, label: e.target.value }))} placeholder="6AM–2PM" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Start Time *</Label>
+                <Input type="time" value={typeForm.startTime} onChange={e => setTypeForm(f => ({ ...f, startTime: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>End Time *</Label>
+                <Input type="time" value={typeForm.endTime} onChange={e => setTypeForm(f => ({ ...f, endTime: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Break (minutes)</Label>
+              <Input type="number" min={0} value={typeForm.breakMinutes} onChange={e => setTypeForm(f => ({ ...f, breakMinutes: Number(e.target.value) }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeTypeForm}>Cancel</Button>
+            <Button
+              disabled={!typeForm.name || !typeForm.label || createTypeMutation.isPending || updateTypeMutation.isPending}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              onClick={submitTypeForm}>
+              {editingType ? 'Save Changes' : 'Create'}
             </Button>
           </DialogFooter>
         </DialogContent>

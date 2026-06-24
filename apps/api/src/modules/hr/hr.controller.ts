@@ -148,6 +148,35 @@ export class HrController {
     return this.service.deleteShift(id);
   }
 
+  // ─── SHIFT TYPE CONFIG ────────────────────────────────────────
+
+  @Get('shift-types')
+  getShiftTypes(@Query('propertyId') propertyId: string) {
+    return this.service.getShiftTypes(propertyId);
+  }
+
+  @Post('shift-types')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
+  createShiftType(@Body() dto: any) {
+    return this.service.createShiftType(dto);
+  }
+
+  @Put('shift-types/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
+  updateShiftType(@Param('id') id: string, @Body() dto: any) {
+    return this.service.updateShiftType(id, dto);
+  }
+
+  @Delete('shift-types/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
+  @HttpCode(200)
+  deleteShiftType(@Param('id') id: string) {
+    return this.service.deleteShiftType(id);
+  }
+
   // ─── PAYROLL ─────────────────────────────────────────────────
 
   @Get('payroll')

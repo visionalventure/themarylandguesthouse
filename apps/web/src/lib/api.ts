@@ -190,6 +190,11 @@ export const hrApi = {
   roster: (params: any) => api.get('/v1/hr/roster', { params }),
   upsertShift: (data: any) => api.post('/v1/hr/roster', data),
   deleteShift: (id: string) => api.delete(`/v1/hr/roster/${id}`),
+  // Shift Types
+  shiftTypes: (params: { propertyId: string }) => api.get('/v1/hr/shift-types', { params }),
+  createShiftType: (data: any) => api.post('/v1/hr/shift-types', data),
+  updateShiftType: (id: string, data: any) => api.put(`/v1/hr/shift-types/${id}`, data),
+  deleteShiftType: (id: string) => api.delete(`/v1/hr/shift-types/${id}`),
   // Payroll
   payrollHistory: (params: any) => api.get('/v1/hr/payroll', { params }),
   runPayroll: (propertyId: string, periodStart: string, periodEnd: string) =>

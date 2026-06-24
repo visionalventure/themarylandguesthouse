@@ -866,6 +866,33 @@ export class HrService {
     });
   }
 
+  // ─── SHIFT TYPE CONFIG ──────────────────────────────────────────
+
+  async getShiftTypes(propertyId: string) {
+    return this.prisma.shiftTypeConfig.findMany({
+      where: { propertyId, isActive: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async createShiftType(dto: { propertyId: string; name: string; label: string; startTime: string; endTime: string; breakMinutes?: number; color?: string }) {
+    const name = dto.name.toUpperCase().replace(/\s+/g, '_');
+    return this.prisma.shiftTypeConfig.create({ data: { ...dto, name, breakMinutes: dto.breakMinutes ?? 0 } });
+  }
+
+  async updateShiftType(id: string, dto: Partial<{ name: string; label: string; startTime: string; endTime: string; breakMinutes: number; color: string; isActive: boolean }>) {
+    if (dto.name) dto.name = dto.name.toUpperCase().replace(/\s+/g, '_');
+    return this.prisma.shiftTypeConfig.update({ where: { id }, data: dto });
+  }
+
+  async deleteShiftType(id: string) {
+    const config = await this.prisma.shiftTypeConfig.findUnique({ where: { id } });
+    if (!config) throw new NotFoundException('Shift type not found');
+    const inUse = await this.prisma.shiftRoster.count({ where: { propertyId: config.propertyId, shiftType: config.name } });
+    if (inUse > 0) throw new BadRequestException(`Cannot delete: ${inUse} roster entr${inUse === 1 ? 'y' : 'ies'} use this shift type`);
+    return this.prisma.shiftTypeConfig.delete({ where: { id } });
+  }
+
   async getPayrollSummary(propertyId: string, period: string) {
     const periodStartDate = new Date(`${period}-01`);
     const nextMonth = new Date(periodStartDate);

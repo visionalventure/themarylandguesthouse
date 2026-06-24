@@ -481,6 +481,7 @@ model Property {
   housekeepingTasks HousekeepingTask[]
   purchaseOrders PurchaseOrder[]
   nightAudits   NightAudit[]
+  shiftTypeConfigs ShiftTypeConfig[]
 
   @@unique([tenantId, code])
   @@map("properties")
@@ -1837,7 +1838,7 @@ model ShiftRoster {
   employeeId   String
   propertyId   String
   shiftDate    DateTime  @db.Date
-  shiftType    ShiftType
+  shiftType    String    @default("MORNING")
   startTime    String?   // HH:MM
   endTime      String?   // HH:MM
   breakMinutes Int       @default(0)
@@ -1852,6 +1853,25 @@ model ShiftRoster {
 
   @@unique([employeeId, shiftDate])
   @@map("shift_rosters")
+}
+
+model ShiftTypeConfig {
+  id           String   @id @default(cuid())
+  propertyId   String
+  name         String
+  label        String
+  startTime    String
+  endTime      String
+  breakMinutes Int      @default(0)
+  color        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id])
+
+  @@unique([propertyId, name])
+  @@map("shift_type_configs")
 }
 
 // ─── TRAINING ────────────────────────────────────────────────
