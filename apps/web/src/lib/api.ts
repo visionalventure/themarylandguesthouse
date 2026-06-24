@@ -176,6 +176,10 @@ export const hrApi = {
   // Attendance
   attendance: (data: any) => api.post('/v1/hr/attendance', data),
   attendanceReport: (params: any) => api.get('/v1/hr/attendance/report', { params }),
+  clockIn: () => api.post('/v1/hr/attendance/clock-in', {}),
+  clockOut: () => api.post('/v1/hr/attendance/clock-out', {}),
+  myAttendance: (params?: any) => api.get('/v1/hr/attendance/my', { params }),
+  editAttendance: (id: string, data: any) => api.patch(`/v1/hr/attendance/${id}/edit`, data),
   anomalies: (params: any) => api.get('/v1/hr/attendance/anomalies', { params }),
   createAnomaly: (data: any) => api.post('/v1/hr/attendance/anomalies', data),
   updateAnomaly: (id: string, data: any) => api.patch(`/v1/hr/attendance/anomalies/${id}`, data),

@@ -1504,17 +1504,21 @@ model Employee {
 }
 
 model Attendance {
-  id          String    @id @default(cuid())
-  employeeId  String
-  date        DateTime  @db.Date
-  clockIn     DateTime?
-  clockOut    DateTime?
-  hoursWorked Decimal?  @db.Decimal(5,2)
-  status      String    @default("PRESENT") // PRESENT | ABSENT | LATE | HALF_DAY | ON_LEAVE
-  notes       String?
-  createdAt   DateTime  @default(now())
+  id           String    @id @default(cuid())
+  employeeId   String
+  date         DateTime  @db.Date
+  clockIn      DateTime?
+  clockOut     DateTime?
+  hoursWorked  Decimal?  @db.Decimal(5,2)
+  status       String    @default("PRESENT") // PRESENT | ABSENT | LATE | HALF_DAY | ON_LEAVE
+  notes        String?
+  source       String    @default("MANAGER_ENTRY") // SELF_CLOCK | MANAGER_ENTRY
+  editHistory  Json?
+  recordedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
 
-  employee    Employee  @relation(fields: [employeeId], references: [id])
+  employee     Employee  @relation(fields: [employeeId], references: [id])
 
   @@unique([employeeId, date])
   @@map("attendances")

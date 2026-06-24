@@ -26,6 +26,7 @@ import {
   Moon,
   Search,
   Activity,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -73,12 +74,13 @@ const navSections = [
       {
         name: 'Human Resources', href: '/hr', icon: Users2,
         children: [
-          { name: 'Employees',    href: '/hr' },
-          { name: 'Recruitment',  href: '/hr/recruitment' },
-          { name: 'Shift Roster', href: '/hr/roster' },
-          { name: 'Reports',      href: '/hr/reports' },
+          { name: 'Employees',     href: '/hr' },
+          { name: 'Recruitment',   href: '/hr/recruitment' },
+          { name: 'Shift Roster',  href: '/hr/roster' },
+          { name: 'Reports',       href: '/hr/reports' },
         ],
       },
+      { name: 'My Attendance', href: '/hr/my-attendance', icon: ClipboardCheck },
       { name: 'Loyalty Program', href: '/loyalty', icon: Gift },
     ],
   },

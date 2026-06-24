@@ -89,11 +89,117 @@ export class HrService {
   // ─── ATTENDANCE ────────────────────────────────────────────────
 
   async recordAttendance(dto: any) {
+    const clockIn = dto.clockIn ? new Date(dto.clockIn) : undefined;
+    const clockOut = dto.clockOut ? new Date(dto.clockOut) : undefined;
+    const hoursWorked = clockIn && clockOut
+      ? parseFloat(((clockOut.getTime() - clockIn.getTime()) / 3_600_000).toFixed(2))
+      : dto.hoursWorked;
     return this.prisma.attendance.upsert({
       where: { employeeId_date: { employeeId: dto.employeeId, date: new Date(dto.date) } },
-      create: { ...dto, date: new Date(dto.date) },
-      update: { clockOut: dto.clockOut, hoursWorked: dto.hoursWorked, status: dto.status, notes: dto.notes },
+      create: { ...dto, date: new Date(dto.date), clockIn, clockOut, hoursWorked, source: 'MANAGER_ENTRY' },
+      update: { clockOut, hoursWorked, status: dto.status, notes: dto.notes },
     });
+  }
+
+  async clockIn(userId: string) {
+    const employee = await this.prisma.employee.findFirst({ where: { userId } });
+    if (!employee) throw new NotFoundException('No employee profile linked to your account');
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const existing = await this.prisma.attendance.findUnique({
+      where: { employeeId_date: { employeeId: employee.id, date: today } },
+    });
+    if (existing?.clockIn) throw new BadRequestException('Already clocked in today');
+    return this.prisma.attendance.upsert({
+      where: { employeeId_date: { employeeId: employee.id, date: today } },
+      create: { employeeId: employee.id, date: today, clockIn: new Date(), status: 'PRESENT', source: 'SELF_CLOCK', recordedById: userId },
+      update: { clockIn: new Date(), source: 'SELF_CLOCK', recordedById: userId },
+    });
+  }
+
+  async clockOut(userId: string) {
+    const employee = await this.prisma.employee.findFirst({ where: { userId } });
+    if (!employee) throw new NotFoundException('No employee profile linked to your account');
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const existing = await this.prisma.attendance.findUnique({
+      where: { employeeId_date: { employeeId: employee.id, date: today } },
+    });
+    if (!existing?.clockIn) throw new BadRequestException('No clock-in found for today');
+    if (existing.clockOut) throw new BadRequestException('Already clocked out today');
+    const clockOut = new Date();
+    const hoursWorked = parseFloat(((clockOut.getTime() - existing.clockIn.getTime()) / 3_600_000).toFixed(2));
+    const updated = await this.prisma.attendance.update({
+      where: { id: existing.id },
+      data: { clockOut, hoursWorked, status: hoursWorked < 4 ? 'HALF_DAY' : 'PRESENT' },
+    });
+    await this.detectAnomalies(employee.id, today, existing.clockIn, clockOut);
+    return updated;
+  }
+
+  async getMyAttendance(userId: string, query: any = {}) {
+    const employee = await this.prisma.employee.findFirst({ where: { userId } });
+    if (!employee) throw new NotFoundException('No employee profile linked to your account');
+    const { page = 1, limit = 30 } = query;
+    const [data, total] = await Promise.all([
+      this.prisma.attendance.findMany({
+        where: { employeeId: employee.id },
+        orderBy: { date: 'desc' },
+        skip: (Number(page) - 1) * Number(limit),
+        take: Number(limit),
+      }),
+      this.prisma.attendance.count({ where: { employeeId: employee.id } }),
+    ]);
+    return { data, total, employee };
+  }
+
+  async editAttendance(id: string, dto: any, editorUserId: string) {
+    if (!dto.reason?.trim()) throw new BadRequestException('Edit reason is required');
+    const existing = await this.prisma.attendance.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Attendance record not found');
+    const editEntry: any = { editedById: editorUserId, editedAt: new Date().toISOString(), reason: dto.reason, changes: {} };
+    const { reason, ...updates } = dto;
+    for (const field of ['clockIn', 'clockOut', 'status', 'notes']) {
+      if (updates[field] !== undefined) editEntry.changes[field] = { from: (existing as any)[field], to: updates[field] };
+    }
+    const editHistory = [...((existing.editHistory as any[]) ?? []), editEntry];
+    const newClockIn = updates.clockIn ? new Date(updates.clockIn) : existing.clockIn;
+    const newClockOut = updates.clockOut ? new Date(updates.clockOut) : existing.clockOut;
+    const hoursWorked = newClockIn && newClockOut
+      ? parseFloat(((newClockOut.getTime() - newClockIn.getTime()) / 3_600_000).toFixed(2))
+      : existing.hoursWorked;
+    return this.prisma.attendance.update({
+      where: { id },
+      data: { ...updates, clockIn: newClockIn, clockOut: newClockOut, hoursWorked, editHistory },
+    });
+  }
+
+  private async detectAnomalies(employeeId: string, date: Date, clockIn: Date, clockOut: Date) {
+    const GRACE_MINUTES = 15;
+    const EARLY_DEPARTURE_MINUTES = 15;
+    const shift = await this.prisma.shiftRoster.findUnique({
+      where: { employeeId_shiftDate: { employeeId, shiftDate: date } },
+    });
+    const anomalies: any[] = [];
+    if (!shift || shift.shiftType === 'OFF') {
+      anomalies.push({ anomalyType: 'ROSTER_CONFLICT', severity: 'MEDIUM', description: 'Clocked in with no assigned shift for this date' });
+    } else if (shift.startTime && shift.endTime) {
+      const [sh, sm] = shift.startTime.split(':').map(Number);
+      const [eh, em] = shift.endTime.split(':').map(Number);
+      const shiftStart = new Date(date); shiftStart.setHours(sh, sm, 0, 0);
+      const shiftEnd = new Date(date); shiftEnd.setHours(eh, em, 0, 0);
+      const lateMs = clockIn.getTime() - shiftStart.getTime();
+      if (lateMs > GRACE_MINUTES * 60_000) {
+        const lateMin = Math.round(lateMs / 60_000);
+        anomalies.push({ anomalyType: 'REPEATED_LATENESS', severity: lateMin > 60 ? 'HIGH' : 'MEDIUM', description: `Clocked in ${lateMin} minutes late (shift started ${shift.startTime})` });
+      }
+      const earlyMs = shiftEnd.getTime() - clockOut.getTime();
+      if (earlyMs > EARLY_DEPARTURE_MINUTES * 60_000) {
+        const earlyMin = Math.round(earlyMs / 60_000);
+        anomalies.push({ anomalyType: 'EARLY_DEPARTURE', severity: earlyMin > 60 ? 'HIGH' : 'LOW', description: `Clocked out ${earlyMin} minutes before shift end (${shift.endTime})` });
+      }
+    }
+    for (const a of anomalies) {
+      await this.prisma.attendanceAnomaly.create({ data: { employeeId, date, ...a, status: 'OPEN' } }).catch(() => {});
+    }
   }
 
   async getAttendanceReport(propertyId: string, startDate: Date, endDate: Date) {

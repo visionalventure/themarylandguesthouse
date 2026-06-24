@@ -86,6 +86,28 @@ export class HrController {
     return this.service.updateAnomalyStatus(id, { ...dto, reviewedById: req.user.sub });
   }
 
+  @Post('attendance/clock-in')
+  clockIn(@Request() req: any) {
+    return this.service.clockIn(req.user.sub);
+  }
+
+  @Post('attendance/clock-out')
+  clockOut(@Request() req: any) {
+    return this.service.clockOut(req.user.sub);
+  }
+
+  @Get('attendance/my')
+  getMyAttendance(@Request() req: any, @Query() query: any) {
+    return this.service.getMyAttendance(req.user.sub, query);
+  }
+
+  @Patch('attendance/:id/edit')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
+  editAttendance(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.editAttendance(id, dto, req.user.sub);
+  }
+
   // ─── LEAVE ───────────────────────────────────────────────────
 
   @Get('leave-requests')

@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Search, Users2, UserCheck, CalendarCheck, FileClock,
-  Clock, AlertTriangle, ShieldAlert, FileText, Activity, ChevronRight,
+  Clock, AlertTriangle, ShieldAlert, FileText, Activity, ChevronRight, Pencil,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -1015,12 +1016,14 @@ export default function HrPage() {
 
 // ─── LEGACY TAB CONTENT (preserved from existing page) ───────────────────────
 
-function AttendanceTabContent({ propertyId, queryClient }: any) {
+function AttendanceTabContent({ propertyId, queryClient, toast }: any) {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [attendanceOpen, setAttendanceOpen] = useState(false);
+  const [editRecord, setEditRecord] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ clockIn: '', clockOut: '', status: '', notes: '', reason: '' });
 
   const { data: empData } = useQuery({
     queryKey: ['hr-employees', propertyId, '', 'ACTIVE', 'all'],
@@ -1034,6 +1037,27 @@ function AttendanceTabContent({ propertyId, queryClient }: any) {
     enabled: !!startDate && !!endDate,
   });
   const records: any[] = Array.isArray(attendanceData) ? attendanceData : [];
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, data }: any) => hrApi.editAttendance(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance-report'] });
+      toast({ title: 'Attendance updated' });
+      setEditRecord(null);
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message ?? 'Failed to update' }),
+  });
+
+  const openEdit = (r: any) => {
+    setEditForm({
+      clockIn: r.clockIn ? format(new Date(r.clockIn), "yyyy-MM-dd'T'HH:mm") : '',
+      clockOut: r.clockOut ? format(new Date(r.clockOut), "yyyy-MM-dd'T'HH:mm") : '',
+      status: r.status ?? '',
+      notes: r.notes ?? '',
+      reason: '',
+    });
+    setEditRecord(r);
+  };
 
   const ATTENDANCE_STATUS_COLORS: Record<string, string> = {
     PRESENT: 'bg-green-100 text-green-700',
@@ -1075,37 +1099,134 @@ function AttendanceTabContent({ propertyId, queryClient }: any) {
               <p className="text-xs text-muted-foreground mt-1">Attendance records for this date range will appear here.</p>
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/40">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Employee</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Clock In</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Clock Out</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Hours</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {records.map((r: any) => (
-                  <tr key={r.id} className="border-b border-border hover:bg-muted/30">
-                    <td className="px-4 py-3 font-medium">{r.employee?.firstName} {r.employee?.lastName}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{r.date ? format(new Date(r.date), 'MMM d, yyyy') : '—'}</td>
-                    <td className="px-4 py-3 text-xs">{r.clockIn ? format(new Date(r.clockIn), 'HH:mm') : '—'}</td>
-                    <td className="px-4 py-3 text-xs">{r.clockOut ? format(new Date(r.clockOut), 'HH:mm') : '—'}</td>
-                    <td className="px-4 py-3 text-xs">{r.hoursWorked ? `${r.hoursWorked}h` : '—'}</td>
-                    <td className="px-4 py-3">
-                      <Badge className={cn('text-xs', ATTENDANCE_STATUS_COLORS[r.status] ?? 'bg-muted')}>
-                        {r.status}
-                      </Badge>
-                    </td>
+            <TooltipProvider>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Employee</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Date</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Clock In</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Clock Out</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Hours</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Status</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs">Source</th>
+                    <th className="px-4 py-3 text-xs text-right font-medium text-muted-foreground">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {records.map((r: any) => {
+                    const edits: any[] = Array.isArray(r.editHistory) ? r.editHistory : [];
+                    return (
+                      <tr key={r.id} className="border-b border-border hover:bg-muted/30">
+                        <td className="px-4 py-3 font-medium text-sm">{r.employee?.firstName} {r.employee?.lastName}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{r.date ? format(new Date(r.date), 'MMM d, yyyy') : '—'}</td>
+                        <td className="px-4 py-3 text-xs">{r.clockIn ? format(new Date(r.clockIn), 'HH:mm') : '—'}</td>
+                        <td className="px-4 py-3 text-xs">{r.clockOut ? format(new Date(r.clockOut), 'HH:mm') : '—'}</td>
+                        <td className="px-4 py-3 text-xs">{r.hoursWorked ? `${r.hoursWorked}h` : '—'}</td>
+                        <td className="px-4 py-3">
+                          <Badge className={cn('text-xs', ATTENDANCE_STATUS_COLORS[r.status] ?? 'bg-muted')}>
+                            {r.status}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          {r.source === 'SELF_CLOCK' ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-green-600">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                              Self
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 inline-block" />
+                              Manual
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {edits.length > 0 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Pencil className="w-3.5 h-3.5 text-muted-foreground/60 cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs text-xs space-y-1" side="left">
+                                  {edits.map((edit: any, i: number) => (
+                                    <div key={i}>
+                                      <span className="font-medium">{format(new Date(edit.editedAt), 'MMM d HH:mm')}</span>
+                                      {' — '}{edit.reason}
+                                    </div>
+                                  ))}
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => openEdit(r)}>
+                              Edit
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TooltipProvider>
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Attendance Dialog */}
+      <Dialog open={!!editRecord} onOpenChange={open => !open && setEditRecord(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Attendance Record</DialogTitle>
+          </DialogHeader>
+          {editRecord && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                {editRecord.employee?.firstName} {editRecord.employee?.lastName} · {editRecord.date ? format(new Date(editRecord.date), 'MMM d, yyyy') : ''}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Clock In</Label>
+                  <Input type="datetime-local" className="h-8 text-xs" value={editForm.clockIn}
+                    onChange={e => setEditForm(f => ({ ...f, clockIn: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Clock Out</Label>
+                  <Input type="datetime-local" className="h-8 text-xs" value={editForm.clockOut}
+                    onChange={e => setEditForm(f => ({ ...f, clockOut: e.target.value }))} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Status</Label>
+                <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {['PRESENT', 'ABSENT', 'LATE', 'HALF_DAY', 'ON_LEAVE'].map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Notes</Label>
+                <Input className="h-8 text-xs" value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Reason for edit <span className="text-destructive">*</span></Label>
+                <Textarea className="text-xs min-h-[60px]" placeholder="Describe why this record is being edited…"
+                  value={editForm.reason} onChange={e => setEditForm(f => ({ ...f, reason: e.target.value }))} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setEditRecord(null)}>Cancel</Button>
+            <Button size="sm" disabled={!editForm.reason.trim() || editMutation.isPending}
+              onClick={() => editMutation.mutate({ id: editRecord.id, data: editForm })}>
+              {editMutation.isPending ? 'Saving…' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
