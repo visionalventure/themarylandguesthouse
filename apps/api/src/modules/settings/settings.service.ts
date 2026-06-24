@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -26,15 +26,72 @@ export class SettingsService {
     return this.prisma.property.update({ where: { id: propertyId }, data });
   }
 
+  private async guardSuperAdmin(targetUserId: string, requestorRole: string) {
+    const target = await this.prisma.user.findUnique({ where: { id: targetUserId }, select: { role: true } });
+    if (!target) throw new NotFoundException('User not found');
+    if (target.role === 'SUPER_ADMIN' && requestorRole !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Only SUPER_ADMIN can manage other SUPER_ADMIN users');
+    }
+    return target;
+  }
+
   async getUsers(tenantId: string) {
     return this.prisma.user.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId },
       select: {
         id: true, firstName: true, lastName: true, email: true,
-        role: true, createdAt: true, lastLoginAt: true,
+        role: true, isActive: true, twoFactorEnabled: true,
+        createdAt: true, lastLoginAt: true,
       },
       orderBy: { firstName: 'asc' },
     });
+  }
+
+  async updateUser(userId: string, dto: { firstName?: string; lastName?: string }, requestorRole: string) {
+    await this.guardSuperAdmin(userId, requestorRole);
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { firstName: dto.firstName, lastName: dto.lastName },
+      select: { id: true, firstName: true, lastName: true, email: true, role: true, isActive: true },
+    });
+  }
+
+  async updateUserEmail(userId: string, newEmail: string, requestorRole: string) {
+    await this.guardSuperAdmin(userId, requestorRole);
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { tenantId: true } });
+    if (!user) throw new NotFoundException('User not found');
+    const conflict = await this.prisma.user.findFirst({ where: { tenantId: user.tenantId, email: newEmail } });
+    if (conflict && conflict.id !== userId) throw new ConflictException('Email is already in use by another user');
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { email: newEmail },
+      select: { id: true, firstName: true, lastName: true, email: true, role: true },
+    });
+  }
+
+  async resetUserPassword(userId: string, requestorRole: string) {
+    await this.guardSuperAdmin(userId, requestorRole);
+    const temporaryPassword = randomBytes(9).toString('base64').slice(0, 12);
+    const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+    await this.prisma.user.update({ where: { id: userId }, data: { passwordHash, passwordChangedAt: new Date() } });
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+    return { temporaryPassword };
+  }
+
+  async toggleUserActive(userId: string, requestorRole: string, requestorId: string) {
+    if (userId === requestorId) throw new ForbiddenException('Cannot deactivate your own account');
+    const target = await this.guardSuperAdmin(userId, requestorRole);
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { isActive: true } });
+    if (!user) throw new NotFoundException('User not found');
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { isActive: !user.isActive },
+      select: { id: true, firstName: true, lastName: true, email: true, role: true, isActive: true },
+    });
+    if (!updated.isActive) {
+      await this.prisma.refreshToken.deleteMany({ where: { userId } });
+    }
+    return updated;
   }
 
   async inviteUser(dto: any) {

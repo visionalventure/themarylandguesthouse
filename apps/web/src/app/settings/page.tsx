@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { format } from 'date-fns';
-import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard, AlignLeft, AlignCenter, AlignRight, Users, Star, Clock, BookOpen, ShoppingCart, Gift, Bell, CalendarDays, UserCheck, Moon } from 'lucide-react';
+import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard, AlignLeft, AlignCenter, AlignRight, Users, Star, Clock, BookOpen, ShoppingCart, Gift, Bell, CalendarDays, UserCheck, Moon, Search, Copy, Check, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -363,9 +363,211 @@ function PropertyTab() {
   );
 }
 
+function ManageUserDialog({ user, open, onClose, currentUser, queryClient, toast }: any) {
+  const [firstName, setFirstName] = useState(user.firstName);
+  const [lastName, setLastName] = useState(user.lastName);
+  const [newEmail, setNewEmail] = useState('');
+  const [selectedRole, setSelectedRole] = useState(user.role);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const isSelf = currentUser?.id === user.id;
+  const canManageSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  const targetIsSuperAdmin = user.role === 'SUPER_ADMIN';
+  const restricted = targetIsSuperAdmin && !canManageSuperAdmin;
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['settings-users'] });
+
+  const nameMutation = useMutation({
+    mutationFn: () => settingsApi.updateUser(user.id, { firstName, lastName }),
+    onSuccess: () => { invalidate(); toast({ title: 'Name updated' }); },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message || 'Failed to update name' }),
+  });
+
+  const emailMutation = useMutation({
+    mutationFn: () => settingsApi.updateUserEmail(user.id, newEmail),
+    onSuccess: () => { invalidate(); setNewEmail(''); toast({ title: 'Email updated' }); },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message || 'Failed to update email' }),
+  });
+
+  const roleMutation = useMutation({
+    mutationFn: () => settingsApi.updateUserRole(user.id, selectedRole),
+    onSuccess: () => { invalidate(); toast({ title: 'Role updated' }); },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message || 'Failed to update role' }),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: () => settingsApi.resetUserPassword(user.id),
+    onSuccess: (res: any) => { setTempPassword(res.data?.temporaryPassword ?? res.data?.data?.temporaryPassword); },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message || 'Failed to reset password' }),
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: () => settingsApi.toggleUserActive(user.id),
+    onSuccess: () => { invalidate(); onClose(); toast({ title: user.isActive ? 'User deactivated' : 'User reactivated' }); },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message || 'Failed to update status' }),
+  });
+
+  const handleCopy = () => {
+    if (tempPassword) {
+      navigator.clipboard.writeText(tempPassword);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Manage — {user.firstName} {user.lastName}</DialogTitle>
+          <p className="text-xs text-muted-foreground">{user.email}</p>
+        </DialogHeader>
+
+        {restricted && (
+          <div className="flex items-center gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            Only SUPER_ADMIN can manage other SUPER_ADMIN users. Actions are disabled.
+          </div>
+        )}
+
+        {tempPassword && (
+          <div className="rounded-md border border-border bg-muted/30 p-4 space-y-3">
+            <p className="text-sm font-medium">Temporary Password</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 rounded bg-background border px-3 py-2 text-sm font-mono tracking-wider">{tempPassword}</code>
+              <Button size="icon" variant="outline" onClick={handleCopy} className="flex-shrink-0">
+                {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-amber-700 flex items-start gap-1">
+              <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              Show this to the user now — it will not be displayed again. All existing sessions have been revoked.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-5 pt-1">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Edit Name</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">First Name</Label>
+                <Input value={firstName} onChange={e => setFirstName(e.target.value)} disabled={restricted} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Last Name</Label>
+                <Input value={lastName} onChange={e => setLastName(e.target.value)} disabled={restricted} />
+              </div>
+            </div>
+            <Button size="sm" variant="outline" disabled={restricted || nameMutation.isPending} onClick={() => nameMutation.mutate()}>
+              {nameMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+              Save Name
+            </Button>
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Update Email</p>
+            <p className="text-xs text-amber-700">Changing email will affect login credentials.</p>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="new@email.com"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+                disabled={restricted}
+              />
+              <Button size="sm" variant="outline" disabled={restricted || !newEmail || emailMutation.isPending} onClick={() => emailMutation.mutate()}>
+                {emailMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                Update
+              </Button>
+            </div>
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reset Password</p>
+            <p className="text-xs text-muted-foreground">Generates a temporary password. All active sessions for this user will be revoked.</p>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={restricted || resetPasswordMutation.isPending}
+              onClick={() => { if (confirm(`Reset password for ${user.firstName} ${user.lastName}?`)) resetPasswordMutation.mutate(); }}
+            >
+              {resetPasswordMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+              Reset Password
+            </Button>
+          </div>
+
+          {canManageSuperAdmin && (
+            <>
+              <div className="h-px bg-border" />
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Role</p>
+                <div className="flex gap-2">
+                  <Select value={selectedRole} onValueChange={setSelectedRole}>
+                    <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ROLES.map(r => <SelectItem key={r} value={r}>{r.replace(/_/g, ' ')}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="outline" disabled={selectedRole === user.role || roleMutation.isPending} onClick={() => roleMutation.mutate()}>
+                    {roleMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                    Save
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {!isSelf && (
+            <>
+              <div className="h-px bg-border" />
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Account Status</p>
+                {user.isActive ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={restricted || toggleActiveMutation.isPending}
+                    className="border-red-300 text-red-600 hover:bg-red-50"
+                    onClick={() => { if (confirm(`Deactivate ${user.firstName} ${user.lastName}? They will be logged out immediately.`)) toggleActiveMutation.mutate(); }}
+                  >
+                    {toggleActiveMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                    Deactivate Account
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={restricted || toggleActiveMutation.isPending}
+                    className="border-green-300 text-green-600 hover:bg-green-50"
+                    onClick={() => toggleActiveMutation.mutate()}
+                  >
+                    {toggleActiveMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                    Reactivate Account
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function UsersTab() {
   const propertyId = useAuthStore((s) => s.propertyId);
+  const currentUser = useAuthStore((s) => s.user);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [managingUser, setManagingUser] = useState<any | null>(null);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -373,90 +575,159 @@ function UsersTab() {
     queryKey: ['settings-users', propertyId],
     queryFn: () => settingsApi.getUsers(propertyId).then(r => r.data),
   });
-  const users: any[] = Array.isArray(usersData) ? usersData : (usersData?.data ?? []);
+  const allUsers: any[] = Array.isArray(usersData) ? usersData : (usersData?.data ?? []);
 
-  const { register, handleSubmit, watch, setValue, reset } = useForm({
+  const filteredUsers = allUsers.filter(u => {
+    const matchSearch = !search || `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(search.toLowerCase());
+    const matchRole = roleFilter === 'ALL' || u.role === roleFilter;
+    const matchStatus = statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? u.isActive : !u.isActive);
+    return matchSearch && matchRole && matchStatus;
+  });
+
+  const { register: inviteRegister, handleSubmit: handleInviteSubmit, watch: inviteWatch, setValue: setInviteValue, reset: resetInvite } = useForm({
     defaultValues: { email: '', firstName: '', lastName: '', role: 'FRONT_DESK' },
   });
 
   const inviteMutation = useMutation({
-    mutationFn: (values: any) => settingsApi.inviteUser({ propertyId: propertyId, ...values }),
+    mutationFn: (values: any) => settingsApi.inviteUser({ propertyId, ...values }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings-users'] });
       toast({ title: 'User invited successfully' });
       setInviteOpen(false);
-      reset();
+      resetInvite();
     },
     onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed' }),
   });
 
+  const formatLastLogin = (dt: string | null) => {
+    if (!dt) return 'Never';
+    try { return format(new Date(dt), 'MMM d, HH:mm'); } catch { return 'Never'; }
+  };
+
   return (
     <div className="mt-4 space-y-3">
-      <div className="flex justify-end">
-        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setInviteOpen(true)}>
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input placeholder="Search by name or email…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Roles" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Roles</SelectItem>
+            {ROLES.map(r => <SelectItem key={r} value={r}>{r.replace(/_/g, ' ')}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[130px]"><SelectValue placeholder="All Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Status</SelectItem>
+            <SelectItem value="ACTIVE">Active</SelectItem>
+            <SelectItem value="INACTIVE">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground ml-auto" onClick={() => setInviteOpen(true)}>
           <Plus className="w-4 h-4 mr-2" /> Invite User
         </Button>
       </div>
+
       <Card>
         <CardContent className="p-0">
-          {users.length === 0 ? (
+          {filteredUsers.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground text-sm">No users found.</div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10 bg-background">
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Role</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(u => (
-                  <tr key={u.id} className="border-b border-border hover:bg-muted/30">
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      {u.firstName} {u.lastName}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
-                    <td className="px-4 py-3">
-                      <Badge className={cn('text-xs border', ROLE_COLORS[u.role] ?? 'bg-muted text-muted-foreground border-border')}>
-                        {u.role}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline" className={cn('text-xs', u.isActive ? 'text-green-600' : 'text-muted-foreground')}>
-                        {u.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 z-10 bg-background">
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Role</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Last Login</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">2FA</th>
+                    <th className="px-4 py-3" />
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredUsers.map(u => (
+                    <tr key={u.id} className={cn('border-b border-border hover:bg-muted/30 transition-opacity', !u.isActive && 'opacity-50')}>
+                      <td className="px-4 py-3 font-medium text-foreground whitespace-nowrap">
+                        {u.firstName} {u.lastName}
+                        {u.id === currentUser?.id && (
+                          <span className="ml-2 text-xs text-muted-foreground">(you)</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
+                      <td className="px-4 py-3">
+                        <Badge className={cn('text-xs border', ROLE_COLORS[u.role] ?? 'bg-muted text-muted-foreground border-border')}>
+                          {u.role.replace(/_/g, ' ')}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant="outline" className={cn('text-xs', u.isActive ? 'text-green-600 border-green-300' : 'text-muted-foreground')}>
+                          {u.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs">
+                        {formatLastLogin(u.lastLoginAt)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {u.twoFactorEnabled
+                          ? <Badge className="text-xs bg-green-100 text-green-700 border-green-200">Enabled</Badge>
+                          : <span className="text-muted-foreground text-xs">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs"
+                          onClick={() => setManagingUser(u)}
+                        >
+                          Manage
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>
 
+      {managingUser && (
+        <ManageUserDialog
+          user={managingUser}
+          open={!!managingUser}
+          onClose={() => setManagingUser(null)}
+          currentUser={currentUser}
+          queryClient={queryClient}
+          toast={toast}
+        />
+      )}
+
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Invite User</DialogTitle></DialogHeader>
-          <form onSubmit={handleSubmit(d => inviteMutation.mutate(d))} className="space-y-4">
+          <form onSubmit={handleInviteSubmit(d => inviteMutation.mutate(d))} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>First Name</Label>
-                <Input {...register('firstName', { required: true })} />
+                <Input {...inviteRegister('firstName', { required: true })} />
               </div>
               <div className="space-y-2">
                 <Label>Last Name</Label>
-                <Input {...register('lastName', { required: true })} />
+                <Input {...inviteRegister('lastName', { required: true })} />
               </div>
             </div>
             <div className="space-y-2">
               <Label>Email *</Label>
-              <Input type="email" {...register('email', { required: true })} />
+              <Input type="email" {...inviteRegister('email', { required: true })} />
             </div>
             <div className="space-y-2">
               <Label>Role</Label>
-              <Select value={watch('role')} onValueChange={v => setValue('role', v)}>
+              <Select value={inviteWatch('role')} onValueChange={v => setInviteValue('role', v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {ROLES.map(r => <SelectItem key={r} value={r}>{r.replace(/_/g, ' ')}</SelectItem>)}

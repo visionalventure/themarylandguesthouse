@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Put, Post, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -50,6 +50,38 @@ export class SettingsController {
   @ApiOperation({ summary: 'Update user role' })
   updateUserRole(@Param('id') id: string, @Body('role') role: string) {
     return this.service.updateUserRole(id, role);
+  }
+
+  @Put('users/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Update user name fields' })
+  updateUser(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.updateUser(id, dto, req.user.role);
+  }
+
+  @Put('users/:id/email')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Update user email' })
+  updateUserEmail(@Param('id') id: string, @Body('email') email: string, @Request() req: any) {
+    return this.service.updateUserEmail(id, email, req.user.role);
+  }
+
+  @Post('users/:id/reset-password')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Admin reset user password — returns one-time temporary password' })
+  resetUserPassword(@Param('id') id: string, @Request() req: any) {
+    return this.service.resetUserPassword(id, req.user.role);
+  }
+
+  @Patch('users/:id/active')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Toggle user active status' })
+  toggleUserActive(@Param('id') id: string, @Request() req: any) {
+    return this.service.toggleUserActive(id, req.user.role, req.user.sub);
   }
 
   @Get('tax-rates')
