@@ -26,7 +26,7 @@ SheetOverlay.displayName = 'SheetOverlay';
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onPointerDownOutside, onInteractOutside, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
     <DialogPrimitive.Content
@@ -35,6 +35,20 @@ const SheetContent = React.forwardRef<
         'fixed right-0 top-0 z-50 h-full w-full sm:max-w-xl glass border-l border-white/[0.08] p-6 shadow-luxury duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right overflow-y-auto',
         className
       )}
+      onPointerDownOutside={(e) => {
+        if ((e.target as Element).closest('[data-radix-popper-content-wrapper]')) {
+          e.preventDefault();
+          return;
+        }
+        onPointerDownOutside?.(e);
+      }}
+      onInteractOutside={(e) => {
+        if ((e.target as Element).closest('[data-radix-popper-content-wrapper]')) {
+          e.preventDefault();
+          return;
+        }
+        onInteractOutside?.(e);
+      }}
       {...props}
     >
       {children}
