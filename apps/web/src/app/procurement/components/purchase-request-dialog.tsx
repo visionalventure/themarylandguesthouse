@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { procurementApi } from '@/lib/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { procurementApi, settingsApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface LineItem { itemName: string; quantity: number; unit: string; estimatedCost: number; }
@@ -20,6 +21,13 @@ export function PurchaseRequestDialog({ open, onOpenChange, propertyId }: Props)
   const [department, setDepartment] = useState('');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<LineItem[]>([{ itemName: '', quantity: 1, unit: 'pcs', estimatedCost: 0 }]);
+
+  const { data: deptData } = useQuery({
+    queryKey: ['departments'],
+    queryFn: () => settingsApi.getDepartments().then(r => r.data),
+    enabled: open,
+  });
+  const departments: any[] = Array.isArray(deptData) ? deptData : (deptData?.data ?? []);
 
   useEffect(() => {
     if (open) { setDepartment(''); setNotes(''); setItems([{ itemName: '', quantity: 1, unit: 'pcs', estimatedCost: 0 }]); }
@@ -50,7 +58,20 @@ export function PurchaseRequestDialog({ open, onOpenChange, propertyId }: Props)
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Department</Label>
-              <Input placeholder="Housekeeping, F&B, Maintenance..." value={department} onChange={e => setDepartment(e.target.value)} />
+              {departments.length > 0 ? (
+                <Select value={department} onValueChange={setDepartment}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((d: any) => (
+                      <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input placeholder="e.g. Housekeeping" value={department} onChange={e => setDepartment(e.target.value)} />
+              )}
             </div>
           </div>
 
