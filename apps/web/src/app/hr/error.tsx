@@ -11,7 +11,9 @@ export default function HrError({ error, reset }: { error: Error; reset: () => v
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
       <h2 className="text-lg font-semibold">Something went wrong</h2>
-      <p className="text-sm text-muted-foreground">{error.message}</p>
+      <p className="text-sm text-muted-foreground">
+        An unexpected error occurred. Please try again or contact support if the problem persists.
+      </p>
       <Button onClick={reset}>Try again</Button>
     </div>
   );

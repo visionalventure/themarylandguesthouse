@@ -52,7 +52,7 @@ export const useAuthStore = create<AuthState>()(
             user,
             accessToken,
             refreshToken,
-            propertyId: defaultPropertyId ?? get().propertyId,
+            propertyId: defaultPropertyId ?? '',
             isLoading: false,
           });
           document.cookie = `mgh-access-token=${accessToken}; path=/; SameSite=Strict`;
