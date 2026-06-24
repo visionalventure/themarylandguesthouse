@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Clock, ClipboardCheck, LogIn, LogOut, Pencil } from 'lucide-react';
-import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -70,8 +69,7 @@ export default function MyAttendancePage() {
   const noProfile = !isLoading && (error as any)?.response?.status === 404;
 
   return (
-    <AppShell>
-      <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-3">
           <ClipboardCheck className="w-6 h-6 text-primary" />
           <div>
@@ -229,7 +227,6 @@ export default function MyAttendancePage() {
             </Card>
           </>
         )}
-      </div>
-    </AppShell>
+    </div>
   );
 }
