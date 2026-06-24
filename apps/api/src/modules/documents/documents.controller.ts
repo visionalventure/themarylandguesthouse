@@ -6,6 +6,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { DocumentsService } from './documents.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { memoryStorage } from 'multer';
@@ -28,12 +30,16 @@ export class DocumentsController {
   }
 
   @Get('compliance')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Get compliance report for expiry tracking' })
   getCompliance(@Query('propertyId') propertyId: string) {
     return this.service.getComplianceReport(propertyId);
   }
 
   @Post('upload')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Upload a file and return its data URL' })
   @UseInterceptors(FileInterceptor('file', {
     storage: memoryStorage(),
@@ -56,30 +62,40 @@ export class DocumentsController {
   }
 
   @Post('categories')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create custom document category (admin)' })
   createCategory(@Body() dto: any) {
     return this.service.createCustomCategory(dto);
   }
 
   @Delete('categories/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Delete custom document category' })
   deleteCategory(@Param('id') id: string) {
     return this.service.deleteCustomCategory(id);
   }
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create document record' })
   createDocument(@Body() dto: any, @Request() req: any) {
     return this.service.createDocument(dto, req.user?.sub);
   }
 
   @Put(':id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update document metadata / upload new version' })
   updateDocument(@Param('id') id: string, @Body() dto: any) {
     return this.service.updateDocument(id, dto);
   }
 
   @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Delete document' })
   async deleteDocument(@Param('id') id: string) {
     const { fileUrl, versionUrls } = await this.service.deleteDocument(id);

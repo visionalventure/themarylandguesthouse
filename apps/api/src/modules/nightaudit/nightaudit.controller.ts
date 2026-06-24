@@ -29,12 +29,16 @@ export class NightAuditController {
   }
 
   @Get('history')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get audit history for a property' })
   getHistory(@Query('propertyId') propertyId: string) {
     return this.service.getHistory(propertyId);
   }
 
   @Get(':id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get night audit details' })
   getAudit(@Param('id') id: string) {
     return this.service.getAudit(id);

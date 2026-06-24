@@ -13,6 +13,8 @@ export class SettingsController {
   constructor(private readonly service: SettingsService) {}
 
   @Get('property')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Get property settings' })
   getProperty(@Query('propertyId') propertyId: string) {
     return this.service.getProperty(propertyId);
@@ -51,6 +53,8 @@ export class SettingsController {
   }
 
   @Get('tax-rates')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'FRONT_DESK')
   @ApiOperation({ summary: 'List tax rates' })
   getTaxRates(@Query('propertyId') propertyId: string) {
     return this.service.getTaxRates(propertyId);

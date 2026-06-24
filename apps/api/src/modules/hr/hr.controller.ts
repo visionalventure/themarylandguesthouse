@@ -15,6 +15,8 @@ export class HrController {
   // ─── DASHBOARD ───────────────────────────────────────────────
 
   @Get('dashboard')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER')
   getHRDashboard(@Query('propertyId') propertyId: string) {
     return this.service.getHRDashboardStats(propertyId);
   }
@@ -137,6 +139,8 @@ export class HrController {
   }
 
   @Get('leave-balances/:employeeId')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER')
   getLeaveBalances(@Param('employeeId') employeeId: string) {
     return this.service.getLeaveBalances(employeeId);
   }
@@ -387,6 +391,8 @@ export class HrController {
   // ─── ASSET ISSUANCE ──────────────────────────────────────────
 
   @Get('assets')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER')
   getAssetIssues(@Query() query: any) {
     return this.service.getAssetIssues(query.propertyId, query);
   }
@@ -508,11 +514,15 @@ export class HrController {
   }
 
   @Get('recruitment/openings/:id/candidates')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
   getCandidates(@Param('id') id: string) {
     return this.service.getCandidates(id);
   }
 
   @Post('recruitment/openings/:id/candidates')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
   createCandidate(@Param('id') jobOpeningId: string, @Body() dto: any) {
     return this.service.createCandidate({ ...dto, jobOpeningId });
   }
@@ -541,6 +551,8 @@ export class HrController {
   // ─── ONBOARDING ──────────────────────────────────────────────
 
   @Get('onboarding/:employeeId')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
   getOnboarding(@Param('employeeId') employeeId: string) {
     return this.service.getOnboardingChecklist(employeeId);
   }
@@ -601,6 +613,8 @@ export class HrController {
   // ─── EMPLOYEE DOCUMENTS ───────────────────────────────────────
 
   @Get('employees/:employeeId/documents')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
   getEmployeeDocuments(@Param('employeeId') employeeId: string) {
     return this.service.getEmployeeDocuments(employeeId);
   }
@@ -623,6 +637,8 @@ export class HrController {
   // ─── BENEFITS ─────────────────────────────────────────────────
 
   @Get('employees/:employeeId/benefits')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
   getEmployeeBenefits(@Param('employeeId') employeeId: string) {
     return this.service.getEmployeeBenefits(employeeId);
   }

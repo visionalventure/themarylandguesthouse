@@ -1,6 +1,8 @@
 import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { DashboardService } from './dashboard.service';
 
 @ApiTags('dashboard')
@@ -11,12 +13,16 @@ export class DashboardController {
   constructor(private dashboardService: DashboardService) {}
 
   @Get('kpis')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Get real-time KPI metrics' })
   getKPIs(@Request() req: any, @Query('propertyId') propertyId: string) {
     return this.dashboardService.getKPIs(propertyId, req.user.tenantId);
   }
 
   @Get('revenue-chart')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get revenue trend chart data' })
   @ApiQuery({ name: 'days', required: false, type: Number })
   getRevenueChart(
@@ -34,6 +40,8 @@ export class DashboardController {
   }
 
   @Get('revenue-by-category')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get revenue breakdown by category' })
   getRevenueByCategory(@Request() req: any, @Query('propertyId') propertyId: string) {
     return this.dashboardService.getRevenueByCategory(req.user.tenantId, propertyId);
@@ -46,6 +54,8 @@ export class DashboardController {
   }
 
   @Get('recent-activity')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Get recent activity feed' })
   getRecentActivity(@Request() req: any, @Query('propertyId') propertyId: string) {
     return this.dashboardService.getRecentActivity(req.user.tenantId, propertyId);

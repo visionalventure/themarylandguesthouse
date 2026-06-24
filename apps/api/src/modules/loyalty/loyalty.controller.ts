@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { LoyaltyService } from './loyalty.service';
 
 @ApiTags('loyalty')
@@ -23,12 +25,16 @@ export class LoyaltyController {
   }
 
   @Post('earn')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Manually earn points for a guest' })
   earnPoints(@Body() dto: any) {
     return this.service.earnPoints(dto);
   }
 
   @Post('redeem')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Redeem points for a reward' })
   redeemPoints(@Body() dto: any) {
     return this.service.redeemPoints(dto);
@@ -41,18 +47,24 @@ export class LoyaltyController {
   }
 
   @Post('rules')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create loyalty rule' })
   createRule(@Body() dto: any) {
     return this.service.createRule(dto);
   }
 
   @Put('rules/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update loyalty rule' })
   updateRule(@Param('id') id: string, @Body() dto: any) {
     return this.service.updateRule(id, dto);
   }
 
   @Get('stats')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Program overview stats' })
   getStats(@Query('propertyId') propertyId: string) {
     return this.service.getStats(propertyId);

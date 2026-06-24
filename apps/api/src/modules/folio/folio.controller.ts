@@ -13,6 +13,8 @@ export class FolioController {
   constructor(private readonly service: FolioService) {}
 
   @Get(':reservationId')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get guest folio — all charges, payments, running balance' })
   getFolio(@Param('reservationId') reservationId: string) {
     return this.service.getFolio(reservationId);
@@ -50,6 +52,8 @@ export class FolioController {
   }
 
   @Get(':reservationId/receipt/:paymentId')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get receipt data for a payment' })
   getReceipt(
     @Param('reservationId') reservationId: string,

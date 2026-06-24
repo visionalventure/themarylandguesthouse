@@ -13,6 +13,8 @@ export class GuestsController {
   constructor(private readonly service: GuestsService) {}
 
   @Get('stats')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Get guest dashboard stats' })
   getStats(@Request() req: any) {
     return this.service.getStats(req.user.tenantId);
@@ -31,12 +33,16 @@ export class GuestsController {
   }
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Create guest profile' })
   create(@Body() dto: any, @Request() req: any) {
     return this.service.create({ ...dto, tenantId: req.user.tenantId });
   }
 
   @Put(':id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Update guest profile' })
   update(@Param('id') id: string, @Body() dto: any) {
     return this.service.update(id, dto);
@@ -58,12 +64,16 @@ export class GuestsController {
   }
 
   @Get(':id/stay-history')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Get guest stay history' })
   getStayHistory(@Param('id') id: string) {
     return this.service.getStayHistory(id);
   }
 
   @Get(':id/spending')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get guest spending analysis' })
   getSpending(@Param('id') id: string) {
     return this.service.getSpendingAnalysis(id);
