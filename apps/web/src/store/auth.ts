@@ -33,7 +33,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       refreshToken: null,
-      propertyId: 'demo-property-id',
+      propertyId: '',
       isLoading: false,
       error: null,
 
@@ -41,14 +41,21 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await api.post('/v1/auth/login', { email, password, totpCode });
-          const { accessToken, refreshToken, user, requiresTwoFactor } = response.data;
+          const { accessToken, refreshToken, user, defaultPropertyId, requiresTwoFactor } = response.data;
 
           if (requiresTwoFactor) {
             set({ isLoading: false });
             return { requiresTwoFactor: true };
           }
 
-          set({ user, accessToken, refreshToken, isLoading: false });
+          set({
+            user,
+            accessToken,
+            refreshToken,
+            propertyId: defaultPropertyId ?? get().propertyId,
+            isLoading: false,
+          });
+          document.cookie = `mgh-access-token=${accessToken}; path=/; SameSite=Strict`;
           return { success: true };
         } catch (error: any) {
           const message = error.response?.data?.message || 'Login failed. Please try again.';
@@ -64,7 +71,8 @@ export const useAuthStore = create<AuthState>()(
             await api.post('/v1/auth/logout', { refreshToken });
           }
         } finally {
-          set({ user: null, accessToken: null, refreshToken: null });
+          set({ user: null, accessToken: null, refreshToken: null, propertyId: '' });
+          document.cookie = 'mgh-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
         }
       },
 

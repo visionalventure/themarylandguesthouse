@@ -33,26 +33,32 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth';
 import { propertiesApi } from '@/lib/api';
 
+const ADMIN_ROLES   = ['SUPER_ADMIN', 'ADMIN'];
+const MANAGER_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
+const FINANCE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT'];
+const HR_ROLES      = ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER'];
+const OPS_ROLES     = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK'];
+
 const navSections = [
   {
     label: 'Operations',
     items: [
-      { name: 'Front Desk',     href: '/front-desk',   icon: Hotel },
-      { name: 'Dashboard',      href: '/dashboard',    icon: LayoutDashboard },
-      { name: 'Reservations',   href: '/reservations', icon: CalendarDays },
-      { name: 'Guests / CRM',   href: '/guests',       icon: Users },
-      { name: 'Rooms',          href: '/rooms',         icon: BedDouble },
-      { name: 'Housekeeping',   href: '/housekeeping', icon: Sparkles },
-      { name: 'Restaurant & Bar', href: '/restaurant', icon: UtensilsCrossed },
-      { name: 'Maintenance',    href: '/maintenance',  icon: Wrench },
-      { name: 'Night Audit',    href: '/nightaudit',   icon: Moon },
+      { name: 'Front Desk',       href: '/front-desk',   icon: Hotel },
+      { name: 'Dashboard',        href: '/dashboard',    icon: LayoutDashboard, roles: MANAGER_ROLES },
+      { name: 'Reservations',     href: '/reservations', icon: CalendarDays },
+      { name: 'Guests / CRM',     href: '/guests',       icon: Users },
+      { name: 'Rooms',            href: '/rooms',        icon: BedDouble },
+      { name: 'Housekeeping',     href: '/housekeeping', icon: Sparkles },
+      { name: 'Restaurant & Bar', href: '/restaurant',   icon: UtensilsCrossed },
+      { name: 'Maintenance',      href: '/maintenance',  icon: Wrench,          roles: MANAGER_ROLES },
+      { name: 'Night Audit',      href: '/nightaudit',   icon: Moon,            roles: MANAGER_ROLES },
     ],
   },
   {
     label: 'Finance',
     items: [
       {
-        name: 'Accounting', href: '/accounting', icon: BookOpen,
+        name: 'Accounting', href: '/accounting', icon: BookOpen, roles: FINANCE_ROLES,
         children: [
           { name: 'Chart of Accounts', href: '/accounting/chart-of-accounts' },
           { name: 'Journal Entries',   href: '/accounting/journal-entries' },
@@ -63,34 +69,34 @@ const navSections = [
           { name: 'Reports',           href: '/accounting/reports' },
         ],
       },
-      { name: 'Inventory',   href: '/inventory',   icon: Package },
-      { name: 'Procurement', href: '/procurement', icon: ShoppingCart },
-      { name: 'Analytics',   href: '/reports',     icon: BarChart3 },
+      { name: 'Inventory',   href: '/inventory',   icon: Package,      roles: OPS_ROLES },
+      { name: 'Procurement', href: '/procurement', icon: ShoppingCart, roles: MANAGER_ROLES },
+      { name: 'Analytics',   href: '/reports',     icon: BarChart3,    roles: MANAGER_ROLES },
     ],
   },
   {
     label: 'People',
     items: [
       {
-        name: 'Human Resources', href: '/hr', icon: Users2,
+        name: 'Human Resources', href: '/hr', icon: Users2, roles: HR_ROLES,
         children: [
-          { name: 'Employees',     href: '/hr' },
-          { name: 'Recruitment',   href: '/hr/recruitment' },
-          { name: 'Shift Roster',  href: '/hr/roster' },
-          { name: 'Reports',       href: '/hr/reports' },
+          { name: 'Employees',    href: '/hr' },
+          { name: 'Recruitment',  href: '/hr/recruitment' },
+          { name: 'Shift Roster', href: '/hr/roster' },
+          { name: 'Reports',      href: '/hr/reports' },
         ],
       },
-      { name: 'My Attendance', href: '/hr/my-attendance', icon: ClipboardCheck },
-      { name: 'Loyalty Program', href: '/loyalty', icon: Gift },
+      { name: 'My Attendance',   href: '/hr/my-attendance', icon: ClipboardCheck },
+      { name: 'Loyalty Program', href: '/loyalty',          icon: Gift,           roles: OPS_ROLES },
     ],
   },
   {
     label: 'Settings',
     items: [
-      { name: 'Documents',   href: '/documents',   icon: FileText },
-      { name: 'Properties',  href: '/properties',  icon: Building2 },
-      { name: 'Activity Log', href: '/activity',   icon: Activity },
-      { name: 'Settings',    href: '/settings',    icon: Settings },
+      { name: 'Documents',    href: '/documents',  icon: FileText,  roles: MANAGER_ROLES },
+      { name: 'Properties',   href: '/properties', icon: Building2, roles: ADMIN_ROLES },
+      { name: 'Activity Log', href: '/activity',   icon: Activity,  roles: ADMIN_ROLES },
+      { name: 'Settings',     href: '/settings',   icon: Settings },
     ],
   },
 ];
@@ -103,7 +109,9 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<string[]>(['Accounting', 'Human Resources']);
   const [propertyOpen, setPropertyOpen] = useState(false);
-  const { propertyId, setPropertyId } = useAuthStore();
+  const { propertyId, setPropertyId, user } = useAuthStore();
+  const userRole = user?.role ?? '';
+  const visible = (item: { roles?: string[] }) => !item.roles || item.roles.includes(userRole);
 
   const { data: propertiesData } = useQuery({
     queryKey: ['properties-list'],
@@ -208,7 +216,10 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
 
       {/* ── Navigation ────────────────────────────────────── */}
       <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-4">
-        {navSections.map((section) => (
+        {navSections.map((section) => {
+          const visibleItems = section.items.filter(visible);
+          if (visibleItems.length === 0) return null;
+          return (
           <div key={section.label}>
             {!collapsed && (
               <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/40 select-none">
@@ -216,7 +227,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
               </p>
             )}
             <div className="space-y-0.5">
-              {section.items.map((item) => {
+              {visibleItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
                 const hasChildren = 'children' in item && item.children && item.children.length > 0;
@@ -285,7 +296,8 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
               })}
             </div>
           </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* ── Footer ────────────────────────────────────────── */}

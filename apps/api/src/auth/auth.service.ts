@@ -86,9 +86,16 @@ export class AuthService {
       },
     }).catch((err) => this.logger.warn(`Failed to write login audit log: ${err?.message}`));
 
+    const defaultProperty = await this.prisma.property.findFirst({
+      where: { tenantId: user.tenantId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      defaultPropertyId: defaultProperty?.id ?? null,
       user: {
         id: user.id,
         email: user.email,
