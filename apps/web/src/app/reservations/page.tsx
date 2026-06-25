@@ -116,6 +116,7 @@ export default function ReservationsPage() {
   const { data: roomsData } = useQuery({
     queryKey: ['rooms', propertyId],
     queryFn: () => roomsApi.list({ propertyId: propertyId, limit: 200 }).then((r) => r.data),
+    enabled: !!propertyId,
   });
 
   const { data: calendarData } = useQuery({
@@ -130,6 +131,7 @@ export default function ReservationsPage() {
         startDate: format(windowStart, 'yyyy-MM-dd'),
         endDate:   format(windowEnd, 'yyyy-MM-dd'),
       }).then((r) => r.data),
+    enabled: !!propertyId,
   });
 
   const rooms: any[] = roomsData?.data ?? (Array.isArray(roomsData) ? roomsData : []);

@@ -8,6 +8,7 @@ import { CommandBar } from '@/components/command-bar/command-bar';
 import { AssistantButton } from '@/components/assistant/assistant-button';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth';
+import { settingsApi } from '@/lib/api';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -15,9 +16,21 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const { user } = useAuthStore();
+  const propertyId = useAuthStore((s) => s.propertyId);
+  const setPropertyId = useAuthStore((s) => s.setPropertyId);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+
+  // Resolve propertyId once when a logged-in user has an empty propertyId
+  // (e.g. old persisted session or first login before defaultPropertyId was added)
+  useEffect(() => {
+    if (!user || propertyId) return;
+    settingsApi.getProperty('').then(r => {
+      const prop = r.data?.data ?? r.data;
+      if (prop?.id) setPropertyId(prop.id);
+    }).catch(() => {});
+  }, [user?.id, propertyId]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
