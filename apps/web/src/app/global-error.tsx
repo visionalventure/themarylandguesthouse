@@ -14,10 +14,8 @@ export default function GlobalError({
   }, [error]);
 
   const handleClearAndRetry = () => {
-    try {
-      localStorage.removeItem('mgh-auth');
-      document.cookie = 'mgh-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    } catch {}
+    try { localStorage.removeItem('mgh-auth'); } catch {}
+    try { document.cookie = 'mgh-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'; } catch {}
     window.location.href = '/login';
   };
 
