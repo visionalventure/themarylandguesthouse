@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { guestsApi } from '@/lib/api';
+import { COUNTRIES } from '@/lib/countries';
 import { cn } from '@/lib/utils';
 import { displayName, PRIVACY_TYPE_LABELS } from '@/lib/guest-privacy';
 import { FadeIn } from '@/components/ui/fade-in';
@@ -33,14 +34,6 @@ const loyaltyTierConfig: Record<string, { label: string; color: string; icon: an
   PLATINUM: { label: 'Platinum', color: 'border-violet-500/30 bg-violet-500/15 text-violet-400', icon: Crown },
   VIP:      { label: 'VIP',      color: 'border-rose-500/30 bg-rose-500/15 text-rose-400',      icon: Crown },
 };
-
-const NATIONALITIES = [
-  { code: 'LR', label: 'Liberia' }, { code: 'SL', label: 'Sierra Leone' }, { code: 'GH', label: 'Ghana' },
-  { code: 'NG', label: 'Nigeria' }, { code: 'US', label: 'United States' }, { code: 'GB', label: 'United Kingdom' },
-  { code: 'CN', label: 'China' }, { code: 'IN', label: 'India' }, { code: 'FR', label: 'France' },
-  { code: 'DE', label: 'Germany' }, { code: 'ZA', label: 'South Africa' }, { code: 'KE', label: 'Kenya' },
-  { code: 'GN', label: 'Guinea' }, { code: 'CI', label: "Côte d'Ivoire" }, { code: 'SN', label: 'Senegal' },
-];
 
 
 export default function GuestsPage() {
@@ -273,7 +266,7 @@ export default function GuestsPage() {
               <Select value={nationality} onValueChange={setNationality}>
                 <SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger>
                 <SelectContent>
-                  {NATIONALITIES.map(n => <SelectItem key={n.code} value={n.code}>{n.label}</SelectItem>)}
+                  {COUNTRIES.map(n => <SelectItem key={n.code} value={n.code}>{n.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

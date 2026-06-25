@@ -84,6 +84,32 @@ export class RoomsService {
     return this.prisma.roomCategory.findMany({ where: { propertyId } });
   }
 
+  async createCategory(dto: any) {
+    const { propertyId, name, type, description, basePrice, maxOccupancy, bedCount, amenities } = dto;
+    return this.prisma.roomCategory.create({
+      data: {
+        propertyId,
+        name,
+        type,
+        description,
+        basePrice: Number(basePrice),
+        maxOccupancy: Number(maxOccupancy),
+        bedCount: Number(bedCount ?? 1),
+        amenities: amenities ?? [],
+      },
+    });
+  }
+
+  async updateCategory(id: string, dto: any) {
+    const allowed = ['name', 'type', 'description', 'basePrice', 'maxOccupancy', 'bedCount', 'amenities'];
+    const numericKeys = ['basePrice', 'maxOccupancy', 'bedCount'];
+    const data: any = {};
+    for (const key of allowed) {
+      if (key in dto) data[key] = numericKeys.includes(key) ? Number(dto[key]) : dto[key];
+    }
+    return this.prisma.roomCategory.update({ where: { id }, data });
+  }
+
   async getRoomPricing(roomId: string) {
     return this.prisma.roomPricing.findMany({
       where: { roomId },

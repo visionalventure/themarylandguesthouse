@@ -30,6 +30,22 @@ export class RoomsController {
     return this.service.getCategories(propertyId);
   }
 
+  @Post('categories')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'Create a room category' })
+  createCategory(@Body() dto: any) {
+    return this.service.createCategory(dto);
+  }
+
+  @Put('categories/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'Update a room category' })
+  updateCategory(@Param('id') id: string, @Body() dto: any) {
+    return this.service.updateCategory(id, dto);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get room details' })
   findOne(@Param('id') id: string) {
