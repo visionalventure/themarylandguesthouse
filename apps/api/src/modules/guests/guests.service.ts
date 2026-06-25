@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 const FULL_ACCESS_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
@@ -83,10 +83,10 @@ export class GuestsService {
     startOfMonth.setHours(0, 0, 0, 0);
 
     const [total, loyaltyMembers, vipGuests, newThisMonth] = await Promise.all([
-      this.prisma.guest.count({ where: { tenantId } }),
-      this.prisma.loyaltyAccount.count({ where: { guest: { tenantId } } }),
-      this.prisma.guest.count({ where: { tenantId, privacyType: 'VIP' } }),
-      this.prisma.guest.count({ where: { tenantId, createdAt: { gte: startOfMonth } } }),
+      this.prisma.guest.count({ where: { tenantId, isDeleted: false } }),
+      this.prisma.loyaltyAccount.count({ where: { guest: { tenantId, isDeleted: false } } }),
+      this.prisma.guest.count({ where: { tenantId, isDeleted: false, privacyType: 'VIP' } }),
+      this.prisma.guest.count({ where: { tenantId, isDeleted: false, createdAt: { gte: startOfMonth } } }),
     ]);
 
     return { total, loyaltyMembers, vipGuests, newThisMonth };
@@ -97,7 +97,7 @@ export class GuestsService {
   async findAll(tenantId: string, query: any = {}, role = 'FRONT_DESK') {
     const { search, page = 1, limit = 20, blacklisted } = query;
     const skip = (Number(page) - 1) * Number(limit);
-    const where: any = { tenantId };
+    const where: any = { tenantId, isDeleted: false };
 
     if (search) {
       where.OR = [
@@ -129,7 +129,7 @@ export class GuestsService {
 
   async findOne(id: string, role = 'FRONT_DESK') {
     const guest = await this.prisma.guest.findUnique({
-      where: { id },
+      where: { id, isDeleted: false } as any,
       include: {
         loyaltyAccount: { include: { transactions: { take: 10, orderBy: { createdAt: 'desc' } } } },
         reservations: {
@@ -199,5 +199,22 @@ export class GuestsService {
       byMethod[p.method] = (byMethod[p.method] || 0) + Number(p.amount);
     });
     return { total, paymentMethods: byMethod, count: payments.length };
+  }
+
+  async deleteGuest(id: string, requestorRole: string, tenantId: string) {
+    const guest = await this.prisma.guest.findUnique({ where: { id } });
+    if (!guest || guest.isDeleted) throw new NotFoundException('Guest not found');
+    if (guest.tenantId !== tenantId) throw new ForbiddenException('Access denied');
+
+    const activeReservation = await this.prisma.reservation.findFirst({
+      where: { guestId: id, status: { in: ['RESERVED', 'CONFIRMED', 'CHECKED_IN'] } },
+    });
+    if (activeReservation) throw new BadRequestException('Cannot delete a guest with active reservations');
+
+    await this.prisma.guest.update({
+      where: { id },
+      data: { isDeleted: true, deletedAt: new Date() },
+    });
+    return { deleted: true };
   }
 }

@@ -64,15 +64,15 @@ export class RoomsService {
   }
 
   async create(dto: any) {
-    const { propertyId, categoryId, roomNumber, floor, notes } = dto;
+    const { propertyId, categoryId, roomNumber, floor, notes, amenities } = dto;
     return this.prisma.room.create({
-      data: { propertyId, categoryId, roomNumber, floor, ...(notes ? { notes } : {}) },
+      data: { propertyId, categoryId, roomNumber, floor, amenities: amenities ?? [], ...(notes ? { notes } : {}) },
       include: { category: true },
     });
   }
 
   async update(id: string, dto: any) {
-    const allowed = ['categoryId', 'roomNumber', 'floor', 'status', 'notes', 'isActive', 'lastCleaned', 'lastInspected'];
+    const allowed = ['categoryId', 'roomNumber', 'floor', 'status', 'notes', 'isActive', 'lastCleaned', 'lastInspected', 'amenities'];
     const data: any = {};
     for (const key of allowed) {
       if (key in dto) data[key] = dto[key];

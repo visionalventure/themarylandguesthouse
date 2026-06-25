@@ -116,6 +116,7 @@ export const guestsApi = {
   update: (id: string, data: any) => api.put(`/v1/guests/${id}`, data),
   stayHistory: (id: string) => api.get(`/v1/guests/${id}/stay-history`),
   revealIdentity: (id: string, reason?: string) => api.post(`/v1/guests/${id}/reveal-identity`, { reason }),
+  delete: (id: string) => api.delete(`/v1/guests/${id}`),
 };
 
 export const roomsApi = {

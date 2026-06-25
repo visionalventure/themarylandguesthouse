@@ -4,14 +4,14 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import {
-  Plus, Search, Star, Crown, Phone, Mail, Globe, Shield, Loader2, Users,
+  Plus, Search, Star, Crown, Phone, Mail, Globe, Shield, Loader2, Users, Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { guestsApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -46,12 +46,14 @@ const NATIONALITIES = [
 export default function GuestsPage() {
   usePageTitle('Guest CRM');
   const propertyId = useAuthStore((s) => s.propertyId);
+  const currentUser = useAuthStore((s) => s.user);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [nationality, setNationality] = useState('');
   const [privacyType, setPrivacyType] = useState('STANDARD');
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -72,6 +74,17 @@ export default function GuestsPage() {
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     defaultValues: { firstName: '', lastName: '', email: '', phone: '', passportNumber: '' },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => guestsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guests'] });
+      queryClient.invalidateQueries({ queryKey: ['guest-stats'] });
+      toast({ title: 'Guest deleted', description: 'The guest profile has been removed.' });
+      setDeleteTarget(null);
+    },
+    onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed to delete guest' }),
   });
 
   const createMutation = useMutation({
@@ -153,7 +166,17 @@ export default function GuestsPage() {
           const TierIcon = tierConfig.icon;
           return (
             <StaggerItem key={guest.id}>
-              <Card className="cursor-pointer hover:border-primary/30" onClick={() => setSelectedGuestId(guest.id)}>
+              <Card className="cursor-pointer hover:border-primary/30 relative" onClick={() => setSelectedGuestId(guest.id)}>
+                {currentUser?.role === 'SUPER_ADMIN' && (
+                  <button
+                    type="button"
+                    className="absolute top-3 right-3 z-10 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(guest); }}
+                    title="Delete guest"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <CardContent className="pt-5">
                   <div className="flex items-start gap-4">
                     <Avatar className="h-12 w-12">
@@ -196,6 +219,29 @@ export default function GuestsPage() {
       {totalPages > 1 && <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />}
 
       <GuestDrawer guestId={selectedGuestId} onClose={() => setSelectedGuestId(null)} />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Guest</DialogTitle>
+            <DialogDescription>
+              Delete <span className="font-semibold text-foreground">{deleteTarget?.firstName} {deleteTarget?.lastName}</span>? This cannot be undone. All stay history and financial records are preserved but the guest profile will no longer be accessible.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate(deleteTarget?.id)}
+            >
+              {deleteMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Guest Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) { reset(); setNationality(''); setPrivacyType('STANDARD'); } }}>

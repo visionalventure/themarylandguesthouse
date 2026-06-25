@@ -585,6 +585,8 @@ model Guest {
   alias           String?
   totalStays      Int              @default(0)
   totalSpent      Decimal          @default(0) @db.Decimal(12,2)
+  isDeleted       Boolean          @default(false)
+  deletedAt       DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -696,6 +698,7 @@ model Room {
   floor         Int?
   status        RoomStatus @default(AVAILABLE)
   isActive      Boolean    @default(true)
+  amenities     String[]   @default([])
   notes         String?
   lastCleaned   DateTime?
   lastInspected DateTime?

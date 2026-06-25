@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -77,5 +77,13 @@ export class GuestsController {
   @ApiOperation({ summary: 'Get guest spending analysis' })
   getSpending(@Param('id') id: string) {
     return this.service.getSpendingAnalysis(id);
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiOperation({ summary: 'Soft-delete a guest profile (SUPER_ADMIN only)' })
+  deleteGuest(@Param('id') id: string, @Request() req: any) {
+    return this.service.deleteGuest(id, req.user.role, req.user.tenantId);
   }
 }
