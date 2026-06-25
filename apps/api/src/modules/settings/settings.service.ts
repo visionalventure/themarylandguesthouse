@@ -13,10 +13,21 @@ export class SettingsService {
     private config: ConfigService,
   ) {}
 
-  async getProperty(propertyId: string) {
-    const property = await this.prisma.property.findUnique({ where: { id: propertyId } });
-    if (!property) throw new NotFoundException('Property not found');
-    return property;
+  async getProperty(propertyId?: string, tenantId?: string) {
+    if (propertyId) {
+      const property = await this.prisma.property.findUnique({ where: { id: propertyId } });
+      if (!property) throw new NotFoundException('Property not found');
+      return property;
+    }
+    if (tenantId) {
+      const property = await this.prisma.property.findFirst({
+        where: { tenantId },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!property) throw new NotFoundException('No property found for this tenant');
+      return property;
+    }
+    throw new NotFoundException('Property not found');
   }
 
   async updateProperty(propertyId: string, dto: any) {

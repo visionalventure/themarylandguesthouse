@@ -110,16 +110,23 @@ function usePolicyConfig() {
 
 function PropertyTab() {
   const propertyId = useAuthStore((s) => s.propertyId);
+  const setPropertyId = useAuthStore((s) => s.setPropertyId);
+  const tenantId = useAuthStore((s) => s.user?.tenantId);
   const { toast } = useToast();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoDragOver, setLogoDragOver] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['settings-property', propertyId],
+    queryKey: ['settings-property', propertyId || tenantId],
     queryFn: () => settingsApi.getProperty(propertyId).then(r => r.data),
-    enabled: !!propertyId,
+    enabled: !!(propertyId || tenantId),
   });
+
+  // Auto-fix empty propertyId — saves the resolved property ID for the rest of the app
+  useEffect(() => {
+    if (data?.id && !propertyId) setPropertyId(data.id);
+  }, [data?.id, propertyId, setPropertyId]);
 
   const { register, handleSubmit, reset, watch, setValue, control } = useForm({ defaultValues: data ?? {} });
   useEffect(() => { if (data) reset(data); }, [data, reset]);

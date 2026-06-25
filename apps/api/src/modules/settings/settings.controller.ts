@@ -15,9 +15,9 @@ export class SettingsController {
   @Get('property')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  @ApiOperation({ summary: 'Get property settings' })
-  getProperty(@Query('propertyId') propertyId: string) {
-    return this.service.getProperty(propertyId);
+  @ApiOperation({ summary: 'Get property settings — resolves by tenantId when propertyId is omitted' })
+  getProperty(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getProperty(propertyId || undefined, req.user.tenantId);
   }
 
   @Put('property')
