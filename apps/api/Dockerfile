@@ -48,4 +48,4 @@ USER nestjs
 ENV PORT=3001
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma migrate deploy --schema ./prisma/schema.prisma && node dist/main"]
+CMD ["sh", "-c", "npx prisma db push --schema ./prisma/schema.prisma --skip-generate --accept-data-loss && node dist/main"]
