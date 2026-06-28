@@ -157,6 +157,9 @@ export class GuestsService {
 
   async create(dto: any) {
     const { propertyId: _p, ...data } = dto;
+    for (const key of ['email', 'phone', 'nationality', 'passportNumber', 'address', 'city', 'country', 'company', 'notes']) {
+      if (data[key] === '') data[key] = undefined;
+    }
     if (data.privacyType && data.privacyType !== 'STANDARD' && !data.alias) {
       data.alias = await this.generateAlias(data.privacyType);
     }

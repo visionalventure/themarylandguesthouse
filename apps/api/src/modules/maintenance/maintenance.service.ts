@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
@@ -37,13 +37,14 @@ export class MaintenanceService {
   }
 
   async createWorkOrder(dto: any) {
-    const workOrderNumber = await this.nextWorkOrderNumber(dto.tenantId || dto.propertyId);
+    const { propertyId: _p, ...rest } = dto;
+    const workOrderNumber = await this.nextWorkOrderNumber(rest.tenantId);
     return this.prisma.workOrder.create({
       data: {
-        ...dto,
+        ...rest,
         workOrderNumber,
         status: 'PENDING',
-        scheduledDate: dto.scheduledDate ? new Date(dto.scheduledDate) : undefined,
+        scheduledDate: rest.scheduledDate ? new Date(rest.scheduledDate) : undefined,
       },
       include: {
         room: { select: { roomNumber: true } },
@@ -63,7 +64,7 @@ export class MaintenanceService {
       if (wo.assetId) {
         await this.prisma.asset.update({
           where: { id: wo.assetId },
-          data: { lastMaintenanceDate: new Date() } as any,
+          data: { lastServiced: new Date() },
         });
       }
     }
@@ -98,11 +99,16 @@ export class MaintenanceService {
   }
 
   async createAsset(dto: any) {
+    if (!dto.propertyId) throw new BadRequestException('propertyId is required');
+    const sanitized = { ...dto };
+    for (const key of ['brand', 'model', 'serialNumber', 'location', 'notes', 'imageUrl']) {
+      if (sanitized[key] === '') sanitized[key] = undefined;
+    }
     const count = await this.prisma.asset.count({ where: { propertyId: dto.propertyId } });
     const assetNumber = `AST-${(count + 1).toString().padStart(4, '0')}`;
     return this.prisma.asset.create({
       data: {
-        ...dto,
+        ...sanitized,
         assetNumber,
         purchaseDate: dto.purchaseDate ? new Date(dto.purchaseDate) : undefined,
       },
