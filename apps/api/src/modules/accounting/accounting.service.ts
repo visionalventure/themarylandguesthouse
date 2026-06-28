@@ -312,7 +312,6 @@ export class AccountingService {
       where: { id },
       include: {
         guest: { select: { firstName: true, lastName: true, email: true } },
-        tenant: { select: { name: true } },
       },
     });
     if (!invoice) throw new NotFoundException();
@@ -336,7 +335,7 @@ export class AccountingService {
           invoiceNumber: invoice.invoiceNumber,
           dueDate: format(new Date(invoice.dueDate), 'dd MMM yyyy'),
           totalAmount: `$${Number(invoice.totalAmount).toLocaleString()}`,
-          propertyName: invoice.tenant?.name ?? 'Maryland Guesthouse',
+          propertyName: 'Maryland Guesthouse',
         })
         .catch(() => {/* fire-and-forget */});
     }
