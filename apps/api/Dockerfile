@@ -48,4 +48,4 @@ USER nestjs
 ENV PORT=3001
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma db push --schema ./prisma/schema.prisma --skip-generate --accept-data-loss && node dist/main"]
+CMD ["sh", "-c", "npx prisma db push --schema ./prisma/schema.prisma --skip-generate --accept-data-loss 2>&1 | head -30 || echo '[warn] prisma db push failed — starting anyway'; node dist/main"]
