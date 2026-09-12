@@ -3,12 +3,17 @@
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Supabase: pooled connection (pgbouncer, port 6543) — required at runtime
+  // on serverless (Vercel), where each invocation can open its own connection.
+  url       = env("DATABASE_URL")
+  // Supabase: direct connection (port 5432) — used only for migrations/introspection,
+  // which pgbouncer's transaction pooling mode doesn't support.
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================================
