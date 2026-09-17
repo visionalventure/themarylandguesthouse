@@ -13,13 +13,14 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { Public } from './decorators/public.decorator';
 import {
   LoginDto,
-  RegisterDto,
   RefreshTokenDto,
   ChangePasswordDto,
   Enable2FADto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
 } from './dto/auth.dto';
 
 @ApiTags('auth')
@@ -27,6 +28,7 @@ import {
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @Public()
   @Post('login')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @HttpCode(HttpStatus.OK)
@@ -39,12 +41,7 @@ export class AuthController {
     return this.authService.login(dto, ip, userAgent);
   }
 
-  @Post('register')
-  @ApiOperation({ summary: 'Register a new guest account' })
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
-  }
-
+  @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
@@ -53,7 +50,6 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout and invalidate refresh token' })
@@ -62,7 +58,6 @@ export class AuthController {
   }
 
   @Get('profile')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile' })
   getProfile(@Request() req: any) {
@@ -70,7 +65,6 @@ export class AuthController {
   }
 
   @Post('change-password')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Change user password' })
@@ -78,24 +72,25 @@ export class AuthController {
     return this.authService.changePassword(req.user.sub, dto);
   }
 
+  @Public()
   @Post('forgot-password')
   @Throttle({ default: { ttl: 60000, limit: 3 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request a password reset link' })
-  forgotPassword(@Body() body: { email: string }) {
-    return this.authService.forgotPassword(body.email);
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
   }
 
+  @Public()
   @Post('reset-password')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password using token from email' })
-  resetPassword(@Body() body: { token: string; newPassword: string }) {
-    return this.authService.resetPassword(body.token, body.newPassword);
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
   @Post('2fa/setup')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Initiate 2FA setup - returns QR code' })
   setup2FA(@Request() req: any) {
@@ -103,7 +98,7 @@ export class AuthController {
   }
 
   @Post('2fa/enable')
-  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Enable 2FA after verifying TOTP code' })
@@ -112,7 +107,7 @@ export class AuthController {
   }
 
   @Post('2fa/disable')
-  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Disable 2FA' })

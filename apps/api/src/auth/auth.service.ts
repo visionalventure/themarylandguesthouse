@@ -3,19 +3,23 @@ import {
   Logger,
   UnauthorizedException,
   BadRequestException,
-  ConflictException,
-  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { authenticator } from 'otplib';
 import * as QRCode from 'qrcode';
-import { v4 as uuidv4 } from 'uuid';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { EmailService } from '../modules/email/email.service';
-import { LoginDto, RegisterDto, ChangePasswordDto } from './dto/auth.dto';
+import { LoginDto, ChangePasswordDto } from './dto/auth.dto';
+
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 @Injectable()
 export class AuthService {
@@ -38,8 +42,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedException('Account locked. Try again later.');
+    }
+
     const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordValid) {
+      await this.recordFailedLogin(user.id, user.failedLoginAttempts);
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -52,6 +61,7 @@ export class AuthService {
         secret: user.twoFactorSecret!,
       });
       if (!isValid) {
+        await this.recordFailedLogin(user.id, user.failedLoginAttempts);
         throw new UnauthorizedException('Invalid 2FA code');
       }
     }
@@ -61,7 +71,7 @@ export class AuthService {
     await this.prisma.refreshToken.create({
       data: {
         userId: user.id,
-        token: tokens.refreshToken,
+        tokenHash: hashToken(tokens.refreshToken),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         ipAddress,
         userAgent,
@@ -70,7 +80,7 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
     });
 
     this.prisma.auditLog.create({
@@ -109,37 +119,24 @@ export class AuthService {
     };
   }
 
-  async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findFirst({
-      where: { email: dto.email, tenantId: dto.tenantId },
-    });
-
-    if (existing) {
-      throw new ConflictException('Email already registered');
-    }
-
-    const passwordHash = await bcrypt.hash(dto.password, 12);
-
-    const user = await this.prisma.user.create({
+  private async recordFailedLogin(userId: string, currentAttempts: number) {
+    const attempts = currentAttempts + 1;
+    await this.prisma.user.update({
+      where: { id: userId },
       data: {
-        tenantId: dto.tenantId,
-        email: dto.email,
-        passwordHash,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        phone: dto.phone,
-        role: 'GUEST',
+        failedLoginAttempts: attempts,
+        lockedUntil:
+          attempts >= MAX_FAILED_LOGIN_ATTEMPTS
+            ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000)
+            : undefined,
       },
     });
-
-    const tokens = await this.generateTokens(user.id, user.email, user.role, user.tenantId);
-
-    return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, user };
   }
 
   async refreshTokens(refreshToken: string) {
+    const tokenHash = hashToken(refreshToken);
     const stored = await this.prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
+      where: { tokenHash },
       include: { user: true },
     });
 
@@ -162,7 +159,7 @@ export class AuthService {
     await this.prisma.refreshToken.create({
       data: {
         userId: stored.user.id,
-        token: tokens.refreshToken,
+        tokenHash: hashToken(tokens.refreshToken),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
@@ -172,7 +169,7 @@ export class AuthService {
 
   async logout(userId: string, refreshToken: string) {
     await this.prisma.refreshToken.updateMany({
-      where: { userId, token: refreshToken },
+      where: { userId, tokenHash: hashToken(refreshToken) },
       data: { isRevoked: true },
     });
     return { message: 'Logged out successfully' };
@@ -334,15 +331,24 @@ export class AuthService {
   ) {
     const payload = { sub: userId, email, role, tenantId };
 
+    // jti ensures two tokens issued within the same second-resolution `iat`
+    // (e.g. login immediately followed by refresh) are never byte-identical —
+    // otherwise they'd collide on RefreshToken's unique token/tokenHash column.
     const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        secret: this.config.get('JWT_SECRET'),
-        expiresIn: this.config.get('JWT_EXPIRES_IN', '15m'),
-      }),
-      this.jwtService.signAsync(payload, {
-        secret: this.config.get('JWT_REFRESH_SECRET'),
-        expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
-      }),
+      this.jwtService.signAsync(
+        { ...payload, jti: randomBytes(8).toString('hex') },
+        {
+          secret: this.config.get('JWT_SECRET'),
+          expiresIn: this.config.get('JWT_EXPIRES_IN', '15m'),
+        },
+      ),
+      this.jwtService.signAsync(
+        { ...payload, jti: randomBytes(8).toString('hex') },
+        {
+          secret: this.config.get('JWT_REFRESH_SECRET'),
+          expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
+        },
+      ),
     ]);
 
     return { accessToken, refreshToken };

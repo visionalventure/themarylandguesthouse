@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 import { BootstrapService } from './common/bootstrap/bootstrap.service';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { AuthModule } from './auth/auth.module';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ReservationsModule } from './modules/reservations/reservations.module';
@@ -33,6 +34,8 @@ import { EmailModule } from './modules/email/email.module';
 @Module({
   providers: [
     BootstrapService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
   imports: [

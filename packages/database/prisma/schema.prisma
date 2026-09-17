@@ -514,6 +514,8 @@ model User {
   twoFactorSecret   String?
   lastLoginAt       DateTime?
   passwordChangedAt DateTime?
+  failedLoginAttempts Int     @default(0)
+  lockedUntil       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -534,7 +536,8 @@ model User {
 model RefreshToken {
   id          String    @id @default(cuid())
   userId      String
-  token       String    @unique
+  token       String?   @unique // legacy raw-token storage; superseded by tokenHash, kept nullable for old rows
+  tokenHash   String?   @unique // sha256 of the raw refresh token; new rows use this instead of storing the raw token
   expiresAt   DateTime
   isRevoked   Boolean   @default(false)
   ipAddress   String?
