@@ -6,10 +6,10 @@ export class FolioService {
   private readonly logger = new Logger(FolioService.name);
   constructor(private readonly prisma: PrismaService) {}
 
-  async getFolio(reservationId: string) {
+  async getFolio(reservationId: string, tenantId: string) {
     const [reservation, charges, payments] = await Promise.all([
-      this.prisma.reservation.findUnique({
-        where: { id: reservationId },
+      this.prisma.reservation.findFirst({
+        where: { id: reservationId, property: { tenantId } },
         include: {
           guest: true,
           rooms: { include: { room: { include: { category: true } } } },
@@ -75,8 +75,8 @@ export class FolioService {
     };
   }
 
-  async postCharge(reservationId: string, dto: any) {
-    const reservation = await this.prisma.reservation.findUnique({ where: { id: reservationId } });
+  async postCharge(reservationId: string, dto: any, tenantId: string) {
+    const reservation = await this.prisma.reservation.findFirst({ where: { id: reservationId, property: { tenantId } } });
     if (!reservation) throw new NotFoundException('Reservation not found');
 
     const { chargeType, description, amount, quantity = 1, taxRate = 0 } = dto;
@@ -96,8 +96,8 @@ export class FolioService {
     });
   }
 
-  async applyDiscount(reservationId: string, dto: { discountType: 'PERCENTAGE' | 'FIXED'; value: number; reason?: string }) {
-    const reservation = await this.prisma.reservation.findUnique({ where: { id: reservationId } });
+  async applyDiscount(reservationId: string, dto: { discountType: 'PERCENTAGE' | 'FIXED'; value: number; reason?: string }, tenantId: string) {
+    const reservation = await this.prisma.reservation.findFirst({ where: { id: reservationId, property: { tenantId } } });
     if (!reservation) throw new NotFoundException('Reservation not found');
     if (dto.value < 0) throw new BadRequestException('Discount value cannot be negative');
 
@@ -121,8 +121,8 @@ export class FolioService {
     return { discountAmount, reason: dto.reason };
   }
 
-  async removeDiscount(reservationId: string) {
-    const reservation = await this.prisma.reservation.findUnique({ where: { id: reservationId } });
+  async removeDiscount(reservationId: string, tenantId: string) {
+    const reservation = await this.prisma.reservation.findFirst({ where: { id: reservationId, property: { tenantId } } });
     if (!reservation) throw new NotFoundException('Reservation not found');
     await this.prisma.reservation.update({
       where: { id: reservationId },
@@ -131,15 +131,17 @@ export class FolioService {
     return { discountAmount: 0 };
   }
 
-  async voidCharge(reservationId: string, chargeId: string) {
-    const charge = await this.prisma.reservationCharge.findFirst({ where: { id: chargeId, reservationId } });
+  async voidCharge(reservationId: string, chargeId: string, tenantId: string) {
+    const charge = await this.prisma.reservationCharge.findFirst({
+      where: { id: chargeId, reservationId, reservation: { property: { tenantId } } },
+    });
     if (!charge) throw new NotFoundException('Charge not found');
     return this.prisma.reservationCharge.delete({ where: { id: chargeId } });
   }
 
-  async collectPayment(reservationId: string, dto: any, collectedById: string) {
-    const reservation = await this.prisma.reservation.findUnique({
-      where: { id: reservationId },
+  async collectPayment(reservationId: string, dto: any, collectedById: string, tenantId: string) {
+    const reservation = await this.prisma.reservation.findFirst({
+      where: { id: reservationId, property: { tenantId } },
       include: { property: { select: { id: true } } },
     });
     if (!reservation) throw new NotFoundException('Reservation not found');
@@ -166,17 +168,17 @@ export class FolioService {
     return { payment, receiptNumber };
   }
 
-  async getReceipt(reservationId: string, paymentId: string) {
+  async getReceipt(reservationId: string, paymentId: string, tenantId: string) {
     const [reservation, payment] = await Promise.all([
-      this.prisma.reservation.findUnique({
-        where: { id: reservationId },
+      this.prisma.reservation.findFirst({
+        where: { id: reservationId, property: { tenantId } },
         include: {
           guest: true,
           rooms: { include: { room: true } },
           property: { select: { name: true, address: true, phone: true, email: true, logoUrl: true, currency: true } },
         },
       }),
-      this.prisma.payment.findUnique({ where: { id: paymentId } }),
+      this.prisma.payment.findFirst({ where: { id: paymentId, reservationId, tenantId } }),
     ]);
 
     if (!reservation || !payment) throw new NotFoundException('Not found');

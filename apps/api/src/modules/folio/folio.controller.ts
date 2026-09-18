@@ -16,16 +16,16 @@ export class FolioController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get guest folio — all charges, payments, running balance' })
-  getFolio(@Param('reservationId') reservationId: string) {
-    return this.service.getFolio(reservationId);
+  getFolio(@Param('reservationId') reservationId: string, @Request() req: any) {
+    return this.service.getFolio(reservationId, req.user.tenantId);
   }
 
   @Post(':reservationId/charges')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Post a charge to the folio' })
-  postCharge(@Param('reservationId') reservationId: string, @Body() dto: any) {
-    return this.service.postCharge(reservationId, dto);
+  postCharge(@Param('reservationId') reservationId: string, @Body() dto: any, @Request() req: any) {
+    return this.service.postCharge(reservationId, dto, req.user.tenantId);
   }
 
   @Delete(':reservationId/charges/:chargeId')
@@ -35,8 +35,9 @@ export class FolioController {
   voidCharge(
     @Param('reservationId') reservationId: string,
     @Param('chargeId') chargeId: string,
+    @Request() req: any,
   ) {
-    return this.service.voidCharge(reservationId, chargeId);
+    return this.service.voidCharge(reservationId, chargeId, req.user.tenantId);
   }
 
   @Post(':reservationId/payments')
@@ -48,7 +49,7 @@ export class FolioController {
     @Body() dto: any,
     @Request() req: any,
   ) {
-    return this.service.collectPayment(reservationId, { ...dto, tenantId: req.user.tenantId }, req.user.sub);
+    return this.service.collectPayment(reservationId, { ...dto, tenantId: req.user.tenantId }, req.user.sub, req.user.tenantId);
   }
 
   @Get(':reservationId/receipt/:paymentId')
@@ -58,8 +59,9 @@ export class FolioController {
   getReceipt(
     @Param('reservationId') reservationId: string,
     @Param('paymentId') paymentId: string,
+    @Request() req: any,
   ) {
-    return this.service.getReceipt(reservationId, paymentId);
+    return this.service.getReceipt(reservationId, paymentId, req.user.tenantId);
   }
 
   @Patch(':reservationId/discount')
@@ -69,8 +71,9 @@ export class FolioController {
   applyDiscount(
     @Param('reservationId') reservationId: string,
     @Body() dto: { discountType: 'PERCENTAGE' | 'FIXED'; value: number; reason?: string },
+    @Request() req: any,
   ) {
-    return this.service.applyDiscount(reservationId, dto);
+    return this.service.applyDiscount(reservationId, dto, req.user.tenantId);
   }
 
   @Delete(':reservationId/discount')
@@ -78,7 +81,7 @@ export class FolioController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @HttpCode(200)
   @ApiOperation({ summary: 'Remove the discount from a reservation folio' })
-  removeDiscount(@Param('reservationId') reservationId: string) {
-    return this.service.removeDiscount(reservationId);
+  removeDiscount(@Param('reservationId') reservationId: string, @Request() req: any) {
+    return this.service.removeDiscount(reservationId, req.user.tenantId);
   }
 }

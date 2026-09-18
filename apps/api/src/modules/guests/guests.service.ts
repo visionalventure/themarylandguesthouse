@@ -127,9 +127,9 @@ export class GuestsService {
     return { data: masked, total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) };
   }
 
-  async findOne(id: string, role = 'FRONT_DESK') {
-    const guest = await this.prisma.guest.findUnique({
-      where: { id, isDeleted: false } as any,
+  async findOne(id: string, tenantId: string, role = 'FRONT_DESK') {
+    const guest = await this.prisma.guest.findFirst({
+      where: { id, tenantId, isDeleted: false } as any,
       include: {
         loyaltyAccount: { include: { transactions: { take: 10, orderBy: { createdAt: 'desc' } } } },
         reservations: {
@@ -166,8 +166,8 @@ export class GuestsService {
     return this.prisma.guest.create({ data });
   }
 
-  async update(id: string, dto: any) {
-    const existing = await this.prisma.guest.findUnique({ where: { id } });
+  async update(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.guest.findFirst({ where: { id, tenantId } });
     if (!existing) throw new NotFoundException('Guest not found');
     const data: any = { ...dto };
     if (
@@ -181,9 +181,9 @@ export class GuestsService {
     return this.prisma.guest.update({ where: { id }, data });
   }
 
-  async getStayHistory(guestId: string) {
+  async getStayHistory(guestId: string, tenantId: string) {
     return this.prisma.reservation.findMany({
-      where: { guestId },
+      where: { guestId, guest: { tenantId } },
       orderBy: { checkIn: 'desc' },
       include: {
         rooms: { include: { room: { include: { category: true } } } },
@@ -192,9 +192,9 @@ export class GuestsService {
     });
   }
 
-  async getSpendingAnalysis(guestId: string) {
+  async getSpendingAnalysis(guestId: string, tenantId: string) {
     const payments = await this.prisma.payment.findMany({
-      where: { guestId, status: 'COMPLETED' },
+      where: { guestId, status: 'COMPLETED', tenantId },
     });
     const total = payments.reduce((sum, p) => sum + Number(p.amount), 0);
     const byMethod: Record<string, number> = {};

@@ -75,9 +75,9 @@ export class AccountingService {
     });
   }
 
-  async postJournalEntry(id: string) {
-    const entry = await this.prisma.journalEntry.findUnique({
-      where: { id },
+  async postJournalEntry(id: string, tenantId: string) {
+    const entry = await this.prisma.journalEntry.findFirst({
+      where: { id, tenantId },
       include: { lines: true },
     });
     if (!entry) throw new NotFoundException();
@@ -239,9 +239,9 @@ export class AccountingService {
   }
 
   // Invoices
-  async getInvoice(id: string) {
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id },
+  async getInvoice(id: string, tenantId: string) {
+    const invoice = await this.prisma.invoice.findFirst({
+      where: { id, tenantId },
       include: {
         guest: { select: { firstName: true, lastName: true, email: true, phone: true } },
         lineItems: { orderBy: { id: 'asc' } },
@@ -307,9 +307,9 @@ export class AccountingService {
     });
   }
 
-  async sendInvoice(id: string) {
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id },
+  async sendInvoice(id: string, tenantId: string) {
+    const invoice = await this.prisma.invoice.findFirst({
+      where: { id, tenantId },
       include: {
         guest: { select: { firstName: true, lastName: true, email: true } },
       },
@@ -342,8 +342,8 @@ export class AccountingService {
     return updated;
   }
 
-  async markInvoicePaid(id: string, dto: { amount: number }) {
-    const invoice = await this.prisma.invoice.findUnique({ where: { id } });
+  async markInvoicePaid(id: string, dto: { amount: number }, tenantId: string) {
+    const invoice = await this.prisma.invoice.findFirst({ where: { id, tenantId } });
     if (!invoice) throw new NotFoundException();
     const newPaid = Number(invoice.paidAmount) + Number(dto.amount);
     const status = newPaid >= Number(invoice.totalAmount) ? 'PAID' : 'PARTIALLY_PAID';
@@ -354,12 +354,13 @@ export class AccountingService {
   }
 
   // ─── Bank Reconciliation ──────────────────────────────────────────────────
-  async startReconciliation(bankAccountId: string, closingBalance: number, statementDate: string) {
-    const bankAccount = await this.prisma.bankAccount.findUnique({
-      where: { id: bankAccountId },
+  async startReconciliation(bankAccountId: string, closingBalance: number, statementDate: string, tenantId: string) {
+    const bankAccount = await this.prisma.bankAccount.findFirst({
+      where: { id: bankAccountId, property: { tenantId } },
       select: { currentBalance: true },
     });
-    const openingBalance = bankAccount ? Number(bankAccount.currentBalance) : 0;
+    if (!bankAccount) throw new NotFoundException('Bank account not found');
+    const openingBalance = Number(bankAccount.currentBalance);
     const recon = await this.prisma.bankReconciliation.create({
       data: {
         bankAccountId,
@@ -378,8 +379,8 @@ export class AccountingService {
     return { reconciliation: recon, transactions };
   }
 
-  async getReconciliation(id: string) {
-    const recon = await this.prisma.bankReconciliation.findUnique({ where: { id } });
+  async getReconciliation(id: string, tenantId: string) {
+    const recon = await this.prisma.bankReconciliation.findFirst({ where: { id, bankAccount: { property: { tenantId } } } });
     if (!recon) throw new NotFoundException('Reconciliation not found');
     const transactions = await this.prisma.bankTransaction.findMany({
       where: { bankAccountId: recon.bankAccountId, isReconciled: false },
@@ -388,9 +389,9 @@ export class AccountingService {
     return { reconciliation: recon, transactions };
   }
 
-  async reconcileTransaction(reconciliationId: string, transactionId: string) {
-    const recon = await this.prisma.bankReconciliation.findUnique({
-      where: { id: reconciliationId },
+  async reconcileTransaction(reconciliationId: string, transactionId: string, tenantId: string) {
+    const recon = await this.prisma.bankReconciliation.findFirst({
+      where: { id: reconciliationId, bankAccount: { property: { tenantId } } },
       select: { bankAccountId: true },
     });
     if (!recon) throw new NotFoundException('Reconciliation not found');
@@ -408,8 +409,8 @@ export class AccountingService {
     });
   }
 
-  async finalizeReconciliation(id: string) {
-    const recon = await this.prisma.bankReconciliation.findUnique({ where: { id } });
+  async finalizeReconciliation(id: string, tenantId: string) {
+    const recon = await this.prisma.bankReconciliation.findFirst({ where: { id, bankAccount: { property: { tenantId } } } });
     if (!recon) throw new NotFoundException('Reconciliation not found');
     const reconciledTxns = await this.prisma.bankTransaction.findMany({
       where: { bankAccountId: recon.bankAccountId, isReconciled: true, reconciledAt: { gte: recon.createdAt } },
@@ -457,9 +458,9 @@ export class AccountingService {
     });
   }
 
-  async getBudget(id: string) {
-    const budget = await this.prisma.budget.findUnique({
-      where: { id },
+  async getBudget(id: string, tenantId: string) {
+    const budget = await this.prisma.budget.findFirst({
+      where: { id, property: { tenantId } },
       include: { lines: true },
     });
     if (!budget) throw new NotFoundException('Budget not found');
@@ -490,7 +491,12 @@ export class AccountingService {
     return budget;
   }
 
-  async updateBudgetLine(budgetId: string, lineId: string, dto: { amount: number }) {
+  async updateBudgetLine(budgetId: string, lineId: string, dto: { amount: number }, tenantId: string) {
+    const line = await this.prisma.budgetLine.findFirst({
+      where: { id: lineId, budgetId, budget: { property: { tenantId } } },
+      select: { id: true },
+    });
+    if (!line) throw new NotFoundException('Budget line not found');
     return this.prisma.budgetLine.update({
       where: { id: lineId },
       data: { amount: Number(dto.amount) },

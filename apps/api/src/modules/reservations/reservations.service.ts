@@ -16,7 +16,7 @@ export class ReservationsService {
     const { status, checkIn, checkOut, guestName, page = 1, limit = 20 } = query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const where: any = { propertyId };
+    const where: any = propertyId ? { propertyId, property: { tenantId } } : { property: { tenantId } };
     if (status) where.status = status;
     if (checkIn) where.checkIn = { gte: new Date(checkIn) };
     if (checkOut) where.checkOut = { lte: new Date(checkOut) };
@@ -47,9 +47,9 @@ export class ReservationsService {
     return { data, total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) };
   }
 
-  async findOne(id: string, propertyId: string) {
+  async findOne(id: string, propertyId: string, tenantId: string) {
     const reservation = await this.prisma.reservation.findFirst({
-      where: { id, propertyId },
+      where: propertyId ? { id, propertyId, property: { tenantId } } : { id, property: { tenantId } },
       include: {
         guest: true,
         rooms: { include: { room: { include: { category: true } } } },
@@ -166,7 +166,9 @@ export class ReservationsService {
     return reservation;
   }
 
-  async update(id: string, dto: any) {
+  async update(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.reservation.findFirst({ where: { id, property: { tenantId } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Reservation not found');
     return this.prisma.reservation.update({
       where: { id },
       data: dto,
@@ -174,8 +176,8 @@ export class ReservationsService {
     });
   }
 
-  async checkIn(id: string) {
-    const reservation = await this.prisma.reservation.findUnique({ where: { id } });
+  async checkIn(id: string, tenantId: string) {
+    const reservation = await this.prisma.reservation.findFirst({ where: { id, property: { tenantId } } });
     if (!reservation) throw new NotFoundException();
 
     return this.prisma.$transaction(async (tx) => {
@@ -200,10 +202,10 @@ export class ReservationsService {
     });
   }
 
-  async checkOut(id: string) {
+  async checkOut(id: string, tenantId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const reservation = await tx.reservation.findUnique({
-        where: { id },
+      const reservation = await tx.reservation.findFirst({
+        where: { id, property: { tenantId } },
         include: { rooms: true },
       });
       if (!reservation) throw new NotFoundException();
@@ -276,17 +278,20 @@ export class ReservationsService {
     });
   }
 
-  async cancel(id: string, reason?: string) {
+  async cancel(id: string, reason: string | undefined, tenantId: string) {
+    const existing = await this.prisma.reservation.findFirst({ where: { id, property: { tenantId } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Reservation not found');
     return this.prisma.reservation.update({
       where: { id },
       data: { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: reason },
     });
   }
 
-  async getCalendar(propertyId: string, startDate: Date, endDate: Date) {
+  async getCalendar(propertyId: string, startDate: Date, endDate: Date, tenantId: string) {
     return this.prisma.reservation.findMany({
       where: {
         propertyId,
+        property: { tenantId },
         status: { in: ['RESERVED', 'CONFIRMED', 'CHECKED_IN'] },
         checkIn: { lte: endDate },
         checkOut: { gte: startDate },

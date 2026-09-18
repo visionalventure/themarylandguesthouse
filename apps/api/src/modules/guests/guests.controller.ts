@@ -21,15 +21,19 @@ export class GuestsController {
   }
 
   @Get()
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'List guests with search and filters' })
   findAll(@Query() query: any, @Request() req: any) {
     return this.service.findAll(req.user.tenantId, query, req.user.role);
   }
 
   @Get(':id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Get guest profile with history' })
   findOne(@Param('id') id: string, @Request() req: any) {
-    return this.service.findOne(id, req.user.role);
+    return this.service.findOne(id, req.user.tenantId, req.user.role);
   }
 
   @Post()
@@ -44,8 +48,8 @@ export class GuestsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Update guest profile' })
-  update(@Param('id') id: string, @Body() dto: any) {
-    return this.service.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.update(id, dto, req.user.tenantId);
   }
 
   @Post(':id/reveal-identity')
@@ -67,16 +71,16 @@ export class GuestsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Get guest stay history' })
-  getStayHistory(@Param('id') id: string) {
-    return this.service.getStayHistory(id);
+  getStayHistory(@Param('id') id: string, @Request() req: any) {
+    return this.service.getStayHistory(id, req.user.tenantId);
   }
 
   @Get(':id/spending')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get guest spending analysis' })
-  getSpending(@Param('id') id: string) {
-    return this.service.getSpendingAnalysis(id);
+  getSpending(@Param('id') id: string, @Request() req: any) {
+    return this.service.getSpendingAnalysis(id, req.user.tenantId);
   }
 
   @Delete(':id')

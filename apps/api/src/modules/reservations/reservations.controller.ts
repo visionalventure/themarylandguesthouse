@@ -20,14 +20,14 @@ export class ReservationsController {
 
   @Get('calendar')
   @ApiOperation({ summary: 'Get reservations for calendar view' })
-  getCalendar(@Query() query: any) {
-    return this.service.getCalendar(query.propertyId, new Date(query.startDate), new Date(query.endDate));
+  getCalendar(@Query() query: any, @Request() req: any) {
+    return this.service.getCalendar(query.propertyId, new Date(query.startDate), new Date(query.endDate), req.user.tenantId);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get reservation details' })
-  findOne(@Param('id') id: string, @Query('propertyId') propertyId: string) {
-    return this.service.findOne(id, propertyId);
+  findOne(@Param('id') id: string, @Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.findOne(id, propertyId, req.user.tenantId);
   }
 
   @Post()
@@ -42,32 +42,32 @@ export class ReservationsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Update reservation' })
-  update(@Param('id') id: string, @Body() dto: any) {
-    return this.service.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.update(id, dto, req.user.tenantId);
   }
 
   @Patch(':id/check-in')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Check in guest' })
-  checkIn(@Param('id') id: string) {
-    return this.service.checkIn(id);
+  checkIn(@Param('id') id: string, @Request() req: any) {
+    return this.service.checkIn(id, req.user.tenantId);
   }
 
   @Patch(':id/check-out')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Check out guest (triggers housekeeping)' })
-  checkOut(@Param('id') id: string) {
-    return this.service.checkOut(id);
+  checkOut(@Param('id') id: string, @Request() req: any) {
+    return this.service.checkOut(id, req.user.tenantId);
   }
 
   @Patch(':id/cancel')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Cancel reservation' })
-  cancel(@Param('id') id: string, @Body() body: { reason?: string }) {
-    return this.service.cancel(id, body.reason);
+  cancel(@Param('id') id: string, @Body() body: { reason?: string }, @Request() req: any) {
+    return this.service.cancel(id, body.reason, req.user.tenantId);
   }
 
   @Post('hold')

@@ -48,8 +48,8 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Post journal entry to ledger' })
-  postEntry(@Param('id') id: string) {
-    return this.service.postJournalEntry(id);
+  postEntry(@Param('id') id: string, @Request() req: any) {
+    return this.service.postJournalEntry(id, req.user.tenantId);
   }
 
   @Get('reports/profit-and-loss')
@@ -96,8 +96,8 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'FRONT_DESK')
   @ApiOperation({ summary: 'Get invoice by ID with line items' })
-  getInvoice(@Param('id') id: string) {
-    return this.service.getInvoice(id);
+  getInvoice(@Param('id') id: string, @Request() req: any) {
+    return this.service.getInvoice(id, req.user.tenantId);
   }
 
   @Post('invoices')
@@ -112,16 +112,16 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'FRONT_DESK')
   @ApiOperation({ summary: 'Send invoice to guest' })
-  sendInvoice(@Param('id') id: string) {
-    return this.service.sendInvoice(id);
+  sendInvoice(@Param('id') id: string, @Request() req: any) {
+    return this.service.sendInvoice(id, req.user.tenantId);
   }
 
   @Patch('invoices/:id/mark-paid')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Record payment against invoice' })
-  markInvoicePaid(@Param('id') id: string, @Body() dto: any) {
-    return this.service.markInvoicePaid(id, dto);
+  markInvoicePaid(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.markInvoicePaid(id, dto, req.user.tenantId);
   }
 
   @Get('bank-accounts')
@@ -144,32 +144,32 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Start bank reconciliation session' })
-  startReconciliation(@Body() dto: { bankAccountId: string; closingBalance: number; statementDate: string }) {
-    return this.service.startReconciliation(dto.bankAccountId, dto.closingBalance, dto.statementDate);
+  startReconciliation(@Body() dto: { bankAccountId: string; closingBalance: number; statementDate: string }, @Request() req: any) {
+    return this.service.startReconciliation(dto.bankAccountId, dto.closingBalance, dto.statementDate, req.user.tenantId);
   }
 
   @Get('reconciliation/:id')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get reconciliation session and unreconciled transactions' })
-  getReconciliation(@Param('id') id: string) {
-    return this.service.getReconciliation(id);
+  getReconciliation(@Param('id') id: string, @Request() req: any) {
+    return this.service.getReconciliation(id, req.user.tenantId);
   }
 
   @Patch('reconciliation/:id/transaction/:txnId')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Mark transaction as reconciled' })
-  reconcileTransaction(@Param('id') reconId: string, @Param('txnId') txnId: string) {
-    return this.service.reconcileTransaction(reconId, txnId);
+  reconcileTransaction(@Param('id') reconId: string, @Param('txnId') txnId: string, @Request() req: any) {
+    return this.service.reconcileTransaction(reconId, txnId, req.user.tenantId);
   }
 
   @Patch('reconciliation/:id/finalize')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Finalize reconciliation session' })
-  finalizeReconciliation(@Param('id') id: string) {
-    return this.service.finalizeReconciliation(id);
+  finalizeReconciliation(@Param('id') id: string, @Request() req: any) {
+    return this.service.finalizeReconciliation(id, req.user.tenantId);
   }
 
   @Get('budgets')
@@ -192,15 +192,15 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get budget with actuals vs. budget comparison' })
-  getBudget(@Param('id') id: string) {
-    return this.service.getBudget(id);
+  getBudget(@Param('id') id: string, @Request() req: any) {
+    return this.service.getBudget(id, req.user.tenantId);
   }
 
   @Patch('budgets/:id/lines/:lineId')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Update a budget line amount' })
-  updateBudgetLine(@Param('id') budgetId: string, @Param('lineId') lineId: string, @Body() dto: { amount: number }) {
-    return this.service.updateBudgetLine(budgetId, lineId, dto);
+  updateBudgetLine(@Param('id') budgetId: string, @Param('lineId') lineId: string, @Body() dto: { amount: number }, @Request() req: any) {
+    return this.service.updateBudgetLine(budgetId, lineId, dto, req.user.tenantId);
   }
 }

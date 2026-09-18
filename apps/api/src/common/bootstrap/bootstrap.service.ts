@@ -1,7 +1,7 @@
 import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
-import { generateStrongPassword } from '@mgh/database';
+import { generateStrongPassword } from '../utils/generate-password';
 
 @Injectable()
 export class BootstrapService implements OnApplicationBootstrap {
