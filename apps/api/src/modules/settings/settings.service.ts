@@ -2,8 +2,21 @@ import { Injectable, NotFoundException, ForbiddenException, ConflictException } 
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { ConfigService } from '@nestjs/config';
+import { UserRole } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import {
+  UpdatePropertyDto,
+  InviteUserDto,
+  UpdateUserNameDto,
+  CreateTaxRateDto,
+  UpdatePolicyConfigDto,
+  UpdateEmailConfigDto,
+  UpdateProfileDto,
+  CreateDepartmentDto,
+  UpdateDepartmentDto,
+  AuditLogQueryDto,
+} from './dto/settings.dto';
 
 @Injectable()
 export class SettingsService {
@@ -13,39 +26,32 @@ export class SettingsService {
     private config: ConfigService,
   ) {}
 
-  async getProperty(propertyId?: string, tenantId?: string) {
+  async getProperty(propertyId: string | undefined, tenantId: string) {
     if (propertyId) {
-      const property = await this.prisma.property.findUnique({ where: { id: propertyId } });
+      const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId } });
       if (!property) throw new NotFoundException('Property not found');
       return property;
     }
-    if (tenantId) {
-      const property = await this.prisma.property.findFirst({
-        where: { tenantId },
-        orderBy: { createdAt: 'asc' },
-      });
-      if (!property) throw new NotFoundException('No property found for this tenant');
-      return property;
-    }
-    throw new NotFoundException('Property not found');
+    const property = await this.prisma.property.findFirst({
+      where: { tenantId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!property) throw new NotFoundException('No property found for this tenant');
+    return property;
   }
 
-  async updateProperty(propertyId: string, dto: any) {
-    const allowed = [
-      'name', 'code', 'type', 'description', 'address', 'city', 'country',
-      'phone', 'email', 'starRating', 'checkInTime', 'checkOutTime',
-      'logoUrl', 'coverImageUrl', 'currency', 'timezone', 'invoiceTemplate', 'isActive',
-    ];
-    const data: any = {};
-    for (const key of allowed) {
-      if (key in dto) data[key] = dto[key];
-    }
-    return this.prisma.property.update({ where: { id: propertyId }, data });
+  async updateProperty(propertyId: string, dto: UpdatePropertyDto, tenantId: string) {
+    const existing = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Property not found');
+    return this.prisma.property.update({ where: { id: propertyId }, data: dto as any });
   }
 
-  private async guardSuperAdmin(targetUserId: string, requestorRole: string) {
-    const target = await this.prisma.user.findUnique({ where: { id: targetUserId }, select: { role: true } });
-    if (!target) throw new NotFoundException('User not found');
+  private async guardSuperAdmin(targetUserId: string, requestorRole: string, requestorTenantId: string) {
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { role: true, tenantId: true },
+    });
+    if (!target || target.tenantId !== requestorTenantId) throw new NotFoundException('User not found');
     if (target.role === 'SUPER_ADMIN' && requestorRole !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Only SUPER_ADMIN can manage other SUPER_ADMIN users');
     }
@@ -64,8 +70,8 @@ export class SettingsService {
     });
   }
 
-  async updateUser(userId: string, dto: { firstName?: string; lastName?: string }, requestorRole: string) {
-    await this.guardSuperAdmin(userId, requestorRole);
+  async updateUser(userId: string, dto: UpdateUserNameDto, requestorRole: string, requestorTenantId: string) {
+    await this.guardSuperAdmin(userId, requestorRole, requestorTenantId);
     return this.prisma.user.update({
       where: { id: userId },
       data: { firstName: dto.firstName, lastName: dto.lastName },
@@ -73,11 +79,9 @@ export class SettingsService {
     });
   }
 
-  async updateUserEmail(userId: string, newEmail: string, requestorRole: string) {
-    await this.guardSuperAdmin(userId, requestorRole);
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { tenantId: true } });
-    if (!user) throw new NotFoundException('User not found');
-    const conflict = await this.prisma.user.findFirst({ where: { tenantId: user.tenantId, email: newEmail } });
+  async updateUserEmail(userId: string, newEmail: string, requestorRole: string, requestorTenantId: string) {
+    await this.guardSuperAdmin(userId, requestorRole, requestorTenantId);
+    const conflict = await this.prisma.user.findFirst({ where: { tenantId: requestorTenantId, email: newEmail } });
     if (conflict && conflict.id !== userId) throw new ConflictException('Email is already in use by another user');
     return this.prisma.user.update({
       where: { id: userId },
@@ -86,8 +90,8 @@ export class SettingsService {
     });
   }
 
-  async resetUserPassword(userId: string, requestorRole: string) {
-    await this.guardSuperAdmin(userId, requestorRole);
+  async resetUserPassword(userId: string, requestorRole: string, requestorTenantId: string) {
+    await this.guardSuperAdmin(userId, requestorRole, requestorTenantId);
     const temporaryPassword = randomBytes(9).toString('base64').slice(0, 12);
     const passwordHash = await bcrypt.hash(temporaryPassword, 12);
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash, passwordChangedAt: new Date() } });
@@ -95,9 +99,9 @@ export class SettingsService {
     return { temporaryPassword };
   }
 
-  async toggleUserActive(userId: string, requestorRole: string, requestorId: string) {
+  async toggleUserActive(userId: string, requestorRole: string, requestorId: string, requestorTenantId: string) {
     if (userId === requestorId) throw new ForbiddenException('Cannot deactivate your own account');
-    const target = await this.guardSuperAdmin(userId, requestorRole);
+    await this.guardSuperAdmin(userId, requestorRole, requestorTenantId);
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { isActive: true } });
     if (!user) throw new NotFoundException('User not found');
     const updated = await this.prisma.user.update({
@@ -111,19 +115,25 @@ export class SettingsService {
     return updated;
   }
 
-  async inviteUser(dto: any) {
-    const tenantId = dto.tenantId || dto.propertyId;
+  async inviteUser(dto: InviteUserDto, tenantId: string, requestorRole: string) {
+    if (dto.role === 'SUPER_ADMIN' && requestorRole !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Only SUPER_ADMIN can invite another SUPER_ADMIN');
+    }
     const existing = await this.prisma.user.findFirst({
       where: { tenantId, email: dto.email },
     });
     if (existing) return existing;
 
-    const rawPassword = dto.password || randomBytes(12).toString('hex');
+    const rawPassword = randomBytes(12).toString('hex');
     const passwordHash = await bcrypt.hash(rawPassword, 12);
     return this.prisma.user.create({
       data: {
-        ...dto,
         tenantId,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        email: dto.email,
+        role: dto.role,
+        phone: dto.phone,
         passwordHash,
         isActive: true,
       },
@@ -131,12 +141,15 @@ export class SettingsService {
     });
   }
 
-  async updateUserRole(userId: string, role: string) {
-    return this.prisma.user.update({
+  async updateUserRole(userId: string, role: UserRole, requestorRole: string, requestorTenantId: string) {
+    await this.guardSuperAdmin(userId, requestorRole, requestorTenantId);
+    const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: { role: role as any },
+      data: { role },
       select: { id: true, firstName: true, lastName: true, email: true, role: true },
     });
+    await this.prisma.refreshToken.updateMany({ where: { userId }, data: { isRevoked: true } });
+    return updated;
   }
 
   async getTaxRates(propertyId: string) {
@@ -146,8 +159,8 @@ export class SettingsService {
     });
   }
 
-  async createTaxRate(dto: any) {
-    return this.prisma.taxRate.create({ data: dto } as any);
+  async createTaxRate(dto: CreateTaxRateDto) {
+    return this.prisma.taxRate.create({ data: dto as any });
   }
 
   async getProfile(userId: string) {
@@ -157,7 +170,7 @@ export class SettingsService {
     });
   }
 
-  async updateProfile(userId: string, dto: any) {
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
     return this.prisma.user.update({
       where: { id: userId },
       data: dto,
@@ -173,13 +186,15 @@ export class SettingsService {
     });
   }
 
-  async createDepartment(dto: { tenantId: string; name: string; code: string; description?: string }) {
+  async createDepartment(dto: CreateDepartmentDto & { tenantId: string }) {
     return this.prisma.department.create({
       data: { ...dto, code: dto.code.toUpperCase() },
     });
   }
 
-  async updateDepartment(id: string, dto: { name?: string; description?: string; isActive?: boolean }) {
+  async updateDepartment(id: string, dto: UpdateDepartmentDto, tenantId: string) {
+    const existing = await this.prisma.department.findFirst({ where: { id, tenantId }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Department not found');
     return this.prisma.department.update({ where: { id }, data: dto });
   }
 
@@ -262,7 +277,7 @@ export class SettingsService {
     };
   }
 
-  async updatePolicyConfig(propertyId: string, patch: any, tenantId: string) {
+  async updatePolicyConfig(propertyId: string, patch: UpdatePolicyConfigDto, tenantId: string) {
     await this.prisma.$transaction(async (tx) => {
       const property = await tx.property.findUnique({
         where: { id: propertyId },
@@ -338,7 +353,7 @@ export class SettingsService {
     return { sent: true, to: toEmail };
   }
 
-  async getAuditLog(tenantId: string, query: any = {}) {
+  async getAuditLog(tenantId: string, query: AuditLogQueryDto = {}) {
     const { entityType, userId, page = 1, limit = 50 } = query;
     const skip = (Number(page) - 1) * Number(limit);
     const where: any = { tenantId };

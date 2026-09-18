@@ -1,13 +1,26 @@
 import { Controller, Get, Put, Post, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { SettingsService } from './settings.service';
+import {
+  UpdatePropertyDto,
+  InviteUserDto,
+  UpdateRoleDto,
+  UpdateUserNameDto,
+  UpdateUserEmailDto,
+  CreateTaxRateDto,
+  UpdatePolicyConfigDto,
+  UpdateEmailConfigDto,
+  SendTestEmailDto,
+  UpdateProfileDto,
+  CreateDepartmentDto,
+  UpdateDepartmentDto,
+  AuditLogQueryDto,
+} from './dto/settings.dto';
 
 @ApiTags('settings')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller({ path: 'settings', version: '1' })
 export class SettingsController {
   constructor(private readonly service: SettingsService) {}
@@ -24,48 +37,48 @@ export class SettingsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update property settings' })
-  updateProperty(@Query('propertyId') propertyId: string, @Body() dto: any) {
-    return this.service.updateProperty(propertyId, dto);
+  updateProperty(@Query('propertyId') propertyId: string, @Body() dto: UpdatePropertyDto, @Request() req: any) {
+    return this.service.updateProperty(propertyId, dto, req.user.tenantId);
   }
 
   @Get('users')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
-  @ApiOperation({ summary: 'List users for tenant' })
-  getUsers(@Query('tenantId') tenantId: string) {
-    return this.service.getUsers(tenantId);
+  @ApiOperation({ summary: 'List users for own tenant' })
+  getUsers(@Request() req: any) {
+    return this.service.getUsers(req.user.tenantId);
   }
 
   @Post('users/invite')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Invite a new user' })
-  inviteUser(@Body() dto: any) {
-    return this.service.inviteUser(dto);
+  inviteUser(@Body() dto: InviteUserDto, @Request() req: any) {
+    return this.service.inviteUser(dto, req.user.tenantId, req.user.role);
   }
 
   @Put('users/:id/role')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN')
   @ApiOperation({ summary: 'Update user role' })
-  updateUserRole(@Param('id') id: string, @Body('role') role: string) {
-    return this.service.updateUserRole(id, role);
+  updateUserRole(@Param('id') id: string, @Body() dto: UpdateRoleDto, @Request() req: any) {
+    return this.service.updateUserRole(id, dto.role, req.user.role, req.user.tenantId);
   }
 
   @Put('users/:id')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Update user name fields' })
-  updateUser(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
-    return this.service.updateUser(id, dto, req.user.role);
+  updateUser(@Param('id') id: string, @Body() dto: UpdateUserNameDto, @Request() req: any) {
+    return this.service.updateUser(id, dto, req.user.role, req.user.tenantId);
   }
 
   @Put('users/:id/email')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Update user email' })
-  updateUserEmail(@Param('id') id: string, @Body('email') email: string, @Request() req: any) {
-    return this.service.updateUserEmail(id, email, req.user.role);
+  updateUserEmail(@Param('id') id: string, @Body() dto: UpdateUserEmailDto, @Request() req: any) {
+    return this.service.updateUserEmail(id, dto.email, req.user.role, req.user.tenantId);
   }
 
   @Post('users/:id/reset-password')
@@ -73,7 +86,7 @@ export class SettingsController {
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Admin reset user password — returns one-time temporary password' })
   resetUserPassword(@Param('id') id: string, @Request() req: any) {
-    return this.service.resetUserPassword(id, req.user.role);
+    return this.service.resetUserPassword(id, req.user.role, req.user.tenantId);
   }
 
   @Patch('users/:id/active')
@@ -81,7 +94,7 @@ export class SettingsController {
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Toggle user active status' })
   toggleUserActive(@Param('id') id: string, @Request() req: any) {
-    return this.service.toggleUserActive(id, req.user.role, req.user.sub);
+    return this.service.toggleUserActive(id, req.user.role, req.user.sub, req.user.tenantId);
   }
 
   @Get('tax-rates')
@@ -96,7 +109,7 @@ export class SettingsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create tax rate' })
-  createTaxRate(@Body() dto: any) {
+  createTaxRate(@Body() dto: CreateTaxRateDto) {
     return this.service.createTaxRate(dto);
   }
 
@@ -112,7 +125,7 @@ export class SettingsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update property policy config (deep-merged, whitelisted sections only)' })
-  updatePolicyConfig(@Query('propertyId') propertyId: string, @Body() dto: any, @Request() req: any) {
+  updatePolicyConfig(@Query('propertyId') propertyId: string, @Body() dto: UpdatePolicyConfigDto, @Request() req: any) {
     return this.service.updatePolicyConfig(propertyId, dto, req.user.tenantId);
   }
 
@@ -128,7 +141,7 @@ export class SettingsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Update email sender configuration' })
-  updateEmailConfig(@Query('propertyId') propertyId: string, @Body() dto: any, @Request() req: any) {
+  updateEmailConfig(@Query('propertyId') propertyId: string, @Body() dto: UpdateEmailConfigDto, @Request() req: any) {
     return this.service.updateEmailConfig(propertyId, dto, req.user.tenantId);
   }
 
@@ -136,8 +149,8 @@ export class SettingsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Send a test email using current configuration' })
-  sendTestEmail(@Query('propertyId') propertyId: string, @Body('to') to: string, @Request() req: any) {
-    return this.service.sendTestEmail(propertyId, to, req.user.tenantId);
+  sendTestEmail(@Query('propertyId') propertyId: string, @Body() dto: SendTestEmailDto, @Request() req: any) {
+    return this.service.sendTestEmail(propertyId, dto.to, req.user.tenantId);
   }
 
   @Get('profile')
@@ -148,7 +161,7 @@ export class SettingsController {
 
   @Put('profile')
   @ApiOperation({ summary: 'Update own profile' })
-  updateProfile(@Request() req: any, @Body() dto: any) {
+  updateProfile(@Request() req: any, @Body() dto: UpdateProfileDto) {
     return this.service.updateProfile(req.user.sub, dto);
   }
 
@@ -156,7 +169,7 @@ export class SettingsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Get audit log entries' })
-  getAuditLog(@Request() req: any, @Query() query: any) {
+  getAuditLog(@Request() req: any, @Query() query: AuditLogQueryDto) {
     return this.service.getAuditLog(req.user.tenantId, query);
   }
 
@@ -172,7 +185,7 @@ export class SettingsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN')
   @ApiOperation({ summary: 'Create a new department' })
-  createDepartment(@Request() req: any, @Body() dto: any) {
+  createDepartment(@Request() req: any, @Body() dto: CreateDepartmentDto) {
     return this.service.createDepartment({ ...dto, tenantId: req.user.tenantId });
   }
 
@@ -180,7 +193,7 @@ export class SettingsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN')
   @ApiOperation({ summary: 'Update a department' })
-  updateDepartment(@Param('id') id: string, @Body() dto: any) {
-    return this.service.updateDepartment(id, dto);
+  updateDepartment(@Param('id') id: string, @Body() dto: UpdateDepartmentDto, @Request() req: any) {
+    return this.service.updateDepartment(id, dto, req.user.tenantId);
   }
 }
