@@ -1,6 +1,7 @@
 import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
+import { generateStrongPassword } from '@mgh/database';
 
 @Injectable()
 export class BootstrapService implements OnApplicationBootstrap {
@@ -67,10 +68,27 @@ export class BootstrapService implements OnApplicationBootstrap {
       },
     });
 
-    const passwordHash = await bcrypt.hash(
-      process.env.ADMIN_PASSWORD || 'Admin@123!',
-      12,
-    );
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    let adminPassword = process.env.ADMIN_PASSWORD;
+    if (!adminPassword) {
+      adminPassword = isProduction ? generateStrongPassword() : 'Admin@123!';
+      if (isProduction) {
+        this.logger.warn(
+          `ADMIN_PASSWORD not set — generated one-time password for admin@marylandguesthouse.com: ${adminPassword}`,
+        );
+      }
+    }
+
+    let managerPassword = process.env.MANAGER_PASSWORD;
+    if (!managerPassword) {
+      managerPassword = isProduction ? generateStrongPassword() : 'Manager@123!';
+      if (isProduction) {
+        this.logger.warn(
+          `MANAGER_PASSWORD not set — generated one-time password for manager@marylandguesthouse.com: ${managerPassword}`,
+        );
+      }
+    }
 
     await this.prisma.user.upsert({
       where: { tenantId_email: { tenantId: tenant.id, email: 'admin@marylandguesthouse.com' } },
@@ -78,7 +96,7 @@ export class BootstrapService implements OnApplicationBootstrap {
       create: {
         tenantId: tenant.id,
         email: 'admin@marylandguesthouse.com',
-        passwordHash,
+        passwordHash: await bcrypt.hash(adminPassword, 12),
         firstName: 'System',
         lastName: 'Admin',
         role: 'SUPER_ADMIN',
@@ -92,7 +110,7 @@ export class BootstrapService implements OnApplicationBootstrap {
       create: {
         tenantId: tenant.id,
         email: 'manager@marylandguesthouse.com',
-        passwordHash: await bcrypt.hash('Manager@123!', 12),
+        passwordHash: await bcrypt.hash(managerPassword, 12),
         firstName: 'Samuel',
         lastName: 'Koroma',
         role: 'MANAGER',

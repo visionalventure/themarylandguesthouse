@@ -1,7 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { generateStrongPassword } from '../src/generate-password';
 
 const prisma = new PrismaClient();
+const isProduction = process.env.NODE_ENV === 'production';
 
 async function main() {
   console.log('🌱 Seeding Maryland Guesthouse ERP database...\n');
@@ -49,7 +51,12 @@ async function main() {
 
   // ─── Admin User ───────────────────────────────────────────────
   console.log('Creating admin user...');
-  const adminHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'Admin@123!', 12);
+  let adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) {
+    adminPassword = isProduction ? generateStrongPassword() : 'Admin@123!';
+    if (isProduction) console.log(`  (no ADMIN_PASSWORD set — generated: ${adminPassword})`);
+  }
+  const adminHash = await bcrypt.hash(adminPassword, 12);
   const admin = await prisma.user.upsert({
     where: { tenantId_email: { tenantId: tenant.id, email: 'admin@marylandguesthouse.com' } },
     update: {},
@@ -65,7 +72,12 @@ async function main() {
   });
 
   // Manager
-  const managerHash = await bcrypt.hash('Manager@123!', 12);
+  let managerPassword = process.env.MANAGER_PASSWORD;
+  if (!managerPassword) {
+    managerPassword = isProduction ? generateStrongPassword() : 'Manager@123!';
+    if (isProduction) console.log(`  (no MANAGER_PASSWORD set — generated: ${managerPassword})`);
+  }
+  const managerHash = await bcrypt.hash(managerPassword, 12);
   await prisma.user.upsert({
     where: { tenantId_email: { tenantId: tenant.id, email: 'manager@marylandguesthouse.com' } },
     update: {},
@@ -425,8 +437,8 @@ async function main() {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('🏨 Tenant: Maryland Guesthouse');
   console.log('🏠 Property: MGH-001 (12 rooms across 3 floors)');
-  console.log('👤 Admin: admin@marylandguesthouse.com / Admin@123!');
-  console.log('👤 Manager: manager@marylandguesthouse.com / Manager@123!');
+  console.log(`👤 Admin: admin@marylandguesthouse.com / ${adminPassword}`);
+  console.log(`👤 Manager: manager@marylandguesthouse.com / ${managerPassword}`);
   console.log('👤 Front Desk: frontdesk@marylandguesthouse.com / Desk@123!');
   console.log('📊 Chart of Accounts: 38 accounts');
   console.log('👥 Sample Guests: 5 guests with loyalty accounts');
