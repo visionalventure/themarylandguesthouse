@@ -251,9 +251,9 @@ export class AccountingService {
     return invoice;
   }
 
-  async getInvoices(propertyId: string, query: any = {}) {
+  async getInvoices(tenantId: string, query: any = {}) {
     const { page = 1, limit = 20, status, search } = query;
-    const where: any = { tenantId: propertyId };
+    const where: any = { tenantId };
     if (status && status !== 'ALL') where.status = status;
     if (search) {
       where.OR = [
@@ -273,15 +273,15 @@ export class AccountingService {
     return { data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) };
   }
 
-  async createInvoice(dto: any) {
-    const invoiceNumber = await this.generateInvoiceNumber(dto.propertyId ?? dto.tenantId);
+  async createInvoice(dto: any, tenantId: string) {
+    const invoiceNumber = await this.generateInvoiceNumber(tenantId);
     const subtotal = dto.lineItems?.reduce((s: number, l: any) => s + Number(l.quantity) * Number(l.unitPrice), 0) ?? 0;
     const taxAmount = dto.lineItems?.reduce((s: number, l: any) => s + Number(l.quantity) * Number(l.unitPrice) * (Number(l.taxRate ?? 0) / 100), 0) ?? 0;
     const totalAmount = subtotal + taxAmount;
 
     return this.prisma.invoice.create({
       data: {
-        tenantId: dto.propertyId ?? dto.tenantId,
+        tenantId,
         invoiceNumber,
         guestId: dto.guestId,
         status: 'DRAFT',

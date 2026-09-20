@@ -88,8 +88,8 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'FRONT_DESK')
   @ApiOperation({ summary: 'List invoices' })
-  getInvoices(@Query('propertyId') propertyId: string, @Query() query: any) {
-    return this.service.getInvoices(propertyId, query);
+  getInvoices(@Query() query: any, @Request() req: any) {
+    return this.service.getInvoices(req.user.tenantId, query);
   }
 
   @Get('invoices/:id')
@@ -105,7 +105,7 @@ export class AccountingController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Create invoice' })
   createInvoice(@Body() dto: any, @Request() req: any) {
-    return this.service.createInvoice({ ...dto, propertyId: dto.propertyId ?? req.user.tenantId });
+    return this.service.createInvoice(dto, req.user.tenantId);
   }
 
   @Patch('invoices/:id/send')

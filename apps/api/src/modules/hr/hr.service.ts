@@ -1,13 +1,32 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
 export class HrService {
   constructor(private prisma: PrismaService) {}
 
+  private async assertPropertyTenant(propertyId: string, tenantId: string) {
+    const prop = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
+    if (!prop) throw new ForbiddenException('Property not found or access denied');
+  }
+
+  private async assertEmployeeTenant(employeeId: string, tenantId: string) {
+    const emp = await this.prisma.employee.findFirst({ where: { id: employeeId, property: { tenantId } }, select: { id: true } });
+    if (!emp) throw new NotFoundException('Employee not found');
+  }
+
+  private async assertJobOpeningTenant(jobOpeningId: string, tenantId: string): Promise<string> {
+    const jobOpening = await this.prisma.recruitmentJobOpening.findUnique({ where: { id: jobOpeningId }, select: { propertyId: true } });
+    if (!jobOpening) throw new NotFoundException('Job opening not found');
+    const property = await this.prisma.property.findFirst({ where: { id: jobOpening.propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new NotFoundException('Job opening not found');
+    return jobOpening.propertyId;
+  }
+
   // ─── EMPLOYEES ────────────────────────────────────────────────
 
-  async getEmployees(propertyId: string, query: any = {}) {
+  async getEmployees(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { search, departmentId, status, page = 1, limit = 20 } = query;
     const where: any = { propertyId };
     if (status) where.status = status;
@@ -60,7 +79,8 @@ export class HrService {
     return emp;
   }
 
-  async createEmployee(dto: any) {
+  async createEmployee(dto: any, tenantId: string) {
+    await this.assertPropertyTenant(dto.propertyId, tenantId);
     return this.prisma.$transaction(async (tx) => {
       const count = await tx.employee.count({ where: { propertyId: dto.propertyId } });
       const employeeNumber = `EMP-${(count + 1).toString().padStart(4, '0')}`;
@@ -73,7 +93,8 @@ export class HrService {
     });
   }
 
-  async updateEmployee(id: string, dto: any) {
+  async updateEmployee(id: string, dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(id, tenantId);
     const allowed = [
       'firstName','lastName','preferredName','email','phone','nationalId','taxId',
       'dateOfBirth','gender','nationality','address','emergencyContact','emergencyPhone',
@@ -88,7 +109,8 @@ export class HrService {
 
   // ─── ATTENDANCE ────────────────────────────────────────────────
 
-  async recordAttendance(dto: any) {
+  async recordAttendance(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     const clockIn = dto.clockIn ? new Date(dto.clockIn) : undefined;
     const clockOut = dto.clockOut ? new Date(dto.clockOut) : undefined;
     const hoursWorked = clockIn && clockOut
@@ -202,7 +224,8 @@ export class HrService {
     }
   }
 
-  async getAttendanceReport(propertyId: string, startDate: Date, endDate: Date) {
+  async getAttendanceReport(propertyId: string, tenantId: string, startDate: Date, endDate: Date) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     return this.prisma.attendance.findMany({
       where: { date: { gte: startDate, lte: endDate }, employee: { propertyId } },
       include: { employee: { select: { firstName: true, lastName: true, employeeNumber: true, departmentId: true, department: { select: { name: true } } } } },
@@ -210,7 +233,8 @@ export class HrService {
     });
   }
 
-  async getAttendanceAnomalies(propertyId: string, query: any = {}) {
+  async getAttendanceAnomalies(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { status, employeeId, page = 1, limit = 30 } = query;
     const where: any = { employee: { propertyId } };
     if (status) where.status = status;
@@ -226,17 +250,21 @@ export class HrService {
     return { data, total };
   }
 
-  async createAttendanceAnomaly(dto: any) {
+  async createAttendanceAnomaly(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     return this.prisma.attendanceAnomaly.create({ data: { ...dto, date: new Date(dto.date) } });
   }
 
-  async updateAnomalyStatus(id: string, dto: { status: string; reviewNotes?: string; reviewedById?: string }) {
+  async updateAnomalyStatus(id: string, dto: { status: string; reviewNotes?: string; reviewedById?: string }, tenantId: string) {
+    const existing = await this.prisma.attendanceAnomaly.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Anomaly not found');
     return this.prisma.attendanceAnomaly.update({ where: { id }, data: dto });
   }
 
   // ─── LEAVE ────────────────────────────────────────────────────
 
-  async getLeaveRequests(propertyId: string, query: any = {}) {
+  async getLeaveRequests(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { status, employeeId, page = 1, limit = 50 } = query;
     const where: any = { employee: { propertyId } };
     if (status) where.status = status;
@@ -253,29 +281,36 @@ export class HrService {
     return { data, total };
   }
 
-  async createLeaveRequest(dto: any) {
+  async createLeaveRequest(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     return this.prisma.leaveRequest.create({ data: dto });
   }
 
-  async approveLeave(id: string, approvedById: string) {
+  async approveLeave(id: string, approvedById: string, tenantId: string) {
+    const existing = await this.prisma.leaveRequest.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Leave request not found');
     return this.prisma.leaveRequest.update({
       where: { id },
       data: { status: 'APPROVED', approvedById, approvedAt: new Date() },
     });
   }
 
-  async rejectLeave(id: string, reason: string) {
+  async rejectLeave(id: string, reason: string, tenantId: string) {
+    const existing = await this.prisma.leaveRequest.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Leave request not found');
     return this.prisma.leaveRequest.update({
       where: { id },
       data: { status: 'REJECTED', rejectionNote: reason },
     });
   }
 
-  async getLeaveBalances(employeeId: string) {
+  async getLeaveBalances(employeeId: string, tenantId: string) {
+    await this.assertEmployeeTenant(employeeId, tenantId);
     return this.prisma.leaveBalance.findMany({ where: { employeeId }, orderBy: { leaveType: 'asc' } });
   }
 
-  async upsertLeaveBalance(dto: { employeeId: string; year: number; leaveType: any; entitled: number }) {
+  async upsertLeaveBalance(dto: { employeeId: string; year: number; leaveType: any; entitled: number }, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     const existing = await this.prisma.leaveBalance.findUnique({
       where: { employeeId_year_leaveType: { employeeId: dto.employeeId, year: dto.year, leaveType: dto.leaveType } },
     });
@@ -289,7 +324,8 @@ export class HrService {
 
   // ─── SHIFT / ROSTER ────────────────────────────────────────────
 
-  async getRoster(propertyId: string, query: any = {}) {
+  async getRoster(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { startDate, endDate, departmentId, employeeId } = query;
     const where: any = { propertyId };
     if (startDate && endDate) where.shiftDate = { gte: new Date(startDate), lte: new Date(endDate) };
@@ -302,7 +338,8 @@ export class HrService {
     });
   }
 
-  async upsertShift(dto: any) {
+  async upsertShift(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     return this.prisma.shiftRoster.upsert({
       where: { employeeId_shiftDate: { employeeId: dto.employeeId, shiftDate: new Date(dto.shiftDate) } },
       create: { ...dto, shiftDate: new Date(dto.shiftDate) },
@@ -310,13 +347,67 @@ export class HrService {
     });
   }
 
-  async deleteShift(id: string) {
+  async deleteShift(id: string, tenantId: string) {
+    const existing = await this.prisma.shiftRoster.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Shift not found');
     return this.prisma.shiftRoster.delete({ where: { id } });
+  }
+
+  // ─── SHIFT TYPE CONFIG ──────────────────────────────────────────
+
+  async getShiftTypes(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
+    return this.prisma.shiftTypeConfig.findMany({
+      where: { propertyId, isActive: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async createShiftType(dto: { propertyId: string; name: string; label: string; startTime: string; endTime: string; breakMinutes?: number; color?: string }, tenantId: string) {
+    await this.assertPropertyTenant(dto.propertyId, tenantId);
+    const name = dto.name.toUpperCase().replace(/\s+/g, '_');
+    return this.prisma.shiftTypeConfig.create({ data: { ...dto, name, breakMinutes: dto.breakMinutes ?? 0 } });
+  }
+
+  async updateShiftType(id: string, dto: Partial<{ name: string; label: string; startTime: string; endTime: string; breakMinutes: number; color: string; isActive: boolean }>, tenantId: string) {
+    const existing = await this.prisma.shiftTypeConfig.findFirst({ where: { id, property: { tenantId } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Shift type not found');
+    if (dto.name) dto.name = dto.name.toUpperCase().replace(/\s+/g, '_');
+    return this.prisma.shiftTypeConfig.update({ where: { id }, data: dto });
+  }
+
+  async deleteShiftType(id: string, tenantId: string) {
+    const config = await this.prisma.shiftTypeConfig.findFirst({ where: { id, property: { tenantId } } });
+    if (!config) throw new NotFoundException('Shift type not found');
+    const inUse = await this.prisma.shiftRoster.count({ where: { propertyId: config.propertyId, shiftType: config.name } });
+    if (inUse > 0) throw new BadRequestException(`Cannot delete: ${inUse} roster entr${inUse === 1 ? 'y' : 'ies'} use this shift type`);
+    return this.prisma.shiftTypeConfig.delete({ where: { id } });
+  }
+
+  async getPayrollSummary(propertyId: string, tenantId: string, period: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
+    const periodStartDate = new Date(`${period}-01`);
+    const nextMonth = new Date(periodStartDate);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const records = await this.prisma.payrollRecord.findMany({
+      where: { employee: { propertyId }, periodStart: { gte: periodStartDate, lt: nextMonth } },
+      include: { employee: { select: { firstName: true, lastName: true, departmentId: true } } },
+    });
+    const total = records.reduce((s, r) => ({
+      baseSalary: s.baseSalary + Number(r.baseSalary),
+      allowances: s.allowances + Number(r.allowances),
+      overtime: s.overtime + Number(r.overtime),
+      deductions: s.deductions + Number(r.deductions),
+      tax: s.tax + Number(r.tax),
+      netPay: s.netPay + Number(r.netPay),
+    }), { baseSalary: 0, allowances: 0, overtime: 0, deductions: 0, tax: 0, netPay: 0 });
+    return { records, summary: total };
   }
 
   // ─── PAYROLL ────────────────────────────────────────────────────
 
-  async getPayrollHistory(propertyId: string, query: any = {}) {
+  async getPayrollHistory(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { page = 1, limit = 20, status, employeeId } = query;
     const where: any = { employee: { propertyId } };
     if (status) where.status = status;
@@ -335,7 +426,8 @@ export class HrService {
     return { data, total };
   }
 
-  async runPayroll(propertyId: string, periodStart: Date, periodEnd: Date) {
+  async runPayroll(propertyId: string, tenantId: string, periodStart: Date, periodEnd: Date) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const employees = await this.prisma.employee.findMany({
       where: { propertyId, status: 'ACTIVE' },
     });
@@ -392,7 +484,8 @@ export class HrService {
 
   // ─── PAYROLL DEDUCTIONS ──────────────────────────────────────────
 
-  async getPayrollDeductions(propertyId: string, query: any = {}) {
+  async getPayrollDeductions(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { employeeId, status } = query;
     const where: any = { employee: { propertyId } };
     if (employeeId) where.employeeId = employeeId;
@@ -404,25 +497,31 @@ export class HrService {
     });
   }
 
-  async createPayrollDeduction(dto: any) {
+  async createPayrollDeduction(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     if (dto.amount < 0) throw new BadRequestException('Deduction amount cannot be negative');
     return this.prisma.payrollDeduction.create({ data: dto });
   }
 
-  async approvePayrollDeduction(id: string, approvedById: string) {
+  async approvePayrollDeduction(id: string, approvedById: string, tenantId: string) {
+    const existing = await this.prisma.payrollDeduction.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Payroll deduction not found');
     return this.prisma.payrollDeduction.update({
       where: { id },
       data: { status: 'APPROVED', approvedById, approvedAt: new Date() },
     });
   }
 
-  async reversePayrollDeduction(id: string) {
+  async reversePayrollDeduction(id: string, tenantId: string) {
+    const existing = await this.prisma.payrollDeduction.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Payroll deduction not found');
     return this.prisma.payrollDeduction.update({ where: { id }, data: { status: 'REVERSED' } });
   }
 
   // ─── DISCIPLINARY ──────────────────────────────────────────────
 
-  async getDisciplinaryCases(propertyId: string, query: any = {}) {
+  async getDisciplinaryCases(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { employeeId, status, page = 1, limit = 20 } = query;
     const where: any = { propertyId };
     if (employeeId) where.employeeId = employeeId;
@@ -456,18 +555,23 @@ export class HrService {
     return c;
   }
 
-  async createDisciplinaryCase(dto: any) {
+  async createDisciplinaryCase(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     const year = new Date().getFullYear();
     const count = await this.prisma.disciplinaryCase.count({ where: { propertyId: dto.propertyId } });
     const caseNumber = `DISC-${year}-${String(count + 1).padStart(4, '0')}`;
     return this.prisma.disciplinaryCase.create({ data: { ...dto, caseNumber, incidentDate: new Date(dto.incidentDate) } });
   }
 
-  async updateDisciplinaryCase(id: string, dto: any) {
+  async updateDisciplinaryCase(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.disciplinaryCase.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Case not found');
     return this.prisma.disciplinaryCase.update({ where: { id }, data: dto });
   }
 
-  async addDisciplinaryAction(caseId: string, dto: any) {
+  async addDisciplinaryAction(caseId: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.disciplinaryCase.findFirst({ where: { id: caseId, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Case not found');
     return this.prisma.disciplinaryAction.create({
       data: { ...dto, caseId, effectiveDate: new Date(dto.effectiveDate) },
     });
@@ -475,7 +579,8 @@ export class HrService {
 
   // ─── SUSPENSIONS ───────────────────────────────────────────────
 
-  async getSuspensions(propertyId: string, query: any = {}) {
+  async getSuspensions(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { employeeId, status } = query;
     const where: any = { employee: { propertyId } };
     if (employeeId) where.employeeId = employeeId;
@@ -486,7 +591,8 @@ export class HrService {
     });
   }
 
-  async createSuspension(dto: any) {
+  async createSuspension(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     const suspension = await this.prisma.suspensionRecord.create({
       data: { ...dto, startDate: new Date(dto.startDate), endDate: dto.endDate ? new Date(dto.endDate) : undefined },
     });
@@ -497,7 +603,9 @@ export class HrService {
     return suspension;
   }
 
-  async returnFromSuspension(id: string, returnDate: string) {
+  async returnFromSuspension(id: string, returnDate: string, tenantId: string) {
+    const existing = await this.prisma.suspensionRecord.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Suspension not found');
     const suspension = await this.prisma.suspensionRecord.update({
       where: { id },
       data: { returnDate: new Date(returnDate) },
@@ -516,7 +624,8 @@ export class HrService {
 
   // ─── GRIEVANCES ──────────────────────────────────────────────
 
-  async getGrievances(propertyId: string, query: any = {}) {
+  async getGrievances(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { employeeId, status } = query;
     const where: any = { propertyId };
     if (employeeId) where.employeeId = employeeId;
@@ -528,20 +637,24 @@ export class HrService {
     });
   }
 
-  async createGrievance(dto: any) {
+  async createGrievance(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     const year = new Date().getFullYear();
     const count = await this.prisma.grievanceCase.count({ where: { propertyId: dto.propertyId } });
     const caseNumber = `GRIEV-${year}-${String(count + 1).padStart(4, '0')}`;
     return this.prisma.grievanceCase.create({ data: { ...dto, caseNumber } });
   }
 
-  async updateGrievance(id: string, dto: any) {
+  async updateGrievance(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.grievanceCase.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Grievance not found');
     return this.prisma.grievanceCase.update({ where: { id }, data: dto });
   }
 
   // ─── STAFF LOANS ─────────────────────────────────────────────
 
-  async getStaffLoans(propertyId: string, query: any = {}) {
+  async getStaffLoans(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { employeeId, status } = query;
     const where: any = { employee: { propertyId } };
     if (employeeId) where.employeeId = employeeId;
@@ -556,14 +669,17 @@ export class HrService {
     });
   }
 
-  async createStaffLoan(dto: any) {
+  async createStaffLoan(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     const year = new Date().getFullYear();
     const count = await this.prisma.staffLoan.count();
     const loanNumber = `LOAN-${year}-${String(count + 1).padStart(5, '0')}`;
     return this.prisma.staffLoan.create({ data: { ...dto, loanNumber, balance: dto.amount } });
   }
 
-  async approveStaffLoan(id: string, approvedById: string) {
+  async approveStaffLoan(id: string, approvedById: string, tenantId: string) {
+    const existing = await this.prisma.staffLoan.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Loan not found');
     return this.prisma.staffLoan.update({
       where: { id },
       data: { status: 'APPROVED', approvedById, approvedAt: new Date() },
@@ -583,7 +699,8 @@ export class HrService {
 
   // ─── ASSET ISSUANCE ──────────────────────────────────────────
 
-  async getAssetIssues(propertyId: string, query: any = {}) {
+  async getAssetIssues(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { employeeId, status } = query;
     const where: any = { employee: { propertyId } };
     if (employeeId) where.employeeId = employeeId;
@@ -595,11 +712,14 @@ export class HrService {
     });
   }
 
-  async issueAsset(dto: any) {
+  async issueAsset(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     return this.prisma.employeeAssetIssue.create({ data: { ...dto, issuedDate: new Date(dto.issuedDate) } });
   }
 
-  async returnAsset(id: string, dto: { conditionOnReturn: string; notes?: string }) {
+  async returnAsset(id: string, dto: { conditionOnReturn: string; notes?: string }, tenantId: string) {
+    const existing = await this.prisma.employeeAssetIssue.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Asset issue not found');
     return this.prisma.employeeAssetIssue.update({
       where: { id },
       data: { status: 'RETURNED', returnedDate: new Date(), ...dto },
@@ -608,7 +728,8 @@ export class HrService {
 
   // ─── PERFORMANCE REVIEWS ─────────────────────────────────────
 
-  async getPerformanceReviews(propertyId: string, query: any = {}) {
+  async getPerformanceReviews(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { employeeId, status } = query;
     const where: any = { employee: { propertyId } };
     if (employeeId) where.employeeId = employeeId;
@@ -620,17 +741,21 @@ export class HrService {
     });
   }
 
-  async createPerformanceReview(dto: any) {
+  async createPerformanceReview(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     return this.prisma.performanceReview.create({ data: dto });
   }
 
-  async updatePerformanceReview(id: string, dto: any) {
+  async updatePerformanceReview(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.performanceReview.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Performance review not found');
     return this.prisma.performanceReview.update({ where: { id }, data: dto });
   }
 
   // ─── PROBATION REVIEWS ───────────────────────────────────────
 
-  async getProbationReviews(propertyId: string, query: any = {}) {
+  async getProbationReviews(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { employeeId } = query;
     const where: any = { employee: { propertyId } };
     if (employeeId) where.employeeId = employeeId;
@@ -641,11 +766,14 @@ export class HrService {
     });
   }
 
-  async createProbationReview(dto: any) {
+  async createProbationReview(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     return this.prisma.probationReview.create({ data: { ...dto, scheduledDate: new Date(dto.scheduledDate) } });
   }
 
-  async updateProbationReview(id: string, dto: any) {
+  async updateProbationReview(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.probationReview.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Probation review not found');
     const review = await this.prisma.probationReview.update({ where: { id }, data: dto });
     // If confirmed or terminated, update employee status / probationConfirmedAt
     if (dto.outcome === 'CONFIRMED') {
@@ -661,7 +789,8 @@ export class HrService {
 
   // ─── TRAINING ────────────────────────────────────────────────
 
-  async getTrainingPrograms(propertyId: string) {
+  async getTrainingPrograms(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     return this.prisma.trainingProgram.findMany({
       where: { propertyId, isActive: true },
       include: { _count: { select: { attendances: true } } },
@@ -669,11 +798,13 @@ export class HrService {
     });
   }
 
-  async createTrainingProgram(dto: any) {
+  async createTrainingProgram(dto: any, tenantId: string) {
+    await this.assertPropertyTenant(dto.propertyId, tenantId);
     return this.prisma.trainingProgram.create({ data: dto });
   }
 
-  async getTrainingAttendances(propertyId: string, query: any = {}) {
+  async getTrainingAttendances(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { employeeId, programId } = query;
     const where: any = { program: { propertyId } };
     if (employeeId) where.employeeId = employeeId;
@@ -688,11 +819,14 @@ export class HrService {
     });
   }
 
-  async recordTrainingAttendance(dto: any) {
+  async recordTrainingAttendance(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     return this.prisma.trainingAttendance.create({ data: { ...dto, scheduledAt: new Date(dto.scheduledAt) } });
   }
 
-  async completeTraining(id: string, dto: { score?: number; passed?: boolean; certUrl?: string; notes?: string }) {
+  async completeTraining(id: string, dto: { score?: number; passed?: boolean; certUrl?: string; notes?: string }, tenantId: string) {
+    const existing = await this.prisma.trainingAttendance.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Training attendance not found');
     return this.prisma.trainingAttendance.update({
       where: { id },
       data: { ...dto, completedAt: new Date() },
@@ -701,7 +835,8 @@ export class HrService {
 
   // ─── RECRUITMENT ─────────────────────────────────────────────
 
-  async getJobOpenings(propertyId: string, query: any = {}) {
+  async getJobOpenings(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { status } = query;
     const where: any = { propertyId };
     if (status) where.status = status;
@@ -712,15 +847,18 @@ export class HrService {
     });
   }
 
-  async createJobOpening(dto: any) {
+  async createJobOpening(dto: any, tenantId: string) {
+    await this.assertPropertyTenant(dto.propertyId, tenantId);
     return this.prisma.recruitmentJobOpening.create({ data: { ...dto, openDate: new Date(dto.openDate) } });
   }
 
-  async updateJobOpening(id: string, dto: any) {
+  async updateJobOpening(id: string, dto: any, tenantId: string) {
+    await this.assertJobOpeningTenant(id, tenantId);
     return this.prisma.recruitmentJobOpening.update({ where: { id }, data: dto });
   }
 
-  async getCandidates(jobOpeningId: string) {
+  async getCandidates(jobOpeningId: string, tenantId: string) {
+    await this.assertJobOpeningTenant(jobOpeningId, tenantId);
     return this.prisma.candidate.findMany({
       where: { jobOpeningId },
       include: { interviews: { orderBy: { scheduledAt: 'desc' } } },
@@ -728,15 +866,29 @@ export class HrService {
     });
   }
 
-  async createCandidate(dto: any) {
+  async createCandidate(dto: any, tenantId: string) {
+    await this.assertJobOpeningTenant(dto.jobOpeningId, tenantId);
     return this.prisma.candidate.create({ data: dto });
   }
 
-  async updateCandidateStatus(id: string, status: string) {
+  private async assertCandidateTenant(candidateId: string, tenantId: string) {
+    const candidate = await this.prisma.candidate.findUnique({
+      where: { id: candidateId },
+      include: { jobOpening: { select: { propertyId: true } } },
+    });
+    if (!candidate) throw new NotFoundException('Candidate not found');
+    const property = await this.prisma.property.findFirst({ where: { id: candidate.jobOpening.propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new NotFoundException('Candidate not found');
+    return candidate;
+  }
+
+  async updateCandidateStatus(id: string, status: string, tenantId: string) {
+    await this.assertCandidateTenant(id, tenantId);
     return this.prisma.candidate.update({ where: { id }, data: { status: status as any } });
   }
 
-  async scheduleInterview(dto: any) {
+  async scheduleInterview(dto: any, tenantId: string) {
+    await this.assertCandidateTenant(dto.candidateId, tenantId);
     return this.prisma.candidateInterview.create({ data: { ...dto, scheduledAt: new Date(dto.scheduledAt) } });
   }
 
@@ -751,7 +903,7 @@ export class HrService {
       select: { id: true },
     });
     if (!ownedProperty) throw new NotFoundException('Candidate not found');
-    const employee = await this.createEmployee(employeeDto);
+    const employee = await this.createEmployee(employeeDto, tenantId);
     await this.prisma.candidate.update({
       where: { id: candidateId },
       data: { status: 'HIRED', hiredAsEmployeeId: employee.id },
@@ -765,11 +917,13 @@ export class HrService {
 
   // ─── ONBOARDING ──────────────────────────────────────────────
 
-  async getOnboardingChecklist(employeeId: string) {
+  async getOnboardingChecklist(employeeId: string, tenantId: string) {
+    await this.assertEmployeeTenant(employeeId, tenantId);
     return this.prisma.onboardingChecklist.findUnique({ where: { employeeId } });
   }
 
-  async updateOnboardingChecklist(employeeId: string, dto: any) {
+  async updateOnboardingChecklist(employeeId: string, dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(employeeId, tenantId);
     const checklist = await this.prisma.onboardingChecklist.upsert({
       where: { employeeId },
       create: { employeeId, ...dto },
@@ -786,7 +940,8 @@ export class HrService {
 
   // ─── OFFBOARDING ─────────────────────────────────────────────
 
-  async getOffboardingCases(propertyId: string) {
+  async getOffboardingCases(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     return this.prisma.offboardingCase.findMany({
       where: { employee: { propertyId } },
       include: { employee: { select: { firstName: true, lastName: true, employeeNumber: true } } },
@@ -794,7 +949,8 @@ export class HrService {
     });
   }
 
-  async createOffboardingCase(dto: any) {
+  async createOffboardingCase(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     const offboarding = await this.prisma.offboardingCase.create({ data: dto });
     const newStatus =
       dto.separationType === 'RESIGNATION' ? 'RESIGNED'
@@ -807,13 +963,16 @@ export class HrService {
     return offboarding;
   }
 
-  async updateOffboardingCase(id: string, dto: any) {
+  async updateOffboardingCase(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.offboardingCase.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Offboarding case not found');
     return this.prisma.offboardingCase.update({ where: { id }, data: dto });
   }
 
   // ─── CASH HANDLING INCIDENTS ─────────────────────────────────
 
-  async getCashIncidents(propertyId: string, query: any = {}) {
+  async getCashIncidents(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { employeeId, status } = query;
     const where: any = { propertyId };
     if (employeeId) where.employeeId = employeeId;
@@ -825,34 +984,42 @@ export class HrService {
     });
   }
 
-  async createCashIncident(dto: any) {
+  async createCashIncident(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     return this.prisma.cashHandlingIncident.create({ data: { ...dto, incidentDate: new Date(dto.incidentDate) } });
   }
 
-  async updateCashIncident(id: string, dto: any) {
+  async updateCashIncident(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.cashHandlingIncident.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Cash incident not found');
     return this.prisma.cashHandlingIncident.update({ where: { id }, data: dto });
   }
 
   // ─── EMPLOYEE DOCUMENTS ───────────────────────────────────────
 
-  async getEmployeeDocuments(employeeId: string) {
+  async getEmployeeDocuments(employeeId: string, tenantId: string) {
+    await this.assertEmployeeTenant(employeeId, tenantId);
     return this.prisma.employeeDocument.findMany({
       where: { employeeId },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async uploadEmployeeDocument(dto: any) {
+  async uploadEmployeeDocument(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     return this.prisma.employeeDocument.create({ data: dto });
   }
 
-  async deleteEmployeeDocument(id: string) {
+  async deleteEmployeeDocument(id: string, tenantId: string) {
+    const existing = await this.prisma.employeeDocument.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Document not found');
     return this.prisma.employeeDocument.delete({ where: { id } });
   }
 
   // ─── POLICY DOCUMENTS ─────────────────────────────────────────
 
-  async getPolicies(propertyId: string) {
+  async getPolicies(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     return this.prisma.policyDocument.findMany({
       where: { propertyId, isActive: true },
       include: { _count: { select: { acknowledgements: true } } },
@@ -860,11 +1027,16 @@ export class HrService {
     });
   }
 
-  async createPolicy(dto: any) {
+  async createPolicy(dto: any, tenantId: string) {
+    await this.assertPropertyTenant(dto.propertyId, tenantId);
     return this.prisma.policyDocument.create({ data: { ...dto, effectiveDate: new Date(dto.effectiveDate) } });
   }
 
-  async acknowledgePolicy(policyId: string, employeeId: string) {
+  async acknowledgePolicy(policyId: string, employeeId: string, tenantId: string) {
+    await this.assertEmployeeTenant(employeeId, tenantId);
+    const policy = await this.prisma.policyDocument.findUnique({ where: { id: policyId }, select: { propertyId: true } });
+    if (!policy) throw new NotFoundException('Policy not found');
+    await this.assertPropertyTenant(policy.propertyId, tenantId);
     return this.prisma.policyAcknowledgement.upsert({
       where: { policyId_employeeId: { policyId, employeeId } },
       create: { policyId, employeeId },
@@ -874,7 +1046,8 @@ export class HrService {
 
   // ─── EMPLOYEE INCIDENTS (HEALTH & SAFETY) ────────────────────
 
-  async getEmployeeIncidents(propertyId: string, query: any = {}) {
+  async getEmployeeIncidents(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { employeeId } = query;
     const where: any = { propertyId };
     if (employeeId) where.employeeId = employeeId;
@@ -885,42 +1058,54 @@ export class HrService {
     });
   }
 
-  async createEmployeeIncident(dto: any) {
+  async createEmployeeIncident(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     return this.prisma.employeeIncident.create({ data: { ...dto, incidentDate: new Date(dto.incidentDate) } });
   }
 
-  async updateEmployeeIncident(id: string, dto: any) {
+  async updateEmployeeIncident(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.employeeIncident.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Incident not found');
     return this.prisma.employeeIncident.update({ where: { id }, data: dto });
   }
 
   // ─── BENEFITS ────────────────────────────────────────────────
 
-  async getEmployeeBenefits(employeeId: string) {
+  async getEmployeeBenefits(employeeId: string, tenantId: string) {
+    await this.assertEmployeeTenant(employeeId, tenantId);
     return this.prisma.employeeBenefit.findMany({ where: { employeeId }, orderBy: { benefitType: 'asc' } });
   }
 
-  async createEmployeeBenefit(dto: any) {
+  async createEmployeeBenefit(dto: any, tenantId: string) {
+    await this.assertEmployeeTenant(dto.employeeId, tenantId);
     return this.prisma.employeeBenefit.create({ data: { ...dto, startDate: new Date(dto.startDate) } });
   }
 
-  async updateEmployeeBenefit(id: string, dto: any) {
+  async updateEmployeeBenefit(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.employeeBenefit.findFirst({ where: { id, employee: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Benefit not found');
     return this.prisma.employeeBenefit.update({ where: { id }, data: dto });
   }
 
   // ─── HR APPROVAL REQUESTS ─────────────────────────────────────
 
-  async getHRApprovals(propertyId: string, query: any = {}) {
+  async getHRApprovals(propertyId: string, tenantId: string, query: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const { status } = query;
     const where: any = { propertyId };
     if (status) where.status = status;
     return this.prisma.hRApprovalRequest.findMany({ where, orderBy: { createdAt: 'desc' } });
   }
 
-  async createHRApproval(dto: any) {
+  async createHRApproval(dto: any, tenantId: string) {
+    await this.assertPropertyTenant(dto.propertyId, tenantId);
     return this.prisma.hRApprovalRequest.create({ data: dto });
   }
 
-  async decideHRApproval(id: string, dto: { status: 'APPROVED' | 'REJECTED'; notes?: string }) {
+  async decideHRApproval(id: string, dto: { status: 'APPROVED' | 'REJECTED'; notes?: string }, tenantId: string) {
+    const approval = await this.prisma.hRApprovalRequest.findUnique({ where: { id }, select: { propertyId: true } });
+    if (!approval) throw new NotFoundException('Approval request not found');
+    await this.assertPropertyTenant(approval.propertyId, tenantId);
     return this.prisma.hRApprovalRequest.update({
       where: { id },
       data: { ...dto, decidedAt: new Date() },
@@ -938,7 +1123,8 @@ export class HrService {
 
   // ─── HR REPORTS ───────────────────────────────────────────────
 
-  async getHRDashboardStats(propertyId: string) {
+  async getHRDashboardStats(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const [
       totalEmployees, activeEmployees, onLeave, suspended,
       pendingLeaves, pendingApprovals, openDisciplinaryCases,
@@ -972,57 +1158,12 @@ export class HrService {
     };
   }
 
-  async getHeadcountByDepartment(propertyId: string) {
+  async getHeadcountByDepartment(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     return this.prisma.employee.groupBy({
       by: ['departmentId'],
       where: { propertyId, status: 'ACTIVE' },
       _count: { id: true },
     });
-  }
-
-  // ─── SHIFT TYPE CONFIG ──────────────────────────────────────────
-
-  async getShiftTypes(propertyId: string) {
-    return this.prisma.shiftTypeConfig.findMany({
-      where: { propertyId, isActive: true },
-      orderBy: { name: 'asc' },
-    });
-  }
-
-  async createShiftType(dto: { propertyId: string; name: string; label: string; startTime: string; endTime: string; breakMinutes?: number; color?: string }) {
-    const name = dto.name.toUpperCase().replace(/\s+/g, '_');
-    return this.prisma.shiftTypeConfig.create({ data: { ...dto, name, breakMinutes: dto.breakMinutes ?? 0 } });
-  }
-
-  async updateShiftType(id: string, dto: Partial<{ name: string; label: string; startTime: string; endTime: string; breakMinutes: number; color: string; isActive: boolean }>) {
-    if (dto.name) dto.name = dto.name.toUpperCase().replace(/\s+/g, '_');
-    return this.prisma.shiftTypeConfig.update({ where: { id }, data: dto });
-  }
-
-  async deleteShiftType(id: string, tenantId: string) {
-    const config = await this.prisma.shiftTypeConfig.findFirst({ where: { id, property: { tenantId } } });
-    if (!config) throw new NotFoundException('Shift type not found');
-    const inUse = await this.prisma.shiftRoster.count({ where: { propertyId: config.propertyId, shiftType: config.name } });
-    if (inUse > 0) throw new BadRequestException(`Cannot delete: ${inUse} roster entr${inUse === 1 ? 'y' : 'ies'} use this shift type`);
-    return this.prisma.shiftTypeConfig.delete({ where: { id } });
-  }
-
-  async getPayrollSummary(propertyId: string, period: string) {
-    const periodStartDate = new Date(`${period}-01`);
-    const nextMonth = new Date(periodStartDate);
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    const records = await this.prisma.payrollRecord.findMany({
-      where: { employee: { propertyId }, periodStart: { gte: periodStartDate, lt: nextMonth } },
-      include: { employee: { select: { firstName: true, lastName: true, departmentId: true } } },
-    });
-    const total = records.reduce((s, r) => ({
-      baseSalary: s.baseSalary + Number(r.baseSalary),
-      allowances: s.allowances + Number(r.allowances),
-      overtime: s.overtime + Number(r.overtime),
-      deductions: s.deductions + Number(r.deductions),
-      tax: s.tax + Number(r.tax),
-      netPay: s.netPay + Number(r.netPay),
-    }), { baseSalary: 0, allowances: 0, overtime: 0, deductions: 0, tax: 0, netPay: 0 });
-    return { records, summary: total };
   }
 }
