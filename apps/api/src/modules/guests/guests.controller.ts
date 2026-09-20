@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { GuestsService } from './guests.service';
+import { CreateGuestDto, UpdateGuestDto, GuestQueryDto, RevealIdentityDto } from './dto/guests.dto';
 
 @ApiTags('guests')
 @ApiBearerAuth()
@@ -24,7 +25,7 @@ export class GuestsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'List guests with search and filters' })
-  findAll(@Query() query: any, @Request() req: any) {
+  findAll(@Query() query: GuestQueryDto, @Request() req: any) {
     return this.service.findAll(req.user.tenantId, query, req.user.role);
   }
 
@@ -40,7 +41,7 @@ export class GuestsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Create guest profile' })
-  create(@Body() dto: any, @Request() req: any) {
+  create(@Body() dto: CreateGuestDto, @Request() req: any) {
     return this.service.create({ ...dto, tenantId: req.user.tenantId });
   }
 
@@ -48,7 +49,7 @@ export class GuestsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Update guest profile' })
-  update(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+  update(@Param('id') id: string, @Body() dto: UpdateGuestDto, @Request() req: any) {
     return this.service.update(id, dto, req.user.tenantId);
   }
 
@@ -58,7 +59,7 @@ export class GuestsController {
   @ApiOperation({ summary: 'Reveal confidential guest identity (creates audit log)' })
   revealIdentity(
     @Param('id') id: string,
-    @Body() body: { reason?: string },
+    @Body() body: RevealIdentityDto,
     @Request() req: any,
   ) {
     // x-forwarded-for may be a comma-separated proxy chain; take leftmost (real client IP)

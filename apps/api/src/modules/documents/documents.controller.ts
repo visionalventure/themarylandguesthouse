@@ -11,6 +11,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { DocumentsService } from './documents.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { memoryStorage } from 'multer';
+import { DocumentQueryDto, CreateDocumentDto, UpdateDocumentDto, CreateDocumentCategoryDto } from './dto/documents.dto';
 
 @ApiTags('documents')
 @ApiBearerAuth()
@@ -25,7 +26,7 @@ export class DocumentsController {
 
   @Get()
   @ApiOperation({ summary: 'List documents with category/search filter' })
-  getDocuments(@Query() query: any, @Request() req: any) {
+  getDocuments(@Query() query: DocumentQueryDto, @Request() req: any) {
     return this.service.getDocuments(req.user.tenantId, query);
   }
 
@@ -33,8 +34,8 @@ export class DocumentsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Get compliance report for expiry tracking' })
-  getCompliance(@Query('propertyId') propertyId: string) {
-    return this.service.getComplianceReport(propertyId);
+  getCompliance(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getComplianceReport(propertyId, req.user.tenantId);
   }
 
   @Post('upload')
@@ -57,16 +58,16 @@ export class DocumentsController {
 
   @Get('categories')
   @ApiOperation({ summary: 'List custom document categories for a property' })
-  getCategories(@Query('propertyId') propertyId: string) {
-    return this.service.getCustomCategories(propertyId);
+  getCategories(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getCustomCategories(propertyId, req.user.tenantId);
   }
 
   @Post('categories')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create custom document category (admin)' })
-  createCategory(@Body() dto: any) {
-    return this.service.createCustomCategory(dto);
+  createCategory(@Body() dto: CreateDocumentCategoryDto, @Request() req: any) {
+    return this.service.createCustomCategory(dto, req.user.tenantId);
   }
 
   @Delete('categories/:id')
@@ -81,15 +82,15 @@ export class DocumentsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create document record' })
-  createDocument(@Body() dto: any, @Request() req: any) {
-    return this.service.createDocument(dto, req.user?.sub);
+  createDocument(@Body() dto: CreateDocumentDto, @Request() req: any) {
+    return this.service.createDocument(dto, req.user.sub, req.user.tenantId);
   }
 
   @Put(':id')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update document metadata / upload new version' })
-  updateDocument(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+  updateDocument(@Param('id') id: string, @Body() dto: UpdateDocumentDto, @Request() req: any) {
     return this.service.updateDocument(id, dto, req.user.tenantId);
   }
 

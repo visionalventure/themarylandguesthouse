@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { FolioService } from './folio.service';
+import { PostChargeDto, CollectPaymentDto, ApplyDiscountDto } from './dto/folio.dto';
 
 @ApiTags('folio')
 @ApiBearerAuth()
@@ -24,7 +25,7 @@ export class FolioController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Post a charge to the folio' })
-  postCharge(@Param('reservationId') reservationId: string, @Body() dto: any, @Request() req: any) {
+  postCharge(@Param('reservationId') reservationId: string, @Body() dto: PostChargeDto, @Request() req: any) {
     return this.service.postCharge(reservationId, dto, req.user.tenantId);
   }
 
@@ -46,7 +47,7 @@ export class FolioController {
   @ApiOperation({ summary: 'Collect a payment — auto-generates receipt and journal entry' })
   collectPayment(
     @Param('reservationId') reservationId: string,
-    @Body() dto: any,
+    @Body() dto: CollectPaymentDto,
     @Request() req: any,
   ) {
     return this.service.collectPayment(reservationId, { ...dto, tenantId: req.user.tenantId }, req.user.sub, req.user.tenantId);
@@ -70,7 +71,7 @@ export class FolioController {
   @ApiOperation({ summary: 'Apply a discount to a reservation folio' })
   applyDiscount(
     @Param('reservationId') reservationId: string,
-    @Body() dto: { discountType: 'PERCENTAGE' | 'FIXED'; value: number; reason?: string },
+    @Body() dto: ApplyDiscountDto,
     @Request() req: any,
   ) {
     return this.service.applyDiscount(reservationId, dto, req.user.tenantId);

@@ -34,7 +34,9 @@ export class DocumentsService {
     return { data, total };
   }
 
-  async getComplianceReport(propertyId: string) {
+  async getComplianceReport(propertyId: string, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new NotFoundException('Property not found');
     const now = new Date();
     const in30 = addDays(now, 30);
     const in90 = addDays(now, 90);
@@ -64,8 +66,11 @@ export class DocumentsService {
     return { total, withExpiry, expired, expiring30, expiring90, validCount, complianceScore };
   }
 
-  async createDocument(dto: any, uploadedById?: string) {
-    const tenantId = dto.tenantId || dto.propertyId;
+  async createDocument(dto: any, uploadedById: string, tenantId: string) {
+    if (dto.propertyId) {
+      const property = await this.prisma.property.findFirst({ where: { id: dto.propertyId, tenantId }, select: { id: true } });
+      if (!property) throw new NotFoundException('Property not found');
+    }
     return this.prisma.document.create({
       data: {
         tenantId,
@@ -79,7 +84,7 @@ export class DocumentsService {
         fileSize: dto.fileSize || 0,
         mimeType: dto.mimeType || 'application/octet-stream',
         tags: dto.tags || [],
-        uploadedById: uploadedById || dto.uploadedById,
+        uploadedById,
         expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
         version: 1,
       },
@@ -139,14 +144,18 @@ export class DocumentsService {
   }
 
   // ── Custom Categories ─────────────────────────────────────
-  async getCustomCategories(propertyId: string) {
+  async getCustomCategories(propertyId: string, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new NotFoundException('Property not found');
     return this.prisma.documentCustomCategory.findMany({
       where: { propertyId },
       orderBy: { name: 'asc' },
     });
   }
 
-  async createCustomCategory(dto: { propertyId: string; name: string; color?: string }) {
+  async createCustomCategory(dto: { propertyId: string; name: string; color?: string }, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: dto.propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new NotFoundException('Property not found');
     return this.prisma.documentCustomCategory.create({
       data: { propertyId: dto.propertyId, name: dto.name.toUpperCase(), color: dto.color || 'slate' },
     });

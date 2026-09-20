@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { NightAuditService } from './nightaudit.service';
+import { RunAuditDto } from './dto/nightaudit.dto';
 
 @ApiTags('night-audit')
 @ApiBearerAuth()
@@ -16,7 +17,7 @@ export class NightAuditController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Preview night audit — returns expected summary without posting any charges' })
-  previewAudit(@Body() dto: { propertyId: string; auditDate: string }, @Request() req: any) {
+  previewAudit(@Body() dto: RunAuditDto, @Request() req: any) {
     return this.service.previewAudit(dto.propertyId, dto.auditDate, req.user.tenantId);
   }
 
@@ -24,7 +25,7 @@ export class NightAuditController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Run night audit for a given date — posts nightly charges, marks no-shows' })
-  runAudit(@Body() dto: { propertyId: string; auditDate: string }, @Request() req: any) {
+  runAudit(@Body() dto: RunAuditDto, @Request() req: any) {
     return this.service.runAudit(dto.propertyId, dto.auditDate, req.user.sub, req.user.tenantId);
   }
 

@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { PropertiesService } from './properties.service';
+import { CreatePropertyDto, UpdatePropertyDto } from './dto/properties.dto';
 
 @ApiTags('properties')
 @ApiBearerAuth()
@@ -28,7 +29,7 @@ export class PropertiesController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Create new property' })
-  create(@Body() dto: any, @Request() req: any) {
+  create(@Body() dto: CreatePropertyDto, @Request() req: any) {
     return this.service.create({ ...dto, tenantId: req.user.tenantId });
   }
 
@@ -36,7 +37,7 @@ export class PropertiesController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Update property' })
-  update(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+  update(@Param('id') id: string, @Body() dto: UpdatePropertyDto, @Request() req: any) {
     return this.service.update(id, dto, req.user.tenantId);
   }
 }
