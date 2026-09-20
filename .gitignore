@@ -26,6 +26,9 @@ yarn-error.log*
 # Turbo
 .turbo
 
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # Database
 *.sqlite
 *.sqlite3
