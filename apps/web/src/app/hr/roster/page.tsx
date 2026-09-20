@@ -100,7 +100,10 @@ export default function RosterPage() {
   });
 
   const addMutation = useMutation({
-    mutationFn: () => hrApi.upsertShift({ ...form, propertyId, endDate: form.endDate || form.startDate }),
+    mutationFn: () => {
+      const { startDate, endDate, ...rest } = form;
+      return hrApi.upsertShift({ ...rest, propertyId, shiftDate: startDate });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roster'] });
       toast({ title: 'Shift assigned' });

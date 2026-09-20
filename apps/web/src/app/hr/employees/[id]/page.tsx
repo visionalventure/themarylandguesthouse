@@ -673,11 +673,6 @@ function OnboardingUpdateButton({ employeeId, checklist, onSuccess }: any) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ ...checklist });
 
-  const mutation = useMutation({
-    mutationFn: () => hrApi.updateOnboarding(employeeId, form),
-    onSuccess: () => { toast({ title: 'Onboarding updated' }); setOpen(false); onSuccess(); },
-  });
-
   const fields: [string, string][] = [
     ['contractUploaded', 'Contract Uploaded'],
     ['idCaptured', 'ID / Documentation Captured'],
@@ -689,6 +684,14 @@ function OnboardingUpdateButton({ employeeId, checklist, onSuccess }: any) {
     ['orientationDone', 'Orientation Completed'],
     ['policyAcknowledged', 'Policy Acknowledgement Signed'],
   ];
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      const payload = Object.fromEntries(fields.map(([key]) => [key, !!form[key]]));
+      return hrApi.updateOnboarding(employeeId, payload);
+    },
+    onSuccess: () => { toast({ title: 'Onboarding updated' }); setOpen(false); onSuccess(); },
+  });
 
   return (
     <>
