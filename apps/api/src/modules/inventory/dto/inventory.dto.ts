@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNumber, IsInt, IsDateString, Min, IsPositive, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsInt, IsBoolean, IsDateString, Min, IsPositive, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class InventoryQueryDto {
@@ -26,6 +26,7 @@ export class CreateInventoryItemDto {
   @ApiPropertyOptional() @IsOptional() @IsString() location?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() supplierId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() barcode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() expiryTracking?: boolean;
 }
 
 export class StockInDto {

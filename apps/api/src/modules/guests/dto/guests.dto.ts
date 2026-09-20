@@ -13,6 +13,7 @@ export enum GuestPrivacyTypeEnum {
 }
 
 export class CreateGuestDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() propertyId?: string;
   @ApiProperty() @IsString() @MaxLength(100) firstName: string;
   @ApiProperty() @IsString() @MaxLength(100) lastName: string;
   @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;

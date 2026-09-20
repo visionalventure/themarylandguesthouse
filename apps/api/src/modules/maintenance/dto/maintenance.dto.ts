@@ -35,6 +35,8 @@ export class WorkOrderQueryDto {
 }
 
 export class CreateWorkOrderDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() tenantId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() propertyId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() assetId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() roomId?: string;
   @ApiProperty() @IsString() @MaxLength(255) title: string;
