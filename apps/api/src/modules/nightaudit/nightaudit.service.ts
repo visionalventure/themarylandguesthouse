@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { startOfDay, endOfDay, addDays, format } from 'date-fns';
 
@@ -6,7 +6,13 @@ import { startOfDay, endOfDay, addDays, format } from 'date-fns';
 export class NightAuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async runAudit(propertyId: string, auditDateStr: string, runBy: string) {
+  private async assertPropertyInTenant(propertyId: string, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new NotFoundException('Property not found');
+  }
+
+  async runAudit(propertyId: string, auditDateStr: string, runBy: string, tenantId: string) {
+    await this.assertPropertyInTenant(propertyId, tenantId);
     const auditDate = new Date(auditDateStr);
     const dayStart = startOfDay(auditDate);
     const dayEnd = endOfDay(auditDate);
@@ -46,7 +52,7 @@ export class NightAuditService {
     });
 
     const taxRateRecord = await this.prisma.taxRate.findFirst({
-      where: { tenantId: propertyId, isActive: true },
+      where: { tenantId, isActive: true },
       orderBy: { createdAt: 'asc' },
     });
     const taxRate = taxRateRecord ? Number(taxRateRecord.rate) : 0;
@@ -127,7 +133,8 @@ export class NightAuditService {
     };
   }
 
-  async previewAudit(propertyId: string, auditDateStr: string) {
+  async previewAudit(propertyId: string, auditDateStr: string, tenantId: string) {
+    await this.assertPropertyInTenant(propertyId, tenantId);
     const auditDate = new Date(auditDateStr);
     const dayStart = startOfDay(auditDate);
     const dayEnd = endOfDay(auditDate);
@@ -179,22 +186,26 @@ export class NightAuditService {
     };
   }
 
-  async closeAudit(id: string) {
+  async closeAudit(id: string, tenantId: string) {
+    const existing = await this.prisma.nightAudit.findFirst({ where: { id, property: { tenantId } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Night audit not found');
     return this.prisma.nightAudit.update({
       where: { id },
       data: { status: 'CLOSED', closedAt: new Date() },
     });
   }
 
-  async getHistory(propertyId: string) {
+  async getHistory(propertyId: string, tenantId: string) {
     return this.prisma.nightAudit.findMany({
-      where: { propertyId },
+      where: { propertyId, property: { tenantId } },
       orderBy: { auditDate: 'desc' },
       take: 30,
     });
   }
 
-  async getAudit(id: string) {
-    return this.prisma.nightAudit.findUnique({ where: { id } });
+  async getAudit(id: string, tenantId: string) {
+    const audit = await this.prisma.nightAudit.findFirst({ where: { id, property: { tenantId } } });
+    if (!audit) throw new NotFoundException('Night audit not found');
+    return audit;
   }
 }

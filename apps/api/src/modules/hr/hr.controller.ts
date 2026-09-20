@@ -107,7 +107,7 @@ export class HrController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
   editAttendance(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
-    return this.service.editAttendance(id, dto, req.user.sub);
+    return this.service.editAttendance(id, dto, req.user.sub, req.user.tenantId);
   }
 
   // ─── LEAVE ───────────────────────────────────────────────────
@@ -222,22 +222,22 @@ export class HrController {
   @Patch('payroll/:id')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
-  updatePayrollRecord(@Param('id') id: string, @Body() dto: any) {
-    return this.service.updatePayrollRecord(id, dto);
+  updatePayrollRecord(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.updatePayrollRecord(id, dto, req.user.tenantId);
   }
 
   @Patch('payroll/:id/approve')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
-  approvePayroll(@Param('id') id: string) {
-    return this.service.approvePayrollRecord(id);
+  approvePayroll(@Param('id') id: string, @Request() req: any) {
+    return this.service.approvePayrollRecord(id, req.user.tenantId);
   }
 
   @Patch('payroll/:id/mark-paid')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
-  markPayrollPaid(@Param('id') id: string) {
-    return this.service.markPayrollPaid(id);
+  markPayrollPaid(@Param('id') id: string, @Request() req: any) {
+    return this.service.markPayrollPaid(id, req.user.tenantId);
   }
 
   @Get('payroll/summary')

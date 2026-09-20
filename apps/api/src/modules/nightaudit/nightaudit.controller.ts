@@ -16,8 +16,8 @@ export class NightAuditController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Preview night audit — returns expected summary without posting any charges' })
-  previewAudit(@Body() dto: { propertyId: string; auditDate: string }) {
-    return this.service.previewAudit(dto.propertyId, dto.auditDate);
+  previewAudit(@Body() dto: { propertyId: string; auditDate: string }, @Request() req: any) {
+    return this.service.previewAudit(dto.propertyId, dto.auditDate, req.user.tenantId);
   }
 
   @Post('run')
@@ -25,30 +25,30 @@ export class NightAuditController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Run night audit for a given date — posts nightly charges, marks no-shows' })
   runAudit(@Body() dto: { propertyId: string; auditDate: string }, @Request() req: any) {
-    return this.service.runAudit(dto.propertyId, dto.auditDate, req.user.sub);
+    return this.service.runAudit(dto.propertyId, dto.auditDate, req.user.sub, req.user.tenantId);
   }
 
   @Get('history')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get audit history for a property' })
-  getHistory(@Query('propertyId') propertyId: string) {
-    return this.service.getHistory(propertyId);
+  getHistory(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getHistory(propertyId, req.user.tenantId);
   }
 
   @Get(':id')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get night audit details' })
-  getAudit(@Param('id') id: string) {
-    return this.service.getAudit(id);
+  getAudit(@Param('id') id: string, @Request() req: any) {
+    return this.service.getAudit(id, req.user.tenantId);
   }
 
   @Patch(':id/close')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Close the night audit' })
-  closeAudit(@Param('id') id: string) {
-    return this.service.closeAudit(id);
+  closeAudit(@Param('id') id: string, @Request() req: any) {
+    return this.service.closeAudit(id, req.user.tenantId);
   }
 }

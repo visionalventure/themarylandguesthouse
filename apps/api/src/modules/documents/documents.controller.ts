@@ -25,8 +25,8 @@ export class DocumentsController {
 
   @Get()
   @ApiOperation({ summary: 'List documents with category/search filter' })
-  getDocuments(@Query() query: any) {
-    return this.service.getDocuments(query.tenantId || query.propertyId, query);
+  getDocuments(@Query() query: any, @Request() req: any) {
+    return this.service.getDocuments(req.user.tenantId, query);
   }
 
   @Get('compliance')
@@ -73,8 +73,8 @@ export class DocumentsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Delete custom document category' })
-  deleteCategory(@Param('id') id: string) {
-    return this.service.deleteCustomCategory(id);
+  deleteCategory(@Param('id') id: string, @Request() req: any) {
+    return this.service.deleteCustomCategory(id, req.user.tenantId);
   }
 
   @Post()
@@ -89,16 +89,16 @@ export class DocumentsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update document metadata / upload new version' })
-  updateDocument(@Param('id') id: string, @Body() dto: any) {
-    return this.service.updateDocument(id, dto);
+  updateDocument(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.updateDocument(id, dto, req.user.tenantId);
   }
 
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Delete document' })
-  async deleteDocument(@Param('id') id: string) {
-    const { fileUrl, versionUrls } = await this.service.deleteDocument(id);
+  async deleteDocument(@Param('id') id: string, @Request() req: any) {
+    const { fileUrl, versionUrls } = await this.service.deleteDocument(id, req.user.tenantId);
     await Promise.all([
       this.storage.delete(fileUrl),
       ...versionUrls.map((u) => this.storage.delete(u)),
@@ -108,7 +108,7 @@ export class DocumentsController {
 
   @Get(':id/versions')
   @ApiOperation({ summary: 'Get document version history' })
-  getVersions(@Param('id') id: string) {
-    return this.service.getVersions(id);
+  getVersions(@Param('id') id: string, @Request() req: any) {
+    return this.service.getVersions(id, req.user.tenantId);
   }
 }

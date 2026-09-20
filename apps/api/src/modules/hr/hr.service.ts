@@ -151,9 +151,9 @@ export class HrService {
     return { data, total, employee };
   }
 
-  async editAttendance(id: string, dto: any, editorUserId: string) {
+  async editAttendance(id: string, dto: any, editorUserId: string, tenantId: string) {
     if (!dto.reason?.trim()) throw new BadRequestException('Edit reason is required');
-    const existing = await this.prisma.attendance.findUnique({ where: { id } });
+    const existing = await this.prisma.attendance.findFirst({ where: { id, employee: { property: { tenantId } } } });
     if (!existing) throw new NotFoundException('Attendance record not found');
     const editEntry: any = { editedById: editorUserId, editedAt: new Date().toISOString(), reason: dto.reason, changes: {} };
     const { reason, ...updates } = dto;
@@ -360,12 +360,12 @@ export class HrService {
     return { generated: records.length, status: 'DRAFT' };
   }
 
-  async updatePayrollRecord(id: string, dto: any) {
+  async updatePayrollRecord(id: string, dto: any, tenantId: string) {
     const allowed = ['allowances','overtime','deductions','tax','notes','status','paymentMethod','paidAt'];
     const data: any = {};
     for (const key of allowed) { if (key in dto) data[key] = dto[key]; }
     // Recalculate netPay
-    const record = await this.prisma.payrollRecord.findUnique({ where: { id } });
+    const record = await this.prisma.payrollRecord.findFirst({ where: { id, employee: { property: { tenantId } } } });
     if (!record) throw new NotFoundException('Payroll record not found');
     const baseSalary = Number(record.baseSalary);
     const allowances = Number(data.allowances ?? record.allowances);
@@ -376,15 +376,15 @@ export class HrService {
     return this.prisma.payrollRecord.update({ where: { id }, data });
   }
 
-  async approvePayrollRecord(id: string) {
-    const record = await this.prisma.payrollRecord.findUnique({ where: { id } });
+  async approvePayrollRecord(id: string, tenantId: string) {
+    const record = await this.prisma.payrollRecord.findFirst({ where: { id, employee: { property: { tenantId } } } });
     if (!record) throw new NotFoundException('Payroll record not found');
     if (record.status !== 'DRAFT') throw new BadRequestException('Only DRAFT records can be approved');
     return this.prisma.payrollRecord.update({ where: { id }, data: { status: 'APPROVED' } });
   }
 
-  async markPayrollPaid(id: string) {
-    const record = await this.prisma.payrollRecord.findUnique({ where: { id } });
+  async markPayrollPaid(id: string, tenantId: string) {
+    const record = await this.prisma.payrollRecord.findFirst({ where: { id, employee: { property: { tenantId } } } });
     if (!record) throw new NotFoundException('Payroll record not found');
     if (record.status !== 'APPROVED') throw new BadRequestException('Only APPROVED records can be marked paid');
     return this.prisma.payrollRecord.update({ where: { id }, data: { status: 'PAID', paidAt: new Date() } });

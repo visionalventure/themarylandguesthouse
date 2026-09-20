@@ -11,11 +11,11 @@ export class HousekeepingService {
     private notifications: NotificationsService,
   ) {}
 
-  async getTasks(propertyId: string, query: any = {}) {
+  async getTasks(propertyId: string, tenantId: string, query: any = {}) {
     const { status, roomId, assignedToId, date, page = 1, limit = 50 } = query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const where: any = { propertyId };
+    const where: any = { propertyId, property: { tenantId } };
     if (status) where.status = status;
     if (roomId) where.roomId = roomId;
     if (assignedToId) where.assignedToId = assignedToId;
@@ -43,7 +43,9 @@ export class HousekeepingService {
     return { data, total };
   }
 
-  async createTask(dto: any) {
+  async createTask(dto: any, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: dto.propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new BadRequestException('Invalid propertyId');
     const task = await this.prisma.housekeepingTask.create({
       data: {
         ...dto,
@@ -70,9 +72,9 @@ export class HousekeepingService {
     return task;
   }
 
-  async updateTask(id: string, dto: any) {
-    const task = await this.prisma.housekeepingTask.findUnique({
-      where: { id },
+  async updateTask(id: string, dto: any, tenantId: string) {
+    const task = await this.prisma.housekeepingTask.findFirst({
+      where: { id, property: { tenantId } },
       include: {
         room: { select: { roomNumber: true } },
         property: { select: { tenantId: true } },
@@ -127,7 +129,7 @@ export class HousekeepingService {
     return updated;
   }
 
-  async getDailySchedule(propertyId: string, date?: string) {
+  async getDailySchedule(propertyId: string, tenantId: string, date?: string) {
     const d = date ? new Date(date) : new Date();
     d.setHours(0, 0, 0, 0);
     const next = new Date(d);
@@ -136,6 +138,7 @@ export class HousekeepingService {
     const tasks = await this.prisma.housekeepingTask.findMany({
       where: {
         propertyId,
+        property: { tenantId },
         OR: [
           { scheduledAt: { gte: d, lt: next } },
           { scheduledAt: null, createdAt: { gte: d, lt: next } },
@@ -160,9 +163,9 @@ export class HousekeepingService {
       .map(([floor, floorTasks]) => ({ floor, tasks: floorTasks }));
   }
 
-  async getRoomsStatus(propertyId: string) {
+  async getRoomsStatus(propertyId: string, tenantId: string) {
     const rooms = await this.prisma.room.findMany({
-      where: { propertyId },
+      where: { propertyId, property: { tenantId } },
       orderBy: [{ floor: 'asc' }, { roomNumber: 'asc' }],
       include: {
         category: { select: { name: true } },

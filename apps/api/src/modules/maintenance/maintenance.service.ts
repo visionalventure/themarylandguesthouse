@@ -10,11 +10,11 @@ export class MaintenanceService {
     return `WO-${Date.now()}-${(count + 1).toString().padStart(4, '0')}`;
   }
 
-  async getWorkOrders(propertyId: string, query: any = {}) {
+  async getWorkOrders(tenantId: string, query: any = {}) {
     const { status, priority, roomId, page = 1, limit = 20 } = query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const where: any = { tenantId: propertyId }; // using propertyId as tenantId fallback
+    const where: any = { tenantId };
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (roomId) where.roomId = roomId;
@@ -53,8 +53,8 @@ export class MaintenanceService {
     });
   }
 
-  async updateWorkOrder(id: string, dto: any) {
-    const wo = await this.prisma.workOrder.findUnique({ where: { id } });
+  async updateWorkOrder(id: string, dto: any, tenantId: string) {
+    const wo = await this.prisma.workOrder.findFirst({ where: { id, tenantId } });
     if (!wo) throw new NotFoundException('Work order not found');
 
     const data: any = { ...dto };
@@ -79,10 +79,10 @@ export class MaintenanceService {
     });
   }
 
-  async getAssets(propertyId: string, query: any = {}) {
+  async getAssets(propertyId: string, tenantId: string, query: any = {}) {
     const { category, status, page = 1, limit = 50 } = query;
     const skip = (Number(page) - 1) * Number(limit);
-    const where: any = { propertyId };
+    const where: any = { propertyId, property: { tenantId } };
     if (category) where.category = category;
     if (status) where.status = status;
 
@@ -98,8 +98,10 @@ export class MaintenanceService {
     return { data, total };
   }
 
-  async createAsset(dto: any) {
+  async createAsset(dto: any, tenantId: string) {
     if (!dto.propertyId) throw new BadRequestException('propertyId is required');
+    const property = await this.prisma.property.findFirst({ where: { id: dto.propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new BadRequestException('Invalid propertyId');
     const sanitized = { ...dto };
     for (const key of ['brand', 'model', 'serialNumber', 'location', 'notes', 'imageUrl']) {
       if (sanitized[key] === '') sanitized[key] = undefined;
@@ -115,7 +117,9 @@ export class MaintenanceService {
     });
   }
 
-  async updateAsset(id: string, dto: any) {
+  async updateAsset(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.asset.findFirst({ where: { id, property: { tenantId } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Asset not found');
     return this.prisma.asset.update({
       where: { id },
       data: {
@@ -125,9 +129,9 @@ export class MaintenanceService {
     });
   }
 
-  async getSchedule(propertyId: string) {
+  async getSchedule(propertyId: string, tenantId: string) {
     return this.prisma.maintenanceSchedule.findMany({
-      where: { propertyId } as any,
+      where: { asset: { propertyId, property: { tenantId } } } as any,
       orderBy: { nextDueDate: 'asc' } as any,
       take: 50,
     });

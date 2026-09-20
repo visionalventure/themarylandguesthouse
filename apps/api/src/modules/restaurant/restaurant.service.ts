@@ -5,16 +5,26 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 export class RestaurantService {
   constructor(private prisma: PrismaService) {}
 
-  async getRestaurants(propertyId: string) {
+  async getRestaurants(propertyId: string, tenantId: string) {
     return this.prisma.restaurant.findMany({
-      where: { propertyId, isActive: true },
+      where: { propertyId, isActive: true, property: { tenantId } },
       include: {
         _count: { select: { tables: true, orders: true } },
       },
     });
   }
 
-  async getTables(restaurantId: string) {
+  private async assertRestaurantInTenant(restaurantId: string, tenantId: string) {
+    const restaurant = await this.prisma.restaurant.findFirst({
+      where: { id: restaurantId, property: { tenantId } },
+      select: { id: true, propertyId: true },
+    });
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+    return restaurant;
+  }
+
+  async getTables(restaurantId: string, tenantId: string) {
+    await this.assertRestaurantInTenant(restaurantId, tenantId);
     return this.prisma.restaurantTable.findMany({
       where: { restaurantId },
       orderBy: { tableNumber: 'asc' },
@@ -29,13 +39,14 @@ export class RestaurantService {
     });
   }
 
-  async getMenu(restaurantId: string) {
+  async getMenu(restaurantId: string, tenantId: string) {
+    await this.assertRestaurantInTenant(restaurantId, tenantId);
     const categories = await this.prisma.menuCategory.findMany({
-      where: { restaurantId } as any,
+      where: { tenantId } as any,
       orderBy: { name: 'asc' },
       include: {
-        menuItems: {
-          where: { isAvailable: true },
+        items: {
+          where: { isAvailable: true, restaurantId },
           orderBy: { name: 'asc' },
         },
       } as any,
@@ -50,17 +61,24 @@ export class RestaurantService {
     return { categories, uncategorised };
   }
 
-  async createMenuItem(restaurantId: string, dto: any) {
+  async createMenuItem(restaurantId: string, dto: any, tenantId: string) {
+    await this.assertRestaurantInTenant(restaurantId, tenantId);
     return this.prisma.menuItem.create({
       data: { ...dto, restaurantId },
     });
   }
 
-  async updateMenuItem(id: string, dto: any) {
+  async updateMenuItem(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.menuItem.findFirst({
+      where: { id, restaurant: { property: { tenantId } } },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException('Menu item not found');
     return this.prisma.menuItem.update({ where: { id }, data: dto });
   }
 
-  async getOrders(restaurantId: string, query: any = {}) {
+  async getOrders(restaurantId: string, tenantId: string, query: any = {}) {
+    await this.assertRestaurantInTenant(restaurantId, tenantId);
     const { status, tableId, page = 1, limit = 50 } = query;
     const skip = (Number(page) - 1) * Number(limit);
     const where: any = { restaurantId };
@@ -86,7 +104,8 @@ export class RestaurantService {
     return { data, total };
   }
 
-  async createOrder(restaurantId: string, dto: any) {
+  async createOrder(restaurantId: string, dto: any, tenantId: string) {
+    const restaurant = await this.assertRestaurantInTenant(restaurantId, tenantId);
     const { tableId, items, guestName, roomNumber, notes, orderType } = dto;
 
     const orderNumber = `ORD-${Date.now()}`;
@@ -95,7 +114,7 @@ export class RestaurantService {
     // Resolve prices
     const resolvedItems = await Promise.all(
       (items || []).map(async (item: any) => {
-        const menuItem = await this.prisma.menuItem.findUnique({ where: { id: item.menuItemId } });
+        const menuItem = await this.prisma.menuItem.findFirst({ where: { id: item.menuItemId, restaurantId } });
         if (!menuItem) throw new NotFoundException(`Menu item ${item.menuItemId} not found`);
         const unitPrice = Number(menuItem.price);
         const totalPrice = unitPrice * item.quantity;
@@ -104,13 +123,15 @@ export class RestaurantService {
       }),
     );
 
-    const restaurant = await this.prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { propertyId: true } });
-    const taxRateRecord = restaurant
-      ? await this.prisma.taxRate.findFirst({ where: { tenantId: restaurant.propertyId, isActive: true }, orderBy: { createdAt: 'asc' } })
-      : null;
+    const taxRateRecord = await this.prisma.taxRate.findFirst({ where: { tenantId, isActive: true }, orderBy: { createdAt: 'asc' } });
     const taxRate = taxRateRecord ? Number(taxRateRecord.rate) / 100 : 0;
     const taxAmount = subtotal * taxRate;
     const totalAmount = subtotal + taxAmount;
+
+    if (tableId) {
+      const table = await this.prisma.restaurantTable.findFirst({ where: { id: tableId, restaurantId }, select: { id: true } });
+      if (!table) throw new NotFoundException('Table not found');
+    }
 
     const order = await this.prisma.restaurantOrder.create({
       data: {
@@ -143,8 +164,8 @@ export class RestaurantService {
     return order;
   }
 
-  async updateOrderStatus(id: string, status: string) {
-    const order = await this.prisma.restaurantOrder.findUnique({ where: { id } });
+  async updateOrderStatus(id: string, status: string, tenantId: string) {
+    const order = await this.prisma.restaurantOrder.findFirst({ where: { id, restaurant: { property: { tenantId } } } });
     if (!order) throw new NotFoundException('Order not found');
 
     const data: any = { status };
@@ -162,9 +183,11 @@ export class RestaurantService {
     return this.prisma.restaurantOrder.update({ where: { id }, data });
   }
 
-  async moveTable(orderId: string, newTableId: string) {
-    const order = await this.prisma.restaurantOrder.findUnique({ where: { id: orderId } });
+  async moveTable(orderId: string, newTableId: string, tenantId: string) {
+    const order = await this.prisma.restaurantOrder.findFirst({ where: { id: orderId, restaurant: { property: { tenantId } } } });
     if (!order) throw new NotFoundException('Order not found');
+    const newTable = await this.prisma.restaurantTable.findFirst({ where: { id: newTableId, restaurantId: order.restaurantId }, select: { id: true } });
+    if (!newTable) throw new NotFoundException('Table not found');
 
     return this.prisma.$transaction(async (tx) => {
       if (order.tableId && order.tableId !== newTableId) {
@@ -185,7 +208,8 @@ export class RestaurantService {
     });
   }
 
-  async getRevenue(restaurantId: string, params: any = {}) {
+  async getRevenue(restaurantId: string, tenantId: string, params: any = {}) {
+    await this.assertRestaurantInTenant(restaurantId, tenantId);
     const { startDate, endDate } = params;
     const where: any = { restaurantId, status: 'SERVED' };
     if (startDate) where.createdAt = { gte: new Date(startDate) };

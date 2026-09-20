@@ -86,8 +86,8 @@ export class DocumentsService {
     });
   }
 
-  async updateDocument(id: string, dto: any) {
-    const doc = await this.prisma.document.findUnique({ where: { id } });
+  async updateDocument(id: string, dto: any, tenantId: string) {
+    const doc = await this.prisma.document.findFirst({ where: { id, tenantId } });
     if (!doc) throw new NotFoundException('Document not found');
 
     await this.prisma.documentVersion.create({
@@ -120,8 +120,8 @@ export class DocumentsService {
     });
   }
 
-  async deleteDocument(id: string): Promise<{ fileUrl: string; versionUrls: string[] }> {
-    const doc = await this.prisma.document.findUnique({ where: { id } });
+  async deleteDocument(id: string, tenantId: string): Promise<{ fileUrl: string; versionUrls: string[] }> {
+    const doc = await this.prisma.document.findFirst({ where: { id, tenantId } });
     if (!doc) throw new NotFoundException('Document not found');
     const versions = await this.prisma.documentVersion.findMany({ where: { documentId: id }, select: { fileUrl: true } });
     await this.prisma.documentVersion.deleteMany({ where: { documentId: id } });
@@ -129,7 +129,9 @@ export class DocumentsService {
     return { fileUrl: doc.fileUrl, versionUrls: versions.map((v) => v.fileUrl) };
   }
 
-  async getVersions(id: string) {
+  async getVersions(id: string, tenantId: string) {
+    const doc = await this.prisma.document.findFirst({ where: { id, tenantId }, select: { id: true } });
+    if (!doc) throw new NotFoundException('Document not found');
     return this.prisma.documentVersion.findMany({
       where: { documentId: id },
       orderBy: { version: 'desc' } as any,
@@ -150,7 +152,12 @@ export class DocumentsService {
     });
   }
 
-  async deleteCustomCategory(id: string) {
+  async deleteCustomCategory(id: string, tenantId: string) {
+    const existing = await this.prisma.documentCustomCategory.findFirst({
+      where: { id, property: { tenantId } },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException('Category not found');
     return this.prisma.documentCustomCategory.delete({ where: { id } });
   }
 }
