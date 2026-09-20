@@ -14,6 +14,7 @@ export enum DocumentCategoryEnum {
 }
 
 export class DocumentQueryDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() propertyId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() category?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;

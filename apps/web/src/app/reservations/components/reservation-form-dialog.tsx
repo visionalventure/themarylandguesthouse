@@ -119,7 +119,7 @@ export function ReservationFormDialog({ open, onOpenChange, propertyId, initialD
         children:        Number(values.children),
         source:          values.source,
         status:          isEdit ? initialData.status : 'RESERVED',
-        totalAmount:     0,
+        ...(!isEdit && { totalAmount: 0 }),
         specialRequests: values.specialRequests,
         ...(!isEdit && { rooms: { create: [{ roomId: values.roomId }] } }),
         ...(!isEdit && values.depositAmount && Number(values.depositAmount) > 0 && {

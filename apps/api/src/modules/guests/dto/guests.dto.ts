@@ -3,7 +3,9 @@ import {
   IsString, IsOptional, IsEmail, IsBoolean, IsEnum, IsInt, IsDateString,
   MaxLength, Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+
+const emptyToUndefined = ({ value }: { value: unknown }) => (value === '' ? undefined : value);
 
 export enum GuestPrivacyTypeEnum {
   STANDARD = 'STANDARD',
@@ -16,7 +18,7 @@ export class CreateGuestDto {
   @ApiPropertyOptional() @IsOptional() @IsString() propertyId?: string;
   @ApiProperty() @IsString() @MaxLength(100) firstName: string;
   @ApiProperty() @IsString() @MaxLength(100) lastName: string;
-  @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
+  @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsEmail() email?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(30) phone?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(50) nationalId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(50) passportNumber?: string;
@@ -43,6 +45,8 @@ export class UpdateGuestDto extends PartialType(CreateGuestDto) {
 
 export class GuestQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() propertyId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() tenantId?: string;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() blacklisted?: string;

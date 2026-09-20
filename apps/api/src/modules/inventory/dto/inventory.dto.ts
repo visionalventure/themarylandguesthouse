@@ -7,6 +7,8 @@ export class InventoryQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() categoryId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() lowStock?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() sortBy?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() sortOrder?: string;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;
 }
@@ -14,6 +16,7 @@ export class InventoryQueryDto {
 export class CreateInventoryItemDto {
   @ApiProperty() @IsString() propertyId: string;
   @ApiProperty() @IsString() @MaxLength(150) name: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(50) sku?: string;
   @ApiProperty() @IsString() @MaxLength(20) unit: string;
   @ApiPropertyOptional() @IsOptional() @IsString() categoryId?: string;

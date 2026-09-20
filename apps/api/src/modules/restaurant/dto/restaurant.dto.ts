@@ -58,7 +58,9 @@ export class MoveTableDto {
 }
 
 export class OrdersQueryDto {
-  @ApiPropertyOptional() @IsOptional() @IsEnum(OrderStatusEnum) status?: OrderStatusEnum;
+  // Accepts either a single status or a comma-separated list (e.g. the live
+  // kitchen view polls for "PENDING,PREPARING,READY,SERVED" at once).
+  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() tableId?: string;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;

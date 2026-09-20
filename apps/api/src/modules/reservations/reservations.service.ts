@@ -170,9 +170,13 @@ export class ReservationsService {
   async update(id: string, dto: any, tenantId: string) {
     const existing = await this.prisma.reservation.findFirst({ where: { id, property: { tenantId } }, select: { id: true } });
     if (!existing) throw new NotFoundException('Reservation not found');
+    // totalAmount/rooms/deposit fields are computed at creation time or handled
+    // via dedicated endpoints (check-in/check-out/folio) — never accept them here,
+    // since a naive client-supplied value would silently overwrite the real total.
+    const { totalAmount, rooms, depositAmount, depositMethod, propertyId, ...data } = dto;
     return this.prisma.reservation.update({
       where: { id },
-      data: dto,
+      data,
       include: { guest: true, rooms: true },
     });
   }

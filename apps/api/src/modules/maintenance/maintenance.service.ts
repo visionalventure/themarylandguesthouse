@@ -57,7 +57,8 @@ export class MaintenanceService {
     const wo = await this.prisma.workOrder.findFirst({ where: { id, tenantId } });
     if (!wo) throw new NotFoundException('Work order not found');
 
-    const data: any = { ...dto };
+    const { propertyId: _p, ...rest } = dto;
+    const data: any = { ...rest };
     if (dto.status === 'IN_PROGRESS' && !wo.startedAt) data.startedAt = new Date();
     if (dto.status === 'COMPLETED') {
       data.completedAt = new Date();

@@ -3,7 +3,9 @@ import {
   IsString, IsOptional, IsEnum, IsInt, IsNumber, IsBoolean, IsArray,
   IsDateString, Min, MaxLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+
+const emptyToUndefined = ({ value }: { value: unknown }) => (value === '' ? undefined : value);
 
 export enum RoomStatusEnum {
   AVAILABLE = 'AVAILABLE',
@@ -33,6 +35,8 @@ export class RoomsQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsEnum(RoomStatusEnum) status?: RoomStatusEnum;
   @ApiPropertyOptional() @IsOptional() @IsEnum(RoomTypeEnum) type?: RoomTypeEnum;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() floor?: number;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;
 }
 
 export class AvailableRoomsQueryDto {
@@ -65,6 +69,7 @@ export class CreateRoomDto {
 }
 
 export class UpdateRoomDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() propertyId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() categoryId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(20) roomNumber?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() floor?: number;
@@ -83,8 +88,8 @@ export class UpdateRoomStatusDto {
 export class CreateRoomPricingDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100) name?: string;
   @ApiProperty() @IsNumber() pricePerNight: number;
-  @ApiPropertyOptional() @IsOptional() @IsDateString() startDate?: string;
-  @ApiPropertyOptional() @IsOptional() @IsDateString() endDate?: string;
+  @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsDateString() startDate?: string;
+  @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsDateString() endDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isDefault?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) minNights?: number;
 }

@@ -102,8 +102,8 @@ export class DocumentsService {
         fileUrl: doc.fileUrl,
         fileName: doc.fileName,
         fileSize: doc.fileSize,
-        changedById: dto.uploadedById,
-        changeNotes: dto.changeNotes,
+        uploadedById: dto.uploadedById,
+        notes: dto.changeNotes,
       } as any,
     });
 

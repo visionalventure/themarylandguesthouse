@@ -44,6 +44,7 @@ export class CreateWorkOrderDto {
   @ApiPropertyOptional() @IsOptional() @IsEnum(MaintenancePriorityEnum) priority?: MaintenancePriorityEnum;
   @ApiPropertyOptional() @IsOptional() @IsString() assignedToId?: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() scheduledDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) estimatedHours?: number;
 }
 
 export class UpdateWorkOrderDto extends PartialType(CreateWorkOrderDto) {

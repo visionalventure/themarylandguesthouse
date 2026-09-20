@@ -82,7 +82,10 @@ export class RestaurantService {
     const { status, tableId, page = 1, limit = 50 } = query;
     const skip = (Number(page) - 1) * Number(limit);
     const where: any = { restaurantId };
-    if (status) where.status = status;
+    if (status) {
+      const statuses = String(status).split(',').map((s: string) => s.trim()).filter(Boolean);
+      where.status = statuses.length > 1 ? { in: statuses } : statuses[0];
+    }
     if (tableId) where.tableId = tableId;
 
     const [data, total] = await Promise.all([

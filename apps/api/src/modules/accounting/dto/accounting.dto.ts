@@ -132,10 +132,16 @@ export class BudgetLineInputDto {
   @ApiProperty() @IsNumber() @Min(0) amount: number;
 }
 
+export enum BudgetPeriodEnum {
+  MONTHLY = 'MONTHLY',
+  QUARTERLY = 'QUARTERLY',
+  ANNUAL = 'ANNUAL',
+}
+
 export class CreateBudgetDto {
   @ApiProperty() @IsString() propertyId: string;
   @ApiProperty() @IsString() @MaxLength(150) name: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() period?: string;
+  @ApiProperty({ enum: BudgetPeriodEnum }) @IsEnum(BudgetPeriodEnum) period: BudgetPeriodEnum;
   @ApiProperty() @IsDateString() startDate: string;
   @ApiProperty() @IsDateString() endDate: string;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
