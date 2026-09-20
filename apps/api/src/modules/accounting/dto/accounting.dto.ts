@@ -110,7 +110,7 @@ export class InvoiceQueryDto {
 
 export class MarkInvoicePaidDto {
   @ApiProperty() @IsNumber() @Min(0) amount: number;
-  @ApiPropertyOptional() @IsOptional() @IsString() paymentMethod?: string;
+  @ApiPropertyOptional() @IsOptional() @IsEnum(PaymentMethodEnum) paymentMethod?: PaymentMethodEnum;
 }
 
 export class BankTransactionsQueryDto {

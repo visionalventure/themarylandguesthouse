@@ -413,9 +413,11 @@ export default function InvoicesPage() {
                 <SelectContent>
                   <SelectItem value="CASH">Cash</SelectItem>
                   <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                  <SelectItem value="CARD">Card</SelectItem>
+                  <SelectItem value="VISA">Visa</SelectItem>
+                  <SelectItem value="MASTERCARD">Mastercard</SelectItem>
                   <SelectItem value="CHECK">Check</SelectItem>
-                  <SelectItem value="MOBILE_MONEY">Mobile Money</SelectItem>
+                  <SelectItem value="ORANGE_MONEY">Orange Money</SelectItem>
+                  <SelectItem value="MTN_MOBILE_MONEY">MTN Mobile Money</SelectItem>
                 </SelectContent>
               </Select>
             </div>

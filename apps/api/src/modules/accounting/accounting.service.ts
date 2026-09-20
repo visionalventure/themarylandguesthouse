@@ -355,14 +355,34 @@ export class AccountingService {
     return updated;
   }
 
-  async markInvoicePaid(id: string, dto: { amount: number }, tenantId: string) {
+  async markInvoicePaid(id: string, dto: { amount: number; paymentMethod?: string }, tenantId: string) {
     const invoice = await this.prisma.invoice.findFirst({ where: { id, tenantId } });
     if (!invoice) throw new NotFoundException();
     const newPaid = Number(invoice.paidAmount) + Number(dto.amount);
     const status = newPaid >= Number(invoice.totalAmount) ? 'PAID' : 'PARTIALLY_PAID';
-    return this.prisma.invoice.update({
-      where: { id },
-      data: { paidAmount: newPaid, status, ...(status === 'PAID' ? { paidAt: new Date() } : {}) },
+
+    const year = new Date().getFullYear();
+    const count = await this.prisma.payment.count({ where: { receiptNumber: { startsWith: `RCP-${year}-` } } });
+    const receiptNumber = `RCP-${year}-${String(count + 1).padStart(6, '0')}`;
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.payment.create({
+        data: {
+          tenantId,
+          invoiceId: id,
+          guestId: invoice.guestId,
+          receiptNumber,
+          amount: Number(dto.amount),
+          method: (dto.paymentMethod ?? 'CASH') as any,
+          status: 'COMPLETED',
+          processedAt: new Date(),
+          notes: `Payment against invoice ${invoice.invoiceNumber}`,
+        },
+      });
+      return tx.invoice.update({
+        where: { id },
+        data: { paidAmount: newPaid, status, ...(status === 'PAID' ? { paidAt: new Date() } : {}) },
+      });
     });
   }
 
