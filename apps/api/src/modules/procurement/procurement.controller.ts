@@ -64,16 +64,16 @@ export class ProcurementController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'List purchase orders' })
-  getPurchaseOrders(@Query() query: any) {
-    return this.service.getPurchaseOrders(query.propertyId, query);
+  getPurchaseOrders(@Query() query: any, @Request() req: any) {
+    return this.service.getPurchaseOrders(query.propertyId, req.user.tenantId, query);
   }
 
   @Post('purchase-orders')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create purchase order' })
-  createPurchaseOrder(@Body() dto: any) {
-    return this.service.createPurchaseOrder(dto);
+  createPurchaseOrder(@Body() dto: any, @Request() req: any) {
+    return this.service.createPurchaseOrder(dto, req.user.tenantId);
   }
 
   @Patch('purchase-orders/:id')
@@ -88,8 +88,8 @@ export class ProcurementController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Record goods receipt against PO' })
-  createGoodsReceipt(@Body() dto: any) {
-    return this.service.createGoodsReceipt(dto);
+  createGoodsReceipt(@Body() dto: any, @Request() req: any) {
+    return this.service.createGoodsReceipt(dto, req.user.tenantId);
   }
 
   @Get('bills')

@@ -89,10 +89,10 @@ export class ProcurementService {
 
   // ── Purchase Orders ────────────────────────────────────────────────────────
 
-  async getPurchaseOrders(propertyId: string, query: any = {}) {
+  async getPurchaseOrders(propertyId: string, tenantId: string, query: any = {}) {
     const { status, supplierId, page = 1, limit = 20 } = query;
     const skip = (Number(page) - 1) * Number(limit);
-    const where: any = { propertyId };
+    const where: any = { propertyId, property: { tenantId } };
     if (status) where.status = status;
     if (supplierId) where.supplierId = supplierId;
 
@@ -109,7 +109,9 @@ export class ProcurementService {
     return { data, total };
   }
 
-  async createPurchaseOrder(dto: any) {
+  async createPurchaseOrder(dto: any, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: dto.propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new NotFoundException('Property not found');
     const count = await this.prisma.purchaseOrder.count({ where: { propertyId: dto.propertyId } });
     const poNumber = `PO-${Date.now()}-${(count + 1).toString().padStart(4, '0')}`;
     const { lineItems, ...rest } = dto;
@@ -221,8 +223,10 @@ export class ProcurementService {
     return `BILL-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
   }
 
-  async createGoodsReceipt(dto: any) {
+  async createGoodsReceipt(dto: any, tenantId: string) {
     const { purchaseOrderId, items, receivedById, notes } = dto;
+    const po = await this.prisma.purchaseOrder.findFirst({ where: { id: purchaseOrderId, property: { tenantId } }, select: { id: true } });
+    if (!po) throw new NotFoundException('Purchase order not found');
     return this.prisma.goodsReceipt.create({
       data: {
         purchaseOrderId,

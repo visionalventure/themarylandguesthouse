@@ -63,24 +63,28 @@ export class ReservationsService {
     return reservation;
   }
 
-  async create(dto: any, createdById: string) {
-    const reservationNo = await this.generateReservationNo(dto.propertyId);
+  async create(dto: any, createdById: string, tenantId: string) {
     const { checkIn, checkOut, propertyId, guestId, adults, children,
             source, status, totalAmount, specialRequests, notes,
-            depositAmount, depositMethod, tenantId } = dto;
+            depositAmount, depositMethod } = dto;
 
+    const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { name: true } });
+    if (!property) throw new NotFoundException('Property not found');
+    if (guestId) {
+      const guest = await this.prisma.guest.findFirst({ where: { id: guestId, tenantId }, select: { id: true } });
+      if (!guest) throw new NotFoundException('Guest not found');
+    }
+
+    const reservationNo = await this.generateReservationNo(propertyId);
     const totalNights = this.calculateNights(checkIn, checkOut);
 
     // Extract room IDs from the nested-write shape the frontend sends
     const roomIds: string[] = dto.rooms?.create?.map((r: any) => r.roomId).filter(Boolean) ?? [];
 
-    // Look up each room's base price from its category; fetch property name in parallel
-    const [roomRecords, property] = await Promise.all([
-      roomIds.length
-        ? this.prisma.room.findMany({ where: { id: { in: roomIds } }, include: { category: true } })
-        : Promise.resolve([]),
-      this.prisma.property.findUnique({ where: { id: propertyId }, select: { name: true } }),
-    ]);
+    // Look up each room's base price from its category, scoped to this property
+    const roomRecords = roomIds.length
+      ? await this.prisma.room.findMany({ where: { id: { in: roomIds }, propertyId }, include: { category: true } })
+      : [];
 
     const roomsCreate = roomRecords.map((room) => ({
       roomId: room.id,
@@ -121,7 +125,7 @@ export class ReservationsService {
         data: {
           reservationId: reservation.id,
           guestId,
-          tenantId: tenantId ?? null,
+          tenantId,
           receiptNumber,
           amount: Number(depositAmount),
           method: depositMethod,
@@ -134,19 +138,16 @@ export class ReservationsService {
     }
 
     // Fire notification for ADMIN/MANAGER
-    const notifTenantId = tenantId ?? propertyId;
-    if (notifTenantId) {
-      this.notificationsService
-        .createNotification({
-          tenantId: notifTenantId,
-          title: 'New Reservation',
-          body: `${reservation.guest ? `${reservation.guest.firstName} ${reservation.guest.lastName}` : 'Guest'} — ${reservation.reservationNo}, Check-in ${format(new Date(checkIn), 'dd MMM yyyy')}`,
-          type: 'INFO',
-          referenceId: reservation.id,
-          referenceType: 'RESERVATION',
-        })
-        .catch(() => {/* fire-and-forget */});
-    }
+    this.notificationsService
+      .createNotification({
+        tenantId,
+        title: 'New Reservation',
+        body: `${reservation.guest ? `${reservation.guest.firstName} ${reservation.guest.lastName}` : 'Guest'} — ${reservation.reservationNo}, Check-in ${format(new Date(checkIn), 'dd MMM yyyy')}`,
+        type: 'INFO',
+        referenceId: reservation.id,
+        referenceType: 'RESERVATION',
+      })
+      .catch(() => {/* fire-and-forget */});
 
     if (reservation.guest?.email) {
       const roomNumbers = roomRecords.map((r) => r.roomNumber);
@@ -303,7 +304,16 @@ export class ReservationsService {
     });
   }
 
-  async holdRoom(dto: { roomId: string; propertyId: string; guestId?: string; notes?: string; holdMinutes?: number }, createdById: string) {
+  async holdRoom(dto: { roomId: string; propertyId: string; guestId?: string; notes?: string; holdMinutes?: number }, createdById: string, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: dto.propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new NotFoundException('Property not found');
+    const room = await this.prisma.room.findFirst({ where: { id: dto.roomId, propertyId: dto.propertyId }, select: { id: true } });
+    if (!room) throw new NotFoundException('Room not found');
+    if (dto.guestId) {
+      const guest = await this.prisma.guest.findFirst({ where: { id: dto.guestId, tenantId }, select: { id: true } });
+      if (!guest) throw new NotFoundException('Guest not found');
+    }
+
     await this.releaseExpiredHolds();
     const holdMinutes = dto.holdMinutes ?? 60;
     const holdExpiresAt = new Date(Date.now() + holdMinutes * 60 * 1000);

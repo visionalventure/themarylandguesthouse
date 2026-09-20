@@ -35,7 +35,7 @@ export class ReservationsController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Create new reservation' })
   create(@Body() dto: any, @Request() req: any) {
-    return this.service.create(dto, req.user.sub);
+    return this.service.create(dto, req.user.sub, req.user.tenantId);
   }
 
   @Put(':id')
@@ -75,7 +75,7 @@ export class ReservationsController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Place a temporary hold on a room' })
   holdRoom(@Body() dto: any, @Request() req: any) {
-    return this.service.holdRoom(dto, req.user.sub);
+    return this.service.holdRoom(dto, req.user.sub, req.user.tenantId);
   }
 
   @Post('release-holds')
