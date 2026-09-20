@@ -14,6 +14,9 @@ import { useToast } from '@/hooks/use-toast';
 
 const CATEGORIES = ['FOOD_BEVERAGE', 'HOUSEKEEPING', 'MAINTENANCE', 'LINEN', 'ELECTRONICS', 'OFFICE', 'OTHER'];
 const PAYMENT_TERMS = ['NET_7', 'NET_15', 'NET_30', 'NET_60', 'COD', 'PREPAID'];
+const PAYMENT_TERMS_DAYS: Record<string, number> = {
+  NET_7: 7, NET_15: 15, NET_30: 30, NET_60: 60, COD: 0, PREPAID: 0,
+};
 
 interface Props { open: boolean; onOpenChange: (v: boolean) => void; propertyId: string; }
 
@@ -29,7 +32,11 @@ export function SupplierDialog({ open, onOpenChange, propertyId }: Props) {
   }, [open, reset]);
 
   const mutation = useMutation({
-    mutationFn: (values: any) => procurementApi.createSupplier({ propertyId, tenantId: propertyId, ...values }),
+    mutationFn: (values: any) => procurementApi.createSupplier({
+      ...values,
+      propertyId,
+      paymentTerms: PAYMENT_TERMS_DAYS[values.paymentTerms] ?? 30,
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       toast({ title: 'Supplier added' });

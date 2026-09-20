@@ -30,7 +30,8 @@ export class ProcurementService {
   async createSupplier(dto: any) {
     const count = await this.prisma.supplier.count({ where: { tenantId: dto.tenantId } });
     const code = dto.code || `SUP-${(count + 1).toString().padStart(4, '0')}`;
-    return this.prisma.supplier.create({ data: { ...dto, code } });
+    const { propertyId, category, ...supplierFields } = dto;
+    return this.prisma.supplier.create({ data: { ...supplierFields, code } });
   }
 
   async updateSupplier(id: string, dto: any, tenantId: string) {
@@ -60,11 +61,13 @@ export class ProcurementService {
   async createPurchaseRequest(dto: any, userId?: string) {
     const count = await this.prisma.purchaseRequest.count({ where: { tenantId: dto.tenantId } });
     const requestNumber = `PR-${Date.now()}-${(count + 1).toString().padStart(4, '0')}`;
-    const { items, ...rest } = dto;
+    const { items, department, notes, ...rest } = dto;
+    const combinedNotes = department ? `[${department}]${notes ? ` ${notes}` : ''}` : notes;
 
     return this.prisma.purchaseRequest.create({
       data: {
         ...rest,
+        notes: combinedNotes,
         requestNumber,
         requestedById: userId,
         status: 'PENDING_APPROVAL',
@@ -223,14 +226,17 @@ export class ProcurementService {
     return `BILL-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
   }
 
-  async createGoodsReceipt(dto: any, tenantId: string) {
-    const { purchaseOrderId, items, receivedById, notes } = dto;
+  async createGoodsReceipt(dto: any, tenantId: string, userId?: string) {
+    const { purchaseOrderId, items, notes } = dto;
     const po = await this.prisma.purchaseOrder.findFirst({ where: { id: purchaseOrderId, property: { tenantId } }, select: { id: true } });
     if (!po) throw new NotFoundException('Purchase order not found');
+    const count = await this.prisma.goodsReceipt.count();
+    const receiptNumber = `GR-${Date.now()}-${(count + 1).toString().padStart(4, '0')}`;
     return this.prisma.goodsReceipt.create({
       data: {
         purchaseOrderId,
-        receivedById,
+        receiptNumber,
+        receivedById: userId,
         notes,
         receivedDate: new Date(),
         items: items?.length ? { create: items } : undefined,

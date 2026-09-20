@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { ReportsService } from './reports.service';
+import { ReportQueryDto, ExportReportQueryDto } from './dto/reports.dto';
 
 @ApiTags('reports')
 @ApiBearerAuth()
@@ -17,7 +18,7 @@ export class ReportsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Occupancy report by date range' })
-  getOccupancy(@Query() query: any, @Request() req: any) {
+  getOccupancy(@Query() query: ReportQueryDto, @Request() req: any) {
     return this.service.getOccupancyReport(query.propertyId, req.user.tenantId, query);
   }
 
@@ -25,7 +26,7 @@ export class ReportsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Revenue by source and period' })
-  getRevenue(@Query() query: any, @Request() req: any) {
+  getRevenue(@Query() query: ReportQueryDto, @Request() req: any) {
     return this.service.getRevenueReport(query.propertyId, req.user.tenantId, query);
   }
 
@@ -33,7 +34,7 @@ export class ReportsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Guest analytics: top spenders, repeat, new' })
-  getGuests(@Query() query: any, @Request() req: any) {
+  getGuests(@Query() query: ReportQueryDto, @Request() req: any) {
     return this.service.getGuestReport(query.propertyId, req.user.tenantId, query);
   }
 
@@ -41,7 +42,7 @@ export class ReportsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Housekeeping efficiency report' })
-  getHousekeeping(@Query() query: any, @Request() req: any) {
+  getHousekeeping(@Query() query: ReportQueryDto, @Request() req: any) {
     return this.service.getHousekeepingReport(query.propertyId, req.user.tenantId, query);
   }
 
@@ -49,7 +50,7 @@ export class ReportsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Maintenance work order report' })
-  getMaintenance(@Query() query: any, @Request() req: any) {
+  getMaintenance(@Query() query: ReportQueryDto, @Request() req: any) {
     return this.service.getMaintenanceReport(query.propertyId, req.user.tenantId, query);
   }
 
@@ -57,7 +58,7 @@ export class ReportsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Financial summary: revenue vs costs' })
-  getFinancialSummary(@Query() query: any, @Request() req: any) {
+  getFinancialSummary(@Query() query: ReportQueryDto, @Request() req: any) {
     return this.service.getFinancialSummary(query.propertyId, req.user.tenantId, query);
   }
 
@@ -65,7 +66,7 @@ export class ReportsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Export report as CSV' })
-  async exportCsv(@Query() query: any, @Request() req: any, @Res() res: Response) {
+  async exportCsv(@Query() query: ExportReportQueryDto, @Request() req: any, @Res() res: Response) {
     const { type = 'occupancy', propertyId, startDate, endDate } = query;
     const params = { startDate, endDate };
     const tenantId = req.user.tenantId;

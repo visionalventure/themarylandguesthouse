@@ -22,7 +22,7 @@ import { usePageTitle } from '@/hooks/use-page-title';
 import { useAuthStore } from '@/store/auth';
 
 const PR_STATUS_COLORS: Record<string, string> = {
-  PENDING:  'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400',
+  PENDING_APPROVAL: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400',
   APPROVED: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400',
   REJECTED: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400',
 };
@@ -65,7 +65,7 @@ export default function ProcurementPage() {
   const suppliers: any[] = Array.isArray(suppliersRaw) ? suppliersRaw : (suppliersRaw?.data ?? []);
 
   const stats = {
-    pendingPRs: prs.filter(r => r.status === 'PENDING').length,
+    pendingPRs: prs.filter(r => r.status === 'PENDING_APPROVAL').length,
     activePOs: pos.filter(p => ['SENT', 'PARTIAL', 'RECEIVED'].includes(p.status)).length,
     spend: pos.filter(p => p.status === 'COMPLETED').reduce((s, p) => s + Number(p.totalAmount ?? 0), 0),
     suppliers: suppliers.length,
@@ -171,10 +171,10 @@ export default function ProcurementPage() {
                           {format(new Date(pr.createdAt), 'MMM d')}
                         </td>
                         <td className="px-4 py-3">
-                          {pr.status === 'PENDING' && (
+                          {pr.status === 'PENDING_APPROVAL' && (
                             <div className="flex gap-1">
                               <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
-                                onClick={() => approveMutation.mutate({ id: pr.id, action: 'APPROVE' })}>
+                                onClick={() => approveMutation.mutate({ id: pr.id, action: 'APPROVED' })}>
                                 Approve
                               </Button>
                               <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50"
@@ -286,7 +286,7 @@ export default function ProcurementPage() {
         loading={approveMutation.isPending}
         onConfirm={() => {
           if (rejectTargetId) {
-            approveMutation.mutate({ id: rejectTargetId, action: 'REJECT' }, { onSettled: () => setRejectTargetId(null) });
+            approveMutation.mutate({ id: rejectTargetId, action: 'REJECTED' }, { onSettled: () => setRejectTargetId(null) });
           }
         }}
       />
