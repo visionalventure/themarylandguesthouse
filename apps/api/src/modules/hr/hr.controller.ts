@@ -33,8 +33,8 @@ export class HrController {
   @Get('employees/:id')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER')
-  getEmployee(@Param('id') id: string) {
-    return this.service.getEmployee(id);
+  getEmployee(@Param('id') id: string, @Request() req: any) {
+    return this.service.getEmployee(id, req.user.tenantId);
   }
 
   @Post('employees')
@@ -199,8 +199,8 @@ export class HrController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
   @HttpCode(200)
-  deleteShiftType(@Param('id') id: string) {
-    return this.service.deleteShiftType(id);
+  deleteShiftType(@Param('id') id: string, @Request() req: any) {
+    return this.service.deleteShiftType(id, req.user.tenantId);
   }
 
   // ─── PAYROLL ─────────────────────────────────────────────────
@@ -289,8 +289,8 @@ export class HrController {
   @Get('disciplinary/:id')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER')
-  getDisciplinaryCase(@Param('id') id: string) {
-    return this.service.getDisciplinaryCase(id);
+  getDisciplinaryCase(@Param('id') id: string, @Request() req: any) {
+    return this.service.getDisciplinaryCase(id, req.user.tenantId);
   }
 
   @Post('disciplinary')
@@ -384,8 +384,8 @@ export class HrController {
   @Post('loans/:id/repayments')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
-  recordRepayment(@Param('id') id: string, @Body() dto: any) {
-    return this.service.recordLoanRepayment(id, dto);
+  recordRepayment(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.recordLoanRepayment(id, dto, req.user.tenantId);
   }
 
   // ─── ASSET ISSUANCE ──────────────────────────────────────────
@@ -544,8 +544,8 @@ export class HrController {
   @Post('recruitment/candidates/:id/hire')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER')
-  convertToEmployee(@Param('id') candidateId: string, @Body() dto: any) {
-    return this.service.convertCandidateToEmployee(candidateId, dto);
+  convertToEmployee(@Param('id') candidateId: string, @Body() dto: any, @Request() req: any) {
+    return this.service.convertCandidateToEmployee(candidateId, dto, req.user.tenantId);
   }
 
   // ─── ONBOARDING ──────────────────────────────────────────────

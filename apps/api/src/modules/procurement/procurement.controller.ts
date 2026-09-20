@@ -16,32 +16,32 @@ export class ProcurementController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'List suppliers' })
-  getSuppliers(@Query() query: any) {
-    return this.service.getSuppliers(query.tenantId, query);
+  getSuppliers(@Query() query: any, @Request() req: any) {
+    return this.service.getSuppliers(req.user.tenantId, query);
   }
 
   @Post('suppliers')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create supplier' })
-  createSupplier(@Body() dto: any) {
-    return this.service.createSupplier(dto);
+  createSupplier(@Body() dto: any, @Request() req: any) {
+    return this.service.createSupplier({ ...dto, tenantId: req.user.tenantId });
   }
 
   @Put('suppliers/:id')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update supplier' })
-  updateSupplier(@Param('id') id: string, @Body() dto: any) {
-    return this.service.updateSupplier(id, dto);
+  updateSupplier(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.updateSupplier(id, dto, req.user.tenantId);
   }
 
   @Get('purchase-requests')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'List purchase requests' })
-  getPurchaseRequests(@Query() query: any) {
-    return this.service.getPurchaseRequests(query.tenantId, query);
+  getPurchaseRequests(@Query() query: any, @Request() req: any) {
+    return this.service.getPurchaseRequests(req.user.tenantId, query);
   }
 
   @Post('purchase-requests')
@@ -49,7 +49,7 @@ export class ProcurementController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Create purchase request' })
   createPurchaseRequest(@Body() dto: any, @Request() req: any) {
-    return this.service.createPurchaseRequest(dto, req.user?.sub);
+    return this.service.createPurchaseRequest({ ...dto, tenantId: req.user.tenantId }, req.user?.sub);
   }
 
   @Patch('purchase-requests/:id')
@@ -57,7 +57,7 @@ export class ProcurementController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Approve or reject purchase request' })
   approvePurchaseRequest(@Param('id') id: string, @Body('action') action: any, @Request() req: any) {
-    return this.service.approvePurchaseRequest(id, action, req.user?.sub);
+    return this.service.approvePurchaseRequest(id, action, req.user?.sub, req.user.tenantId);
   }
 
   @Get('purchase-orders')
@@ -80,8 +80,8 @@ export class ProcurementController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update purchase order status' })
-  updatePurchaseOrder(@Param('id') id: string, @Body() dto: any) {
-    return this.service.updatePurchaseOrder(id, dto);
+  updatePurchaseOrder(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.updatePurchaseOrder(id, dto, req.user.tenantId);
   }
 
   @Post('goods-receipts')
@@ -96,8 +96,8 @@ export class ProcurementController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'List supplier bills' })
-  getBills(@Query('propertyId') propertyId: string, @Query() query: any, @Request() req: any) {
-    return this.service.getBills(propertyId ?? req.user.tenantId, query);
+  getBills(@Query() query: any, @Request() req: any) {
+    return this.service.getBills(req.user.tenantId, query);
   }
 
   @Post('bills')
@@ -105,22 +105,22 @@ export class ProcurementController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Create supplier bill' })
   createBill(@Body() dto: any, @Request() req: any) {
-    return this.service.createBill({ ...dto, tenantId: dto.tenantId ?? req.user.tenantId });
+    return this.service.createBill({ ...dto, tenantId: req.user.tenantId });
   }
 
   @Patch('bills/:id/approve')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Approve supplier bill' })
-  approveBill(@Param('id') id: string) {
-    return this.service.approveBill(id);
+  approveBill(@Param('id') id: string, @Request() req: any) {
+    return this.service.approveBill(id, req.user.tenantId);
   }
 
   @Patch('bills/:id/mark-paid')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Record payment against bill' })
-  markBillPaid(@Param('id') id: string, @Body() dto: any) {
-    return this.service.markBillPaid(id, dto);
+  markBillPaid(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.markBillPaid(id, dto, req.user.tenantId);
   }
 }

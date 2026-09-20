@@ -33,7 +33,9 @@ export class ProcurementService {
     return this.prisma.supplier.create({ data: { ...dto, code } });
   }
 
-  async updateSupplier(id: string, dto: any) {
+  async updateSupplier(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.supplier.findFirst({ where: { id, tenantId }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Supplier not found');
     return this.prisma.supplier.update({ where: { id }, data: dto });
   }
 
@@ -48,10 +50,7 @@ export class ProcurementService {
     const [data, total] = await Promise.all([
       this.prisma.purchaseRequest.findMany({
         where, skip, take: Number(limit), orderBy: { createdAt: 'desc' },
-        include: {
-          items: true,
-          requestedBy: { select: { firstName: true, lastName: true } },
-        } as any,
+        include: { items: true },
       }),
       this.prisma.purchaseRequest.count({ where }),
     ]);
@@ -75,8 +74,8 @@ export class ProcurementService {
     });
   }
 
-  async approvePurchaseRequest(id: string, action: 'APPROVED' | 'REJECTED', userId?: string) {
-    const pr = await this.prisma.purchaseRequest.findUnique({ where: { id } });
+  async approvePurchaseRequest(id: string, action: 'APPROVED' | 'REJECTED', userId: string | undefined, tenantId: string) {
+    const pr = await this.prisma.purchaseRequest.findFirst({ where: { id, tenantId } });
     if (!pr) throw new NotFoundException('Purchase request not found');
     return this.prisma.purchaseRequest.update({
       where: { id },
@@ -128,7 +127,9 @@ export class ProcurementService {
     });
   }
 
-  async updatePurchaseOrder(id: string, dto: any) {
+  async updatePurchaseOrder(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.purchaseOrder.findFirst({ where: { id, property: { tenantId } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Purchase order not found');
     return this.prisma.purchaseOrder.update({
       where: { id },
       data: {
@@ -190,14 +191,14 @@ export class ProcurementService {
     });
   }
 
-  async approveBill(id: string) {
-    const bill = await this.prisma.supplierBill.findUnique({ where: { id } });
+  async approveBill(id: string, tenantId: string) {
+    const bill = await this.prisma.supplierBill.findFirst({ where: { id, tenantId } });
     if (!bill) throw new NotFoundException();
     return this.prisma.supplierBill.update({ where: { id }, data: { status: 'APPROVED' } });
   }
 
-  async markBillPaid(id: string, dto: { amount: number; method?: string; reference?: string }) {
-    const bill = await this.prisma.supplierBill.findUnique({ where: { id } });
+  async markBillPaid(id: string, dto: { amount: number; method?: string; reference?: string }, tenantId: string) {
+    const bill = await this.prisma.supplierBill.findFirst({ where: { id, tenantId } });
     if (!bill) throw new NotFoundException();
     const newPaid = Number(bill.paidAmount) + Number(dto.amount);
     const status = newPaid >= Number(bill.totalAmount) ? 'PAID' : 'PARTIALLY_PAID';

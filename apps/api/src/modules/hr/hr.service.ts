@@ -31,9 +31,9 @@ export class HrService {
     return { data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) };
   }
 
-  async getEmployee(id: string) {
-    const emp = await this.prisma.employee.findUnique({
-      where: { id },
+  async getEmployee(id: string, tenantId: string) {
+    const emp = await this.prisma.employee.findFirst({
+      where: { id, property: { tenantId } },
       include: {
         department: true,
         supervisor: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
@@ -442,9 +442,9 @@ export class HrService {
     return { data, total };
   }
 
-  async getDisciplinaryCase(id: string) {
-    const c = await this.prisma.disciplinaryCase.findUnique({
-      where: { id },
+  async getDisciplinaryCase(id: string, tenantId: string) {
+    const c = await this.prisma.disciplinaryCase.findFirst({
+      where: { id, employee: { property: { tenantId } } },
       include: {
         employee: { select: { firstName: true, lastName: true, employeeNumber: true, departmentId: true } },
         actions: true,
@@ -570,8 +570,8 @@ export class HrService {
     });
   }
 
-  async recordLoanRepayment(loanId: string, dto: { amount: number; payrollPeriod?: string; notes?: string }) {
-    const loan = await this.prisma.staffLoan.findUnique({ where: { id: loanId } });
+  async recordLoanRepayment(loanId: string, dto: { amount: number; payrollPeriod?: string; notes?: string }, tenantId: string) {
+    const loan = await this.prisma.staffLoan.findFirst({ where: { id: loanId, employee: { property: { tenantId } } } });
     if (!loan) throw new NotFoundException('Loan not found');
     const newBalance = Math.max(0, Number(loan.balance) - dto.amount);
     await this.prisma.staffLoan.update({
@@ -740,9 +740,17 @@ export class HrService {
     return this.prisma.candidateInterview.create({ data: { ...dto, scheduledAt: new Date(dto.scheduledAt) } });
   }
 
-  async convertCandidateToEmployee(candidateId: string, employeeDto: any) {
-    const candidate = await this.prisma.candidate.findUnique({ where: { id: candidateId } });
+  async convertCandidateToEmployee(candidateId: string, employeeDto: any, tenantId: string) {
+    const candidate = await this.prisma.candidate.findUnique({
+      where: { id: candidateId },
+      include: { jobOpening: { select: { propertyId: true } } },
+    });
     if (!candidate) throw new NotFoundException('Candidate not found');
+    const ownedProperty = await this.prisma.property.findFirst({
+      where: { id: candidate.jobOpening.propertyId, tenantId },
+      select: { id: true },
+    });
+    if (!ownedProperty) throw new NotFoundException('Candidate not found');
     const employee = await this.createEmployee(employeeDto);
     await this.prisma.candidate.update({
       where: { id: candidateId },
@@ -991,8 +999,8 @@ export class HrService {
     return this.prisma.shiftTypeConfig.update({ where: { id }, data: dto });
   }
 
-  async deleteShiftType(id: string) {
-    const config = await this.prisma.shiftTypeConfig.findUnique({ where: { id } });
+  async deleteShiftType(id: string, tenantId: string) {
+    const config = await this.prisma.shiftTypeConfig.findFirst({ where: { id, property: { tenantId } } });
     if (!config) throw new NotFoundException('Shift type not found');
     const inUse = await this.prisma.shiftRoster.count({ where: { propertyId: config.propertyId, shiftType: config.name } });
     if (inUse > 0) throw new BadRequestException(`Cannot delete: ${inUse} roster entr${inUse === 1 ? 'y' : 'ies'} use this shift type`);
