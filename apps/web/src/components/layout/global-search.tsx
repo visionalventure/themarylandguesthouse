@@ -55,7 +55,7 @@ export function GlobalSearch() {
     try {
       const [guestsRes, reservationsRes, roomsRes] = await Promise.allSettled([
         api.get('/v1/guests', { params: { search: q, limit: 4 } }),
-        api.get('/v1/reservations', { params: { search: q, limit: 4 } }),
+        api.get('/v1/reservations', { params: { guestName: q, limit: 4 } }),
         api.get('/v1/rooms', { params: { search: q, limit: 4 } }),
       ]);
 

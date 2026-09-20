@@ -6,11 +6,12 @@ export class RoomsService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(propertyId: string, tenantId: string, query: any = {}) {
-    const { status, type, floor } = query;
+    const { status, type, floor, search } = query;
     const where: any = { propertyId, isActive: true, property: { tenantId } };
     if (status) where.status = status;
     if (floor) where.floor = Number(floor);
     if (type) where.category = { type };
+    if (search) where.roomNumber = { contains: search, mode: 'insensitive' };
 
     return this.prisma.room.findMany({
       where,

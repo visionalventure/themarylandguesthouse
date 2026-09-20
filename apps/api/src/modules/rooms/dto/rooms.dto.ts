@@ -35,6 +35,7 @@ export class RoomsQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsEnum(RoomStatusEnum) status?: RoomStatusEnum;
   @ApiPropertyOptional() @IsOptional() @IsEnum(RoomTypeEnum) type?: RoomTypeEnum;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() floor?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;
 }

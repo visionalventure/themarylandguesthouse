@@ -174,7 +174,24 @@ function PropertyTab() {
   };
 
   const mutation = useMutation({
-    mutationFn: (values: any) => settingsApi.updateProperty(propertyId, values),
+    // Only send the fields this form actually edits — `data` (and thus react-hook-form's
+    // defaultValues) is the full Property record from GET, and submitting it wholesale
+    // would include server-only fields the update DTO doesn't declare.
+    mutationFn: (values: any) => settingsApi.updateProperty(propertyId, {
+      name: values.name,
+      phone: values.phone,
+      email: values.email,
+      address: values.address,
+      city: values.city,
+      country: values.country,
+      type: values.type,
+      starRating: values.starRating,
+      checkInTime: values.checkInTime,
+      checkOutTime: values.checkOutTime,
+      currency: values.currency,
+      timezone: values.timezone,
+      logoUrl: values.logoUrl,
+    }),
     onSuccess: () => toast({ title: 'Property settings saved' }),
     onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed' }),
   });
@@ -575,7 +592,6 @@ function ManageUserDialog({ user, open, onClose, currentUser, queryClient, toast
 }
 
 function UsersTab() {
-  const propertyId = useAuthStore((s) => s.propertyId);
   const currentUser = useAuthStore((s) => s.user);
   const tenantId = currentUser?.tenantId;
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -605,7 +621,9 @@ function UsersTab() {
   });
 
   const inviteMutation = useMutation({
-    mutationFn: (values: any) => settingsApi.inviteUser({ propertyId, tenantId, ...values }),
+    // tenantId is derived server-side from the requester's own token — InviteUserDto
+    // doesn't declare propertyId/tenantId, so sending them 400s under forbidNonWhitelisted.
+    mutationFn: (values: any) => settingsApi.inviteUser(values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings-users', tenantId] });
       toast({ title: 'User invited successfully' });
@@ -776,12 +794,13 @@ function TaxRatesTab() {
   });
   const rates: any[] = Array.isArray(taxData) ? taxData : (taxData?.data ?? []);
 
-  const { register, handleSubmit, reset } = useForm({
-    defaultValues: { name: '', rate: '', type: 'PERCENTAGE', appliesTo: 'ALL' },
+  const { register, handleSubmit, reset, control } = useForm({
+    defaultValues: { name: '', code: '', rate: '', type: 'VAT' },
   });
 
   const mutation = useMutation({
-    mutationFn: (values: any) => settingsApi.createTaxRate({ propertyId: propertyId, ...values, rate: Number(values.rate) }),
+    // CreateTaxRateDto has no propertyId field — tax rates are scoped by tenantId server-side.
+    mutationFn: (values: any) => settingsApi.createTaxRate({ ...values, rate: Number(values.rate) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tax-rates'] });
       toast({ title: 'Tax rate created' });
@@ -808,7 +827,8 @@ function TaxRatesTab() {
                 <tr className="border-b border-border bg-muted/50">
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Rate</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Applies To</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Code</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Active</th>
                 </tr>
               </thead>
@@ -817,7 +837,8 @@ function TaxRatesTab() {
                   <tr key={r.id} className="border-b border-border hover:bg-muted/30">
                     <td className="px-4 py-3 font-medium text-foreground">{r.name}</td>
                     <td className="px-4 py-3">{r.rate}%</td>
-                    <td className="px-4 py-3 text-muted-foreground">{r.appliesTo ?? 'ALL'}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{r.code}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{r.type}</td>
                     <td className="px-4 py-3">
                       <Badge variant="outline" className={cn('text-xs', r.isActive !== false ? 'text-green-600' : 'text-muted-foreground')}>
                         {r.isActive !== false ? 'Active' : 'Inactive'}
@@ -839,14 +860,31 @@ function TaxRatesTab() {
               <Label>Name *</Label>
               <Input placeholder="VAT, Service Charge..." {...register('name', { required: true })} />
             </div>
+            <div className="space-y-2">
+              <Label>Code *</Label>
+              <Input placeholder="VAT, SVC..." {...register('code', { required: true })} />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Rate (%)</Label>
                 <Input type="number" min="0" max="100" step="0.01" {...register('rate', { required: true })} />
               </div>
               <div className="space-y-2">
-                <Label>Applies To</Label>
-                <Input placeholder="ALL, ROOMS, F&B..." {...register('appliesTo')} />
+                <Label>Type</Label>
+                <Controller
+                  name="type"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['GST', 'VAT', 'WITHHOLDING', 'SALES', 'OTHER'].map(t => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
             </div>
             <DialogFooter>
@@ -872,11 +910,11 @@ const AUDIT_ACTION_COLORS: Record<string, string> = {
 };
 
 function AuditLogTab() {
-  const propertyId = useAuthStore((s) => s.propertyId);
   const [entityFilter, setEntityFilter] = useState('');
   const { data } = useQuery({
     queryKey: ['audit-log', entityFilter],
-    queryFn: () => settingsApi.auditLog({ tenantId: propertyId, entityType: entityFilter || undefined, limit: 50 }).then(r => r.data),
+    // AuditLogQueryDto has no tenantId field — the tenant is derived server-side from the caller's token.
+    queryFn: () => settingsApi.auditLog({ entityType: entityFilter || undefined, limit: 50 }).then(r => r.data),
   });
 
   const logs: any[] = data?.data ?? [];

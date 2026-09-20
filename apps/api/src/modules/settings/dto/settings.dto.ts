@@ -9,7 +9,18 @@ import {
   MaxLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { UserRole, PropertyType } from '@prisma/client';
+
+const emptyToUndefined = ({ value }: { value: unknown }) => (value === '' ? undefined : value);
+
+export enum TaxRateTypeEnum {
+  GST = 'GST',
+  VAT = 'VAT',
+  WITHHOLDING = 'WITHHOLDING',
+  SALES = 'SALES',
+  OTHER = 'OTHER',
+}
 
 export class UpdatePropertyDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) name?: string;
@@ -20,7 +31,7 @@ export class UpdatePropertyDto {
   @ApiPropertyOptional() @IsOptional() @IsString() city?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() country?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() phone?: string;
-  @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
+  @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsEmail() email?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() starRating?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() checkInTime?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() checkOutTime?: string;
@@ -30,6 +41,10 @@ export class UpdatePropertyDto {
   @ApiPropertyOptional() @IsOptional() @IsString() timezone?: string;
   @ApiPropertyOptional() @IsOptional() @IsObject() invoiceTemplate?: Record<string, unknown>;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() requireIdentification?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() requireAddress?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() requirePhone?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() allowAnonymousWalkIn?: boolean;
 }
 
 export class InviteUserDto {
@@ -58,6 +73,7 @@ export class CreateTaxRateDto {
   @ApiProperty() @IsString() @MaxLength(100) name: string;
   @ApiProperty() @IsString() @MaxLength(20) code: string;
   @ApiProperty() @IsInt() rate: number;
+  @ApiProperty({ enum: TaxRateTypeEnum }) @IsEnum(TaxRateTypeEnum) type: TaxRateTypeEnum;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isDefault?: boolean;
 }
 
@@ -126,7 +142,7 @@ export class UpdatePolicyConfigDto {
 
 export class UpdateEmailConfigDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100) fromName?: string;
-  @ApiPropertyOptional() @IsOptional() @IsEmail() fromEmail?: string;
+  @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsEmail() fromEmail?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) replyTo?: string;
 }
 
