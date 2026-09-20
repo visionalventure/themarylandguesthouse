@@ -1,5 +1,6 @@
 import { Controller, Get, Put, Post, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { SettingsService } from './settings.service';
@@ -148,6 +149,7 @@ export class SettingsController {
   @Post('email/test')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @ApiOperation({ summary: 'Send a test email using current configuration' })
   sendTestEmail(@Query('propertyId') propertyId: string, @Body() dto: SendTestEmailDto, @Request() req: any) {
     return this.service.sendTestEmail(propertyId, dto.to, req.user.tenantId);
