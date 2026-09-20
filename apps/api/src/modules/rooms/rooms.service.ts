@@ -5,9 +5,9 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 export class RoomsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(propertyId: string, query: any = {}) {
+  async findAll(propertyId: string, tenantId: string, query: any = {}) {
     const { status, type, floor } = query;
-    const where: any = { propertyId, isActive: true };
+    const where: any = { propertyId, isActive: true, property: { tenantId } };
     if (status) where.status = status;
     if (floor) where.floor = Number(floor);
     if (type) where.category = { type };
@@ -19,7 +19,7 @@ export class RoomsService {
     });
   }
 
-  async findAvailable(propertyId: string, checkIn: Date, checkOut: Date) {
+  async findAvailable(propertyId: string, tenantId: string, checkIn: Date, checkOut: Date) {
     const occupied = await this.prisma.reservationRoom.findMany({
       where: {
         reservation: {
@@ -37,6 +37,7 @@ export class RoomsService {
     return this.prisma.room.findMany({
       where: {
         propertyId,
+        property: { tenantId },
         isActive: true,
         status: { in: ['AVAILABLE', 'CLEANING'] },
         id: { notIn: occupiedIds },
@@ -45,9 +46,9 @@ export class RoomsService {
     });
   }
 
-  async findOne(id: string) {
-    const room = await this.prisma.room.findUnique({
-      where: { id },
+  async findOne(id: string, tenantId: string) {
+    const room = await this.prisma.room.findFirst({
+      where: { id, property: { tenantId } },
       include: {
         category: true,
         roomPricing: true,
@@ -59,19 +60,25 @@ export class RoomsService {
     return room;
   }
 
-  async updateStatus(id: string, status: string) {
+  async updateStatus(id: string, status: string, tenantId: string) {
+    const existing = await this.prisma.room.findFirst({ where: { id, property: { tenantId } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Room not found');
     return this.prisma.room.update({ where: { id }, data: { status: status as any } });
   }
 
-  async create(dto: any) {
+  async create(dto: any, tenantId: string) {
     const { propertyId, categoryId, roomNumber, floor, notes, amenities } = dto;
+    const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new BadRequestException('Invalid propertyId');
     return this.prisma.room.create({
       data: { propertyId, categoryId, roomNumber, floor, amenities: amenities ?? [], ...(notes ? { notes } : {}) },
       include: { category: true },
     });
   }
 
-  async update(id: string, dto: any) {
+  async update(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.room.findFirst({ where: { id, property: { tenantId } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Room not found');
     const allowed = ['categoryId', 'roomNumber', 'floor', 'status', 'notes', 'isActive', 'lastCleaned', 'lastInspected', 'amenities'];
     const data: any = {};
     for (const key of allowed) {
@@ -80,12 +87,16 @@ export class RoomsService {
     return this.prisma.room.update({ where: { id }, data, include: { category: true } });
   }
 
-  async getCategories(propertyId: string) {
+  async getCategories(propertyId: string, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
+    if (!property) return [];
     return this.prisma.roomCategory.findMany({ where: { propertyId } });
   }
 
-  async createCategory(dto: any) {
+  async createCategory(dto: any, tenantId: string) {
     const { propertyId, name, type, description, basePrice, maxOccupancy, bedCount, amenities } = dto;
+    const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new BadRequestException('Invalid propertyId');
     return this.prisma.roomCategory.create({
       data: {
         propertyId,
@@ -100,7 +111,11 @@ export class RoomsService {
     });
   }
 
-  async updateCategory(id: string, dto: any) {
+  async updateCategory(id: string, dto: any, tenantId: string) {
+    const category = await this.prisma.roomCategory.findUnique({ where: { id }, select: { propertyId: true } });
+    if (!category) throw new NotFoundException('Room category not found');
+    const property = await this.prisma.property.findFirst({ where: { id: category.propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new NotFoundException('Room category not found');
     const allowed = ['name', 'type', 'description', 'basePrice', 'maxOccupancy', 'bedCount', 'amenities'];
     const numericKeys = ['basePrice', 'maxOccupancy', 'bedCount'];
     const data: any = {};
@@ -110,14 +125,19 @@ export class RoomsService {
     return this.prisma.roomCategory.update({ where: { id }, data });
   }
 
-  async getRoomPricing(roomId: string) {
+  async getRoomPricing(roomId: string, tenantId: string) {
+    const room = await this.prisma.room.findFirst({ where: { id: roomId, property: { tenantId } }, select: { id: true } });
+    if (!room) throw new NotFoundException('Room not found');
     return this.prisma.roomPricing.findMany({
       where: { roomId },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     });
   }
 
-  async createRoomPricing(roomId: string, dto: any) {
+  async createRoomPricing(roomId: string, dto: any, tenantId: string) {
+    const room = await this.prisma.room.findFirst({ where: { id: roomId, property: { tenantId } }, select: { id: true } });
+    if (!room) throw new NotFoundException('Room not found');
+
     const { name, pricePerNight, startDate, endDate, isDefault, minNights } = dto;
 
     const parsedPrice = Number(pricePerNight);
@@ -154,7 +174,7 @@ export class RoomsService {
     });
   }
 
-  async updateRoomPricing(pricingId: string, dto: any) {
+  async updateRoomPricing(pricingId: string, dto: any, tenantId: string) {
     const { name, pricePerNight, startDate, endDate, isDefault, minNights } = dto;
 
     if (pricePerNight !== undefined) {
@@ -174,12 +194,12 @@ export class RoomsService {
       if (isNaN(d.getTime())) throw new BadRequestException('endDate is not a valid date');
     }
 
+    const existing = await this.prisma.roomPricing.findFirst({ where: { id: pricingId, room: { property: { tenantId } } } });
+    if (!existing) throw new NotFoundException('Room pricing not found');
+
     return this.prisma.$transaction(async (tx) => {
       if (isDefault) {
-        const pricing = await tx.roomPricing.findUnique({ where: { id: pricingId } });
-        if (pricing) {
-          await tx.roomPricing.updateMany({ where: { roomId: pricing.roomId, isDefault: true }, data: { isDefault: false } });
-        }
+        await tx.roomPricing.updateMany({ where: { roomId: existing.roomId, isDefault: true }, data: { isDefault: false } });
       }
       return tx.roomPricing.update({
         where: { id: pricingId },
@@ -195,7 +215,9 @@ export class RoomsService {
     });
   }
 
-  async deleteRoomPricing(pricingId: string) {
+  async deleteRoomPricing(pricingId: string, tenantId: string) {
+    const existing = await this.prisma.roomPricing.findFirst({ where: { id: pricingId, room: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Room pricing not found');
     return this.prisma.roomPricing.delete({ where: { id: pricingId } });
   }
 }

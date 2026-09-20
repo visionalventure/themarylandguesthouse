@@ -1,13 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
 export class InventoryService {
   constructor(private prisma: PrismaService) {}
 
-  async getItems(propertyId: string, query: any = {}) {
+  async getItems(propertyId: string, tenantId: string, query: any = {}) {
     const { search, categoryId, lowStock, page = 1, limit = 20 } = query;
-    const where: any = { propertyId, isActive: true };
+    const where: any = { propertyId, isActive: true, property: { tenantId } };
     if (categoryId) where.categoryId = categoryId;
     if (search) {
       where.OR = [
@@ -33,16 +33,18 @@ export class InventoryService {
     return { data: withAlerts, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) };
   }
 
-  async getLowStockAlerts(propertyId: string) {
+  async getLowStockAlerts(propertyId: string, tenantId: string) {
     return this.prisma.inventoryItem.findMany({
-      where: { propertyId, isActive: true },
+      where: { propertyId, isActive: true, property: { tenantId } },
       include: { category: true },
     }).then((items) => items.filter((i) => Number(i.currentStock) <= Number(i.reorderPoint)));
   }
 
-  async stockIn(dto: any) {
+  async stockIn(dto: any, tenantId: string) {
+    const item = await this.prisma.inventoryItem.findFirst({ where: { id: dto.itemId, property: { tenantId } }, select: { id: true } });
+    if (!item) throw new NotFoundException('Inventory item not found');
     return this.prisma.$transaction(async (tx) => {
-      const item = await tx.inventoryItem.update({
+      const updated = await tx.inventoryItem.update({
         where: { id: dto.itemId },
         data: {
           currentStock: { increment: dto.quantity },
@@ -67,15 +69,16 @@ export class InventoryService {
         },
       });
 
-      return item;
+      return updated;
     });
   }
 
-  async stockOut(dto: any) {
+  async stockOut(dto: any, tenantId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const item = await tx.inventoryItem.findUnique({ where: { id: dto.itemId } });
-      if (!item || Number(item.currentStock) < dto.quantity) {
-        throw new Error('Insufficient stock');
+      const item = await tx.inventoryItem.findFirst({ where: { id: dto.itemId, property: { tenantId } } });
+      if (!item) throw new NotFoundException('Inventory item not found');
+      if (Number(item.currentStock) < dto.quantity) {
+        throw new BadRequestException('Insufficient stock');
       }
 
       const updated = await tx.inventoryItem.update({
@@ -98,7 +101,9 @@ export class InventoryService {
     });
   }
 
-  async getTransactionHistory(itemId: string) {
+  async getTransactionHistory(itemId: string, tenantId: string) {
+    const item = await this.prisma.inventoryItem.findFirst({ where: { id: itemId, property: { tenantId } }, select: { id: true } });
+    if (!item) throw new NotFoundException('Inventory item not found');
     return this.prisma.inventoryTransaction.findMany({
       where: { itemId },
       orderBy: { createdAt: 'desc' },
@@ -106,13 +111,15 @@ export class InventoryService {
     });
   }
 
-  async createItem(dto: any) {
+  async createItem(dto: any, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: dto.propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new BadRequestException('Invalid propertyId');
     return this.prisma.inventoryItem.create({ data: dto });
   }
 
-  async getValuationReport(propertyId: string) {
+  async getValuationReport(propertyId: string, tenantId: string) {
     const items = await this.prisma.inventoryItem.findMany({
-      where: { propertyId, isActive: true },
+      where: { propertyId, isActive: true, property: { tenantId } },
       include: { category: true },
     });
 

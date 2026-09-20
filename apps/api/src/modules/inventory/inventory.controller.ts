@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -14,53 +14,53 @@ export class InventoryController {
 
   @Get()
   @ApiOperation({ summary: 'List inventory items' })
-  getItems(@Query() query: any) {
-    return this.service.getItems(query.propertyId, query);
+  getItems(@Query() query: any, @Request() req: any) {
+    return this.service.getItems(query.propertyId, req.user.tenantId, query);
   }
 
   @Get('low-stock')
   @ApiOperation({ summary: 'Get low stock alerts' })
-  getLowStock(@Query('propertyId') propertyId: string) {
-    return this.service.getLowStockAlerts(propertyId);
+  getLowStock(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getLowStockAlerts(propertyId, req.user.tenantId);
   }
 
   @Get('valuation')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get inventory valuation report' })
-  getValuation(@Query('propertyId') propertyId: string) {
-    return this.service.getValuationReport(propertyId);
+  getValuation(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getValuationReport(propertyId, req.user.tenantId);
   }
 
   @Post()
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create inventory item' })
-  createItem(@Body() dto: any) {
-    return this.service.createItem(dto);
+  createItem(@Body() dto: any, @Request() req: any) {
+    return this.service.createItem(dto, req.user.tenantId);
   }
 
   @Post('stock-in')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Record stock receipt' })
-  stockIn(@Body() dto: any) {
-    return this.service.stockIn(dto);
+  stockIn(@Body() dto: any, @Request() req: any) {
+    return this.service.stockIn(dto, req.user.tenantId);
   }
 
   @Post('stock-out')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Record stock usage/issue' })
-  stockOut(@Body() dto: any) {
-    return this.service.stockOut(dto);
+  stockOut(@Body() dto: any, @Request() req: any) {
+    return this.service.stockOut(dto, req.user.tenantId);
   }
 
   @Get(':id/transactions')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get item transaction history' })
-  getTransactions(@Param('id') id: string) {
-    return this.service.getTransactionHistory(id);
+  getTransactions(@Param('id') id: string, @Request() req: any) {
+    return this.service.getTransactionHistory(id, req.user.tenantId);
   }
 }
