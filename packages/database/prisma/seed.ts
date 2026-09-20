@@ -108,6 +108,23 @@ async function main() {
     },
   });
 
+  // Housekeeping (test-only fixed password, independent of ADMIN_PASSWORD —
+  // expected by the e2e smoke suite's RBAC checks)
+  const hkHash = await bcrypt.hash('Admin@123!', 12);
+  await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: tenant.id, email: 'housekeeping@marylandguesthouse.com' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      email: 'housekeeping@marylandguesthouse.com',
+      passwordHash: hkHash,
+      firstName: 'Grace',
+      lastName: 'Tubman',
+      role: 'HOUSEKEEPING',
+      emailVerified: true,
+    },
+  });
+
   // ─── Room Categories ──────────────────────────────────────────
   console.log('Creating room categories...');
   const categories = await Promise.all([
@@ -432,6 +449,90 @@ async function main() {
       },
     });
   }
+
+  // ─── Second tenant fixture (tenant-isolation regression tests) ───
+  // Fixed, documented ids so e2e tests can assert cross-tenant access
+  // to this tenant's data from the primary tenant's account is denied.
+  console.log('Creating second-tenant isolation fixture...');
+  const tenantB = await prisma.tenant.upsert({
+    where: { slug: 'tenant-b-isolation-test' },
+    update: {},
+    create: {
+      id: 'tenant-b-isolation-test',
+      name: 'Tenant B (Isolation Test)',
+      slug: 'tenant-b-isolation-test',
+      email: 'tenant-b@example.com',
+      phone: '+000',
+      address: 'N/A',
+      city: 'N/A',
+      country: 'N/A',
+      currency: 'USD',
+      timezone: 'UTC',
+    },
+  });
+
+  const propertyB = await prisma.property.upsert({
+    where: { id: 'property-b-isolation-test' },
+    update: {},
+    create: {
+      id: 'property-b-isolation-test',
+      tenantId: tenantB.id,
+      name: 'Tenant B Property',
+      code: 'TB-001',
+      type: 'HOTEL',
+      address: 'N/A',
+      city: 'N/A',
+      country: 'N/A',
+      phone: '+000',
+      email: 'tenant-b@example.com',
+      starRating: 3,
+      checkInTime: '14:00',
+      checkOutTime: '12:00',
+    },
+  });
+
+  const tenantBHash = await bcrypt.hash('Admin@123!', 12);
+  await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: tenantB.id, email: 'admin@tenant-b.example.com' } },
+    update: {},
+    create: {
+      id: 'user-b-isolation-test',
+      tenantId: tenantB.id,
+      email: 'admin@tenant-b.example.com',
+      passwordHash: tenantBHash,
+      firstName: 'Tenant B',
+      lastName: 'Admin',
+      role: 'SUPER_ADMIN',
+      emailVerified: true,
+    },
+  });
+
+  const guestB = await prisma.guest.upsert({
+    where: { tenantId_email: { tenantId: tenantB.id, email: 'guest-b@example.com' } },
+    update: {},
+    create: {
+      id: 'guest-b-isolation-test',
+      tenantId: tenantB.id,
+      firstName: 'Foreign',
+      lastName: 'Guest',
+      email: 'guest-b@example.com',
+      phone: '+000',
+    },
+  });
+
+  await prisma.reservation.upsert({
+    where: { reservationNo: 'RES-B-ISOLATION-TEST' },
+    update: {},
+    create: {
+      id: 'reservation-b-isolation-test',
+      propertyId: propertyB.id,
+      guestId: guestB.id,
+      reservationNo: 'RES-B-ISOLATION-TEST',
+      checkIn: new Date('2026-01-01'),
+      checkOut: new Date('2026-01-03'),
+      totalAmount: 200,
+    },
+  });
 
   console.log('\n✅ Database seeded successfully!\n');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

@@ -111,10 +111,10 @@ export class DashboardService {
     };
   }
 
-  async getRevenueChart(propertyId: string, tenantId: string, days = 30) {
+  async getRevenueChart(propertyId: string, tenantId: string, days?: number) {
     await this.assertPropertyTenant(propertyId, tenantId);
     const endDate = new Date();
-    const startDate = subDays(endDate, days);
+    const startDate = subDays(endDate, Number(days) || 30);
 
     const payments = await this.prisma.payment.findMany({
       where: {
@@ -136,12 +136,13 @@ export class DashboardService {
     return Object.entries(grouped).map(([date, revenue]) => ({ date, revenue }));
   }
 
-  async getOccupancyChart(propertyId: string, tenantId: string, days = 30) {
+  async getOccupancyChart(propertyId: string, tenantId: string, days?: number) {
     await this.assertPropertyTenant(propertyId, tenantId);
     const results = [];
     const today = new Date();
+    const numDays = Number(days) || 30;
 
-    for (let i = days - 1; i >= 0; i--) {
+    for (let i = numDays - 1; i >= 0; i--) {
       const date = subDays(today, i);
       const dateStart = startOfDay(date);
       const dateEnd = endOfDay(date);

@@ -59,7 +59,6 @@ export class CreateTaxRateDto {
   @ApiProperty() @IsString() @MaxLength(20) code: string;
   @ApiProperty() @IsInt() rate: number;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isDefault?: boolean;
-  @ApiPropertyOptional() @IsOptional() @IsString() propertyId?: string;
 }
 
 class BookingPolicyDto {

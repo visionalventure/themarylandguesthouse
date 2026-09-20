@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 
 /**
@@ -75,8 +75,18 @@ describe('MGH ERP Smoke Tests (e2e)', () => {
   });
 
   // ─── Helper ───────────────────────────────────────────────────
+  // Supertest's `.set()` only exists on the Test returned by .get()/.post()/etc,
+  // not on the root agent — so each verb needs the header attached after the call.
   function auth() {
-    return request(app.getHttpServer()).set('Authorization', `Bearer ${accessToken}`);
+    const agent = request(app.getHttpServer());
+    const withAuth = (test: request.Test) => test.set('Authorization', `Bearer ${accessToken}`);
+    return {
+      get: (url: string) => withAuth(agent.get(url)),
+      post: (url: string) => withAuth(agent.post(url)),
+      put: (url: string) => withAuth(agent.put(url)),
+      patch: (url: string) => withAuth(agent.patch(url)),
+      delete: (url: string) => withAuth(agent.delete(url)),
+    };
   }
 
   // ─── Module Smoke Tests ───────────────────────────────────────
@@ -199,7 +209,11 @@ describe('MGH ERP Smoke Tests (e2e)', () => {
   });
 
   describe('Assistant', () => {
-    it('POST /v1/assistant/chat — returns reply string', async () => {
+    // Skipped when no ANTHROPIC_API_KEY is configured (CI/local dev by default) —
+    // the service itself correctly 500s with a clear message in that case,
+    // which isn't a regression to assert on here.
+    const itIfConfigured = process.env.ANTHROPIC_API_KEY ? it : it.skip;
+    itIfConfigured('POST /v1/assistant/chat — returns reply string', async () => {
       const res = await auth()
         .post('/api/v1/assistant/chat')
         .send({ message: 'What is RevPAR?' })

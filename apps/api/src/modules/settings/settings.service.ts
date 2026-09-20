@@ -152,15 +152,15 @@ export class SettingsService {
     return updated;
   }
 
-  async getTaxRates(propertyId: string) {
+  async getTaxRates(tenantId: string) {
     return this.prisma.taxRate.findMany({
-      where: { propertyId } as any,
+      where: { tenantId } as any,
       orderBy: { name: 'asc' } as any,
     });
   }
 
-  async createTaxRate(dto: CreateTaxRateDto) {
-    return this.prisma.taxRate.create({ data: dto as any });
+  async createTaxRate(dto: CreateTaxRateDto, tenantId: string) {
+    return this.prisma.taxRate.create({ data: { ...dto, tenantId } as any });
   }
 
   async getProfile(userId: string) {

@@ -101,16 +101,16 @@ export class SettingsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'FRONT_DESK')
   @ApiOperation({ summary: 'List tax rates' })
-  getTaxRates(@Query('propertyId') propertyId: string) {
-    return this.service.getTaxRates(propertyId);
+  getTaxRates(@Request() req: any) {
+    return this.service.getTaxRates(req.user.tenantId);
   }
 
   @Post('tax-rates')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create tax rate' })
-  createTaxRate(@Body() dto: CreateTaxRateDto) {
-    return this.service.createTaxRate(dto);
+  createTaxRate(@Body() dto: CreateTaxRateDto, @Request() req: any) {
+    return this.service.createTaxRate(dto, req.user.tenantId);
   }
 
   @Get('policy')
