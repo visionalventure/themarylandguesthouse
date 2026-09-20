@@ -13,7 +13,8 @@ export class AccountingService {
   ) {}
 
   // Chart of Accounts
-  async getChartOfAccounts(propertyId: string) {
+  async getChartOfAccounts(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     return this.prisma.account.findMany({
       where: { propertyId, isActive: true },
       include: { children: true },
@@ -21,11 +22,17 @@ export class AccountingService {
     });
   }
 
-  async createAccount(dto: any) {
+  private async assertPropertyTenant(propertyId: string, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new NotFoundException('Property not found');
+  }
+
+  async createAccount(dto: any, tenantId: string) {
     const VALID_TYPES = ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'];
     if (!dto.code?.trim()) throw new BadRequestException('Account code is required');
     if (!dto.name?.trim()) throw new BadRequestException('Account name is required');
     if (!VALID_TYPES.includes(dto.type)) throw new BadRequestException(`Account type must be one of: ${VALID_TYPES.join(', ')}`);
+    await this.assertPropertyTenant(dto.propertyId, tenantId);
     const existing = await this.prisma.account.findFirst({ where: { propertyId: dto.propertyId, code: dto.code } });
     if (existing) throw new BadRequestException(`Account code ${dto.code} already exists for this property`);
     return this.prisma.account.create({ data: dto });
@@ -119,7 +126,8 @@ export class AccountingService {
   }
 
   // Financial Reports
-  async getProfitAndLoss(propertyId: string, startDate: Date, endDate: Date) {
+  async getProfitAndLoss(propertyId: string, tenantId: string, startDate: Date, endDate: Date) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const accounts = await this.prisma.account.findMany({
       where: { propertyId, type: { in: ['REVENUE', 'EXPENSE'] } },
       include: {
@@ -161,7 +169,8 @@ export class AccountingService {
     };
   }
 
-  async getBalanceSheet(propertyId: string, asOf: Date) {
+  async getBalanceSheet(propertyId: string, tenantId: string, asOf: Date) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const accounts = await this.prisma.account.findMany({
       where: { propertyId, isActive: true },
       orderBy: { code: 'asc' },
@@ -179,7 +188,8 @@ export class AccountingService {
     };
   }
 
-  async getTrialBalance(propertyId: string) {
+  async getTrialBalance(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const accounts = await this.prisma.account.findMany({
       where: { propertyId, isActive: true },
       orderBy: { code: 'asc' },
@@ -221,11 +231,14 @@ export class AccountingService {
   }
 
   // Bank Reconciliation
-  async getBankAccounts(propertyId: string) {
+  async getBankAccounts(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     return this.prisma.bankAccount.findMany({ where: { propertyId, isActive: true } });
   }
 
-  async getBankTransactions(bankAccountId: string, query: any = {}) {
+  async getBankTransactions(bankAccountId: string, tenantId: string, query: any = {}) {
+    const bankAccount = await this.prisma.bankAccount.findFirst({ where: { id: bankAccountId, property: { tenantId } }, select: { id: true } });
+    if (!bankAccount) throw new NotFoundException('Bank account not found');
     const { page = 1, limit = 50, startDate, endDate, reconciled } = query;
     const where: any = { bankAccountId };
     if (startDate) where.date = { gte: new Date(startDate) };
@@ -426,7 +439,8 @@ export class AccountingService {
   }
 
   // ─── Budget Management ────────────────────────────────────────────────────
-  async getBudgets(propertyId: string) {
+  async getBudgets(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     return this.prisma.budget.findMany({
       where: { propertyId },
       include: { lines: true },
@@ -434,8 +448,9 @@ export class AccountingService {
     });
   }
 
-  async createBudget(dto: any) {
+  async createBudget(dto: any, tenantId: string) {
     const { propertyId, name, period, startDate, endDate, notes, lines } = dto;
+    await this.assertPropertyTenant(propertyId, tenantId);
     return this.prisma.budget.create({
       data: {
         propertyId,

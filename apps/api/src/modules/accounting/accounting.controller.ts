@@ -4,6 +4,11 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { AccountingService } from './accounting.service';
+import {
+  CreateAccountDto, JournalEntryQueryDto, CreateJournalEntryDto, FinancialReportQueryDto,
+  CreateInvoiceDto, InvoiceQueryDto, MarkInvoicePaidDto, BankTransactionsQueryDto, StartReconciliationDto,
+  CreateBudgetDto, UpdateBudgetLineDto,
+} from './dto/accounting.dto';
 
 @ApiTags('accounting')
 @ApiBearerAuth()
@@ -16,23 +21,23 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'FRONT_DESK')
   @ApiOperation({ summary: 'Get chart of accounts hierarchy' })
-  getChartOfAccounts(@Query('propertyId') propertyId: string) {
-    return this.service.getChartOfAccounts(propertyId);
+  getChartOfAccounts(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getChartOfAccounts(propertyId, req.user.tenantId);
   }
 
   @Post('accounts')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Create account in chart of accounts' })
-  createAccount(@Body() dto: any) {
-    return this.service.createAccount(dto);
+  createAccount(@Body() dto: CreateAccountDto, @Request() req: any) {
+    return this.service.createAccount(dto, req.user.tenantId);
   }
 
   @Get('journal-entries')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'List journal entries' })
-  getJournalEntries(@Request() req: any, @Query() query: any) {
+  getJournalEntries(@Request() req: any, @Query() query: JournalEntryQueryDto) {
     return this.service.getJournalEntries(req.user.tenantId, query);
   }
 
@@ -40,7 +45,7 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Create journal entry (double-entry)' })
-  createJournalEntry(@Body() dto: any, @Request() req: any) {
+  createJournalEntry(@Body() dto: CreateJournalEntryDto, @Request() req: any) {
     return this.service.createJournalEntry({ ...dto, tenantId: req.user.tenantId }, req.user.sub);
   }
 
@@ -56,24 +61,24 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Generate Profit & Loss statement' })
-  getProfitAndLoss(@Query() query: any) {
-    return this.service.getProfitAndLoss(query.propertyId, new Date(query.startDate), new Date(query.endDate));
+  getProfitAndLoss(@Query() query: FinancialReportQueryDto, @Request() req: any) {
+    return this.service.getProfitAndLoss(query.propertyId, req.user.tenantId, new Date(query.startDate), new Date(query.endDate));
   }
 
   @Get('reports/balance-sheet')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Generate Balance Sheet' })
-  getBalanceSheet(@Query() query: any) {
-    return this.service.getBalanceSheet(query.propertyId, new Date(query.asOf || new Date()));
+  getBalanceSheet(@Query() query: FinancialReportQueryDto, @Request() req: any) {
+    return this.service.getBalanceSheet(query.propertyId, req.user.tenantId, new Date(query.asOf || new Date()));
   }
 
   @Get('reports/trial-balance')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Generate Trial Balance' })
-  getTrialBalance(@Query('propertyId') propertyId: string) {
-    return this.service.getTrialBalance(propertyId);
+  getTrialBalance(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getTrialBalance(propertyId, req.user.tenantId);
   }
 
   @Get('reports/aged-receivables')
@@ -88,7 +93,7 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'FRONT_DESK')
   @ApiOperation({ summary: 'List invoices' })
-  getInvoices(@Query() query: any, @Request() req: any) {
+  getInvoices(@Query() query: InvoiceQueryDto, @Request() req: any) {
     return this.service.getInvoices(req.user.tenantId, query);
   }
 
@@ -104,7 +109,7 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Create invoice' })
-  createInvoice(@Body() dto: any, @Request() req: any) {
+  createInvoice(@Body() dto: CreateInvoiceDto, @Request() req: any) {
     return this.service.createInvoice(dto, req.user.tenantId);
   }
 
@@ -120,7 +125,7 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Record payment against invoice' })
-  markInvoicePaid(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+  markInvoicePaid(@Param('id') id: string, @Body() dto: MarkInvoicePaidDto, @Request() req: any) {
     return this.service.markInvoicePaid(id, dto, req.user.tenantId);
   }
 
@@ -128,23 +133,23 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'List bank accounts' })
-  getBankAccounts(@Query('propertyId') propertyId: string) {
-    return this.service.getBankAccounts(propertyId);
+  getBankAccounts(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getBankAccounts(propertyId, req.user.tenantId);
   }
 
   @Get('bank-accounts/:id/transactions')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get bank account transactions' })
-  getBankTransactions(@Param('id') id: string, @Query() query: any) {
-    return this.service.getBankTransactions(id, query);
+  getBankTransactions(@Param('id') id: string, @Query() query: BankTransactionsQueryDto, @Request() req: any) {
+    return this.service.getBankTransactions(id, req.user.tenantId, query);
   }
 
   @Post('reconciliation/start')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Start bank reconciliation session' })
-  startReconciliation(@Body() dto: { bankAccountId: string; closingBalance: number; statementDate: string }, @Request() req: any) {
+  startReconciliation(@Body() dto: StartReconciliationDto, @Request() req: any) {
     return this.service.startReconciliation(dto.bankAccountId, dto.closingBalance, dto.statementDate, req.user.tenantId);
   }
 
@@ -176,16 +181,16 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'List budgets for a property' })
-  getBudgets(@Query('propertyId') propertyId: string) {
-    return this.service.getBudgets(propertyId);
+  getBudgets(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getBudgets(propertyId, req.user.tenantId);
   }
 
   @Post('budgets')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Create a budget with line items' })
-  createBudget(@Body() dto: any, @Request() req: any) {
-    return this.service.createBudget({ ...dto, propertyId: dto.propertyId ?? req.user.tenantId });
+  createBudget(@Body() dto: CreateBudgetDto, @Request() req: any) {
+    return this.service.createBudget(dto, req.user.tenantId);
   }
 
   @Get('budgets/:id')
@@ -200,7 +205,7 @@ export class AccountingController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Update a budget line amount' })
-  updateBudgetLine(@Param('id') budgetId: string, @Param('lineId') lineId: string, @Body() dto: { amount: number }, @Request() req: any) {
+  updateBudgetLine(@Param('id') budgetId: string, @Param('lineId') lineId: string, @Body() dto: UpdateBudgetLineDto, @Request() req: any) {
     return this.service.updateBudgetLine(budgetId, lineId, dto, req.user.tenantId);
   }
 }
