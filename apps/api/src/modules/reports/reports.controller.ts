@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards, Res } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Res, Request } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -17,71 +17,72 @@ export class ReportsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Occupancy report by date range' })
-  getOccupancy(@Query() query: any) {
-    return this.service.getOccupancyReport(query.propertyId, query);
+  getOccupancy(@Query() query: any, @Request() req: any) {
+    return this.service.getOccupancyReport(query.propertyId, req.user.tenantId, query);
   }
 
   @Get('revenue')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Revenue by source and period' })
-  getRevenue(@Query() query: any) {
-    return this.service.getRevenueReport(query.propertyId, query);
+  getRevenue(@Query() query: any, @Request() req: any) {
+    return this.service.getRevenueReport(query.propertyId, req.user.tenantId, query);
   }
 
   @Get('guests')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Guest analytics: top spenders, repeat, new' })
-  getGuests(@Query() query: any) {
-    return this.service.getGuestReport(query.propertyId, query);
+  getGuests(@Query() query: any, @Request() req: any) {
+    return this.service.getGuestReport(query.propertyId, req.user.tenantId, query);
   }
 
   @Get('housekeeping')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Housekeeping efficiency report' })
-  getHousekeeping(@Query() query: any) {
-    return this.service.getHousekeepingReport(query.propertyId, query);
+  getHousekeeping(@Query() query: any, @Request() req: any) {
+    return this.service.getHousekeepingReport(query.propertyId, req.user.tenantId, query);
   }
 
   @Get('maintenance')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Maintenance work order report' })
-  getMaintenance(@Query() query: any) {
-    return this.service.getMaintenanceReport(query.propertyId, query);
+  getMaintenance(@Query() query: any, @Request() req: any) {
+    return this.service.getMaintenanceReport(query.propertyId, req.user.tenantId, query);
   }
 
   @Get('financial-summary')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Financial summary: revenue vs costs' })
-  getFinancialSummary(@Query() query: any) {
-    return this.service.getFinancialSummary(query.propertyId, query);
+  getFinancialSummary(@Query() query: any, @Request() req: any) {
+    return this.service.getFinancialSummary(query.propertyId, req.user.tenantId, query);
   }
 
   @Get('export')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Export report as CSV' })
-  async exportCsv(@Query() query: any, @Res() res: Response) {
+  async exportCsv(@Query() query: any, @Request() req: any, @Res() res: Response) {
     const { type = 'occupancy', propertyId, startDate, endDate } = query;
     const params = { startDate, endDate };
+    const tenantId = req.user.tenantId;
 
     let data: any[] = [];
     let filename = `${type}-report`;
 
     if (type === 'occupancy') {
-      const report = await this.service.getOccupancyReport(propertyId, params) as any;
+      const report = await this.service.getOccupancyReport(propertyId, tenantId, params) as any;
       data = report.byCategory ?? [];
       filename = 'occupancy-report';
     } else if (type === 'revenue') {
-      const report = await this.service.getRevenueReport(propertyId, params) as any;
+      const report = await this.service.getRevenueReport(propertyId, tenantId, params) as any;
       data = report.bySource ?? [];
       filename = 'revenue-report';
     } else if (type === 'guests') {
-      const report = await this.service.getGuestReport(propertyId, params) as any;
+      const report = await this.service.getGuestReport(propertyId, tenantId, params) as any;
       data = report.topSpenders ?? [];
       filename = 'guest-report';
     }

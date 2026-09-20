@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
@@ -11,7 +11,13 @@ export class ReportsService {
     return { gte: start, lte: end };
   }
 
-  async getOccupancyReport(propertyId: string, params: any = {}) {
+  private async assertPropertyTenant(propertyId: string, tenantId: string) {
+    const prop = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId } });
+    if (!prop) throw new ForbiddenException('Property not found or access denied');
+  }
+
+  async getOccupancyReport(propertyId: string, tenantId: string, params: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const range = this.dateRange(params.startDate, params.endDate);
     const totalRooms = await this.prisma.room.count({ where: { propertyId } });
 
@@ -34,7 +40,8 @@ export class ReportsService {
     return { totalRooms, reservations: reservations.length, byCategory };
   }
 
-  async getRevenueReport(propertyId: string, params: any = {}) {
+  async getRevenueReport(propertyId: string, tenantId: string, params: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const range = this.dateRange(params.startDate, params.endDate);
 
     const [bySource, daily] = await Promise.all([
@@ -55,28 +62,30 @@ export class ReportsService {
     return { totalRevenue, bySource, daily };
   }
 
-  async getGuestReport(propertyId: string, params: any = {}) {
+  async getGuestReport(propertyId: string, tenantId: string, params: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const range = this.dateRange(params.startDate, params.endDate);
 
     const [topSpenders, repeatGuests, newGuests] = await Promise.all([
       this.prisma.guest.findMany({
-        where: { reservations: { some: { propertyId, checkIn: range } } },
+        where: { tenantId, reservations: { some: { propertyId, checkIn: range } } },
         orderBy: { totalSpent: 'desc' },
         take: 10,
         select: { firstName: true, lastName: true, email: true, totalStays: true, totalSpent: true },
       }),
       this.prisma.guest.count({
-        where: { reservations: { some: { propertyId } }, totalStays: { gt: 1 } },
+        where: { tenantId, reservations: { some: { propertyId } }, totalStays: { gt: 1 } },
       }),
       this.prisma.guest.count({
-        where: { createdAt: range },
+        where: { tenantId, createdAt: range },
       }),
     ]);
 
     return { topSpenders, repeatGuests, newGuests };
   }
 
-  async getHousekeepingReport(propertyId: string, params: any = {}) {
+  async getHousekeepingReport(propertyId: string, tenantId: string, params: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const range = this.dateRange(params.startDate, params.endDate);
 
     const [total, completed, pending, inProgress] = await Promise.all([
@@ -90,19 +99,20 @@ export class ReportsService {
     return { total, completed, pending, inProgress, completionRate };
   }
 
-  async getMaintenanceReport(propertyId: string, params: any = {}) {
+  async getMaintenanceReport(propertyId: string, tenantId: string, params: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const range = this.dateRange(params.startDate, params.endDate);
 
     const [total, byStatus, byPriority] = await Promise.all([
-      this.prisma.workOrder.count({ where: { tenantId: propertyId, createdAt: range } }),
+      this.prisma.workOrder.count({ where: { tenantId, createdAt: range } }),
       this.prisma.workOrder.groupBy({
         by: ['status'],
-        where: { tenantId: propertyId, createdAt: range },
+        where: { tenantId, createdAt: range },
         _count: { id: true },
       }),
       this.prisma.workOrder.groupBy({
         by: ['priority'],
-        where: { tenantId: propertyId, createdAt: range },
+        where: { tenantId, createdAt: range },
         _count: { id: true },
       }),
     ]);
@@ -110,7 +120,8 @@ export class ReportsService {
     return { total, byStatus, byPriority };
   }
 
-  async getFinancialSummary(propertyId: string, params: any = {}) {
+  async getFinancialSummary(propertyId: string, tenantId: string, params: any = {}) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const range = this.dateRange(params.startDate, params.endDate);
 
     const [revenue, payments] = await Promise.all([
