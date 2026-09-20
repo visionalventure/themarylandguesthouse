@@ -9,17 +9,18 @@ const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password'];
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { accessToken } = useAuthStore();
+  const { accessToken, hasHydrated } = useAuthStore();
 
   useEffect(() => {
+    if (!hasHydrated) return; // wait for the persisted token to load before deciding
     const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
     if (!isPublic && !accessToken) {
       router.replace('/login');
     }
-  }, [accessToken, pathname, router]);
+  }, [accessToken, hasHydrated, pathname, router]);
 
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
-  if (!isPublic && !accessToken) return null;
+  if (!isPublic && (!hasHydrated || !accessToken)) return null;
 
   return <>{children}</>;
 }

@@ -20,6 +20,8 @@ interface AuthState {
   propertyId: string;
   isLoading: boolean;
   error: string | null;
+  hasHydrated: boolean;
+  setHasHydrated: (value: boolean) => void;
   login: (email: string, password: string, totpCode?: string) => Promise<any>;
   logout: () => Promise<void>;
   setTokens: (access: string, refresh: string) => void;
@@ -36,6 +38,8 @@ export const useAuthStore = create<AuthState>()(
       propertyId: '',
       isLoading: false,
       error: null,
+      hasHydrated: false,
+      setHasHydrated: (value) => set({ hasHydrated: value }),
 
       login: async (email, password, totpCode) => {
         set({ isLoading: true, error: null });
@@ -88,6 +92,9 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         propertyId: state.propertyId,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );
