@@ -4,6 +4,10 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { RoomsService } from './rooms.service';
+import {
+  RoomsQueryDto, AvailableRoomsQueryDto, CreateRoomCategoryDto, UpdateRoomCategoryDto,
+  CreateRoomDto, UpdateRoomDto, UpdateRoomStatusDto, CreateRoomPricingDto, UpdateRoomPricingDto,
+} from './dto/rooms.dto';
 
 @ApiTags('rooms')
 @ApiBearerAuth()
@@ -14,13 +18,13 @@ export class RoomsController {
 
   @Get()
   @ApiOperation({ summary: 'List rooms with status filters' })
-  findAll(@Query() query: any, @Request() req: any) {
+  findAll(@Query() query: RoomsQueryDto, @Request() req: any) {
     return this.service.findAll(query.propertyId, req.user.tenantId, query);
   }
 
   @Get('available')
   @ApiOperation({ summary: 'Find available rooms for date range' })
-  findAvailable(@Query() query: any, @Request() req: any) {
+  findAvailable(@Query() query: AvailableRoomsQueryDto, @Request() req: any) {
     return this.service.findAvailable(query.propertyId, req.user.tenantId, new Date(query.checkIn), new Date(query.checkOut));
   }
 
@@ -34,7 +38,7 @@ export class RoomsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create a room category' })
-  createCategory(@Body() dto: any, @Request() req: any) {
+  createCategory(@Body() dto: CreateRoomCategoryDto, @Request() req: any) {
     return this.service.createCategory(dto, req.user.tenantId);
   }
 
@@ -42,7 +46,7 @@ export class RoomsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update a room category' })
-  updateCategory(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+  updateCategory(@Param('id') id: string, @Body() dto: UpdateRoomCategoryDto, @Request() req: any) {
     return this.service.updateCategory(id, dto, req.user.tenantId);
   }
 
@@ -56,7 +60,7 @@ export class RoomsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create new room' })
-  create(@Body() dto: any, @Request() req: any) {
+  create(@Body() dto: CreateRoomDto, @Request() req: any) {
     return this.service.create(dto, req.user.tenantId);
   }
 
@@ -64,7 +68,7 @@ export class RoomsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update room' })
-  update(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+  update(@Param('id') id: string, @Body() dto: UpdateRoomDto, @Request() req: any) {
     return this.service.update(id, dto, req.user.tenantId);
   }
 
@@ -72,7 +76,7 @@ export class RoomsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Update room status' })
-  updateStatus(@Param('id') id: string, @Body() body: { status: string }, @Request() req: any) {
+  updateStatus(@Param('id') id: string, @Body() body: UpdateRoomStatusDto, @Request() req: any) {
     return this.service.updateStatus(id, body.status, req.user.tenantId);
   }
 
@@ -88,7 +92,7 @@ export class RoomsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Add a pricing rule to a room' })
-  createRoomPricing(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+  createRoomPricing(@Param('id') id: string, @Body() dto: CreateRoomPricingDto, @Request() req: any) {
     return this.service.createRoomPricing(id, dto, req.user.tenantId);
   }
 
@@ -96,7 +100,7 @@ export class RoomsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update a room pricing rule' })
-  updateRoomPricing(@Param('pricingId') pricingId: string, @Body() dto: any, @Request() req: any) {
+  updateRoomPricing(@Param('pricingId') pricingId: string, @Body() dto: UpdateRoomPricingDto, @Request() req: any) {
     return this.service.updateRoomPricing(pricingId, dto, req.user.tenantId);
   }
 
