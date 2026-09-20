@@ -4,6 +4,10 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { ReservationsService } from './reservations.service';
+import {
+  CreateReservationDto, UpdateReservationDto, CancelReservationDto, HoldRoomDto,
+  ReservationQueryDto, CalendarQueryDto,
+} from './dto/reservations.dto';
 
 @ApiTags('reservations')
 @ApiBearerAuth()
@@ -14,13 +18,13 @@ export class ReservationsController {
 
   @Get()
   @ApiOperation({ summary: 'List reservations with filters' })
-  findAll(@Query() query: any, @Request() req: any) {
+  findAll(@Query() query: ReservationQueryDto, @Request() req: any) {
     return this.service.findAll(query.propertyId, req.user.tenantId, query);
   }
 
   @Get('calendar')
   @ApiOperation({ summary: 'Get reservations for calendar view' })
-  getCalendar(@Query() query: any, @Request() req: any) {
+  getCalendar(@Query() query: CalendarQueryDto, @Request() req: any) {
     return this.service.getCalendar(query.propertyId, new Date(query.startDate), new Date(query.endDate), req.user.tenantId);
   }
 
@@ -34,7 +38,7 @@ export class ReservationsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Create new reservation' })
-  create(@Body() dto: any, @Request() req: any) {
+  create(@Body() dto: CreateReservationDto, @Request() req: any) {
     return this.service.create(dto, req.user.sub, req.user.tenantId);
   }
 
@@ -42,7 +46,7 @@ export class ReservationsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Update reservation' })
-  update(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+  update(@Param('id') id: string, @Body() dto: UpdateReservationDto, @Request() req: any) {
     return this.service.update(id, dto, req.user.tenantId);
   }
 
@@ -66,7 +70,7 @@ export class ReservationsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Cancel reservation' })
-  cancel(@Param('id') id: string, @Body() body: { reason?: string }, @Request() req: any) {
+  cancel(@Param('id') id: string, @Body() body: CancelReservationDto, @Request() req: any) {
     return this.service.cancel(id, body.reason, req.user.tenantId);
   }
 
@@ -74,7 +78,7 @@ export class ReservationsController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Place a temporary hold on a room' })
-  holdRoom(@Body() dto: any, @Request() req: any) {
+  holdRoom(@Body() dto: HoldRoomDto, @Request() req: any) {
     return this.service.holdRoom(dto, req.user.sub, req.user.tenantId);
   }
 

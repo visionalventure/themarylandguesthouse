@@ -4,6 +4,10 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { MaintenanceService } from './maintenance.service';
+import {
+  WorkOrderQueryDto, CreateWorkOrderDto, UpdateWorkOrderDto,
+  AssetQueryDto, CreateAssetDto, UpdateAssetDto,
+} from './dto/maintenance.dto';
 
 @ApiTags('maintenance')
 @ApiBearerAuth()
@@ -15,42 +19,42 @@ export class MaintenanceController {
   @Get('work-orders')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'MAINTENANCE', 'FRONT_DESK')
   @ApiOperation({ summary: 'List work orders' })
-  getWorkOrders(@Query() query: any, @Request() req: any) {
+  getWorkOrders(@Query() query: WorkOrderQueryDto, @Request() req: any) {
     return this.service.getWorkOrders(req.user.tenantId, query);
   }
 
   @Post('work-orders')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'MAINTENANCE', 'FRONT_DESK')
   @ApiOperation({ summary: 'Create work order' })
-  createWorkOrder(@Body() dto: any, @Request() req: any) {
+  createWorkOrder(@Body() dto: CreateWorkOrderDto, @Request() req: any) {
     return this.service.createWorkOrder({ ...dto, tenantId: req.user.tenantId });
   }
 
   @Patch('work-orders/:id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'MAINTENANCE')
   @ApiOperation({ summary: 'Update work order status/assignee' })
-  updateWorkOrder(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+  updateWorkOrder(@Param('id') id: string, @Body() dto: UpdateWorkOrderDto, @Request() req: any) {
     return this.service.updateWorkOrder(id, dto, req.user.tenantId);
   }
 
   @Get('assets')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'MAINTENANCE')
   @ApiOperation({ summary: 'List assets' })
-  getAssets(@Query() query: any, @Request() req: any) {
+  getAssets(@Query() query: AssetQueryDto, @Request() req: any) {
     return this.service.getAssets(query.propertyId, req.user.tenantId, query);
   }
 
   @Post('assets')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create asset' })
-  createAsset(@Body() dto: any, @Request() req: any) {
+  createAsset(@Body() dto: CreateAssetDto, @Request() req: any) {
     return this.service.createAsset(dto, req.user.tenantId);
   }
 
   @Put('assets/:id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'MAINTENANCE')
   @ApiOperation({ summary: 'Update asset' })
-  updateAsset(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+  updateAsset(@Param('id') id: string, @Body() dto: UpdateAssetDto, @Request() req: any) {
     return this.service.updateAsset(id, dto, req.user.tenantId);
   }
 

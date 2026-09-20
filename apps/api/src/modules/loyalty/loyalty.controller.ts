@@ -4,6 +4,9 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { LoyaltyService } from './loyalty.service';
+import {
+  MembersQueryDto, EarnPointsDto, RedeemPointsDto, CreateLoyaltyRuleDto, UpdateLoyaltyRuleDto,
+} from './dto/loyalty.dto';
 
 @ApiTags('loyalty')
 @ApiBearerAuth()
@@ -14,7 +17,7 @@ export class LoyaltyController {
 
   @Get('members')
   @ApiOperation({ summary: 'List loyalty members' })
-  getMembers(@Query() query: any, @Request() req: any) {
+  getMembers(@Query() query: MembersQueryDto, @Request() req: any) {
     return this.service.getMembers(req.user.tenantId, query);
   }
 
@@ -28,7 +31,7 @@ export class LoyaltyController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Manually earn points for a guest' })
-  earnPoints(@Body() dto: any, @Request() req: any) {
+  earnPoints(@Body() dto: EarnPointsDto, @Request() req: any) {
     return this.service.earnPoints(dto, req.user.tenantId);
   }
 
@@ -36,7 +39,7 @@ export class LoyaltyController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Redeem points for a reward' })
-  redeemPoints(@Body() dto: any, @Request() req: any) {
+  redeemPoints(@Body() dto: RedeemPointsDto, @Request() req: any) {
     return this.service.redeemPoints(dto, req.user.tenantId);
   }
 
@@ -50,7 +53,7 @@ export class LoyaltyController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create loyalty rule' })
-  createRule(@Body() dto: any, @Request() req: any) {
+  createRule(@Body() dto: CreateLoyaltyRuleDto, @Request() req: any) {
     return this.service.createRule(dto, req.user.tenantId);
   }
 
@@ -58,7 +61,7 @@ export class LoyaltyController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update loyalty rule' })
-  updateRule(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+  updateRule(@Param('id') id: string, @Body() dto: UpdateLoyaltyRuleDto, @Request() req: any) {
     return this.service.updateRule(id, dto, req.user.tenantId);
   }
 

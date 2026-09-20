@@ -4,6 +4,10 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { RestaurantService } from './restaurant.service';
+import {
+  CreateMenuItemDto, UpdateMenuItemDto, CreateOrderDto, UpdateOrderStatusDto,
+  MoveTableDto, OrdersQueryDto, RevenueQueryDto,
+} from './dto/restaurant.dto';
 
 @ApiTags('restaurant')
 @ApiBearerAuth()
@@ -36,49 +40,49 @@ export class RestaurantController {
   @Post(':id/menu-items')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create menu item' })
-  createMenuItem(@Param('id') restaurantId: string, @Body() dto: any, @Request() req: any) {
+  createMenuItem(@Param('id') restaurantId: string, @Body() dto: CreateMenuItemDto, @Request() req: any) {
     return this.service.createMenuItem(restaurantId, dto, req.user.tenantId);
   }
 
   @Put('menu-items/:id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update menu item' })
-  updateMenuItem(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+  updateMenuItem(@Param('id') id: string, @Body() dto: UpdateMenuItemDto, @Request() req: any) {
     return this.service.updateMenuItem(id, dto, req.user.tenantId);
   }
 
   @Get(':id/orders')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RESTAURANT_STAFF', 'FRONT_DESK')
   @ApiOperation({ summary: 'List orders with filters' })
-  getOrders(@Param('id') restaurantId: string, @Query() query: any, @Request() req: any) {
+  getOrders(@Param('id') restaurantId: string, @Query() query: OrdersQueryDto, @Request() req: any) {
     return this.service.getOrders(restaurantId, req.user.tenantId, query);
   }
 
   @Post(':id/orders')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK', 'RESTAURANT_STAFF')
   @ApiOperation({ summary: 'Create order' })
-  createOrder(@Param('id') restaurantId: string, @Body() dto: any, @Request() req: any) {
+  createOrder(@Param('id') restaurantId: string, @Body() dto: CreateOrderDto, @Request() req: any) {
     return this.service.createOrder(restaurantId, dto, req.user.tenantId);
   }
 
   @Patch('orders/:id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK', 'RESTAURANT_STAFF')
   @ApiOperation({ summary: 'Update order status' })
-  updateOrderStatus(@Param('id') id: string, @Body('status') status: string, @Request() req: any) {
-    return this.service.updateOrderStatus(id, status, req.user.tenantId);
+  updateOrderStatus(@Param('id') id: string, @Body() body: UpdateOrderStatusDto, @Request() req: any) {
+    return this.service.updateOrderStatus(id, body.status, req.user.tenantId);
   }
 
   @Patch('orders/:id/move-table')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK', 'RESTAURANT_STAFF')
   @ApiOperation({ summary: 'Move order to a different table' })
-  moveTable(@Param('id') id: string, @Body('tableId') tableId: string, @Request() req: any) {
-    return this.service.moveTable(id, tableId, req.user.tenantId);
+  moveTable(@Param('id') id: string, @Body() body: MoveTableDto, @Request() req: any) {
+    return this.service.moveTable(id, body.tableId, req.user.tenantId);
   }
 
   @Get(':id/revenue')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Revenue summary for date range' })
-  getRevenue(@Param('id') restaurantId: string, @Query() params: any, @Request() req: any) {
+  getRevenue(@Param('id') restaurantId: string, @Query() params: RevenueQueryDto, @Request() req: any) {
     return this.service.getRevenue(restaurantId, req.user.tenantId, params);
   }
 }

@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { InventoryService } from './inventory.service';
+import { InventoryQueryDto, CreateInventoryItemDto, StockInDto, StockOutDto } from './dto/inventory.dto';
 
 @ApiTags('inventory')
 @ApiBearerAuth()
@@ -14,7 +15,7 @@ export class InventoryController {
 
   @Get()
   @ApiOperation({ summary: 'List inventory items' })
-  getItems(@Query() query: any, @Request() req: any) {
+  getItems(@Query() query: InventoryQueryDto, @Request() req: any) {
     return this.service.getItems(query.propertyId, req.user.tenantId, query);
   }
 
@@ -36,7 +37,7 @@ export class InventoryController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create inventory item' })
-  createItem(@Body() dto: any, @Request() req: any) {
+  createItem(@Body() dto: CreateInventoryItemDto, @Request() req: any) {
     return this.service.createItem(dto, req.user.tenantId);
   }
 
@@ -44,7 +45,7 @@ export class InventoryController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Record stock receipt' })
-  stockIn(@Body() dto: any, @Request() req: any) {
+  stockIn(@Body() dto: StockInDto, @Request() req: any) {
     return this.service.stockIn(dto, req.user.tenantId);
   }
 
@@ -52,7 +53,7 @@ export class InventoryController {
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Record stock usage/issue' })
-  stockOut(@Body() dto: any, @Request() req: any) {
+  stockOut(@Body() dto: StockOutDto, @Request() req: any) {
     return this.service.stockOut(dto, req.user.tenantId);
   }
 
