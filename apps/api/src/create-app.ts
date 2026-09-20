@@ -21,6 +21,11 @@ export async function createApp(): Promise<NestExpressApplication> {
   const configService = app.get(ConfigService);
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
 
+  // Trust the first proxy hop (Vercel's edge) so req.ip / @Ip() reflect the
+  // real client address instead of the proxy's, needed for login rate-limit
+  // keying and audit log IPs to be meaningful.
+  app.set('trust proxy', 1);
+
   // Serve uploaded files statically at /uploads (local/dev fallback only —
   // production uploads go through StorageService to R2, not local disk).
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
@@ -34,12 +39,32 @@ export async function createApp(): Promise<NestExpressApplication> {
   app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
   // Security
-  app.use(helmet());
+  // In non-production, relax CSP just enough for Swagger UI's inline
+  // scripts/styles to render at /api/docs; production keeps helmet's
+  // strict defaults untouched.
+  app.use(
+    nodeEnv === 'production'
+      ? helmet()
+      : helmet({
+          contentSecurityPolicy: {
+            directives: {
+              ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+              'script-src': ["'self'", "'unsafe-inline'"],
+              'style-src': ["'self'", "'unsafe-inline'"],
+            },
+          },
+        }),
+  );
   app.use(compression());
 
   // CORS — CORS_ORIGIN supports comma-separated values for multiple allowed origins
   const rawOrigins = configService.get<string>('CORS_ORIGIN', 'http://localhost:3000');
   const corsOrigins = rawOrigins.split(',').map((o) => o.trim());
+  if (corsOrigins.includes('*')) {
+    throw new Error(
+      'CORS_ORIGIN must not be "*" — credentials:true with a wildcard origin is an invalid/unsafe CORS config. Set explicit origin(s) instead.',
+    );
+  }
   app.enableCors({
     origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
     credentials: true,
