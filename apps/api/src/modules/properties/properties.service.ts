@@ -14,9 +14,9 @@ export class PropertiesService {
     });
   }
 
-  async findOne(id: string) {
-    const prop = await this.prisma.property.findUnique({
-      where: { id },
+  async findOne(id: string, tenantId: string) {
+    const prop = await this.prisma.property.findFirst({
+      where: { id, tenantId },
       include: { _count: { select: { rooms: true, employees: true } } },
     });
     if (!prop) throw new NotFoundException('Property not found');
@@ -27,10 +27,10 @@ export class PropertiesService {
     return this.prisma.property.create({ data: dto });
   }
 
-  async update(id: string, dto: any, tenantId?: string) {
+  async update(id: string, dto: any, tenantId: string) {
     try {
       return await this.prisma.property.update({
-        where: { id, ...(tenantId && { tenantId }) },
+        where: { id, tenantId },
         data: dto,
       });
     } catch (e: any) {

@@ -12,6 +12,7 @@ export class DashboardService {
   }
 
   async getKPIs(propertyId: string, tenantId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const today = new Date();
     const todayStart = startOfDay(today);
     const todayEnd = endOfDay(today);
@@ -111,6 +112,7 @@ export class DashboardService {
   }
 
   async getRevenueChart(propertyId: string, tenantId: string, days = 30) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const endDate = new Date();
     const startDate = subDays(endDate, days);
 
@@ -163,6 +165,7 @@ export class DashboardService {
   }
 
   async getRevenueByCategory(tenantId: string, propertyId: string) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const monthStart = startOfMonth(new Date());
 
     const [roomRevenue, fbRevenue] = await Promise.all([
@@ -197,6 +200,7 @@ export class DashboardService {
   }
 
   async getRecentActivity(tenantId: string, propertyId: string, limit = 10) {
+    await this.assertPropertyTenant(propertyId, tenantId);
     const [recentReservations, recentPayments, recentMaintenance] = await Promise.all([
       this.prisma.reservation.findMany({
         where: { propertyId },

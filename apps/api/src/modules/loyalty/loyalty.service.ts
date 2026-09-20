@@ -15,13 +15,14 @@ function getTierForPoints(points: number): string {
 export class LoyaltyService {
   constructor(private prisma: PrismaService) {}
 
-  async getMembers(query: any = {}) {
+  async getMembers(tenantId: string, query: any = {}) {
     const { tier, search, page = 1, limit = 20 } = query;
     const skip = (Number(page) - 1) * Number(limit);
-    const where: any = {};
+    const where: any = { guest: { tenantId } };
     if (tier) where.tier = tier;
     if (search) {
       where.guest = {
+        tenantId,
         OR: [
           { firstName: { contains: search, mode: 'insensitive' } },
           { lastName: { contains: search, mode: 'insensitive' } },
@@ -46,9 +47,9 @@ export class LoyaltyService {
     return { data, total };
   }
 
-  async getMember(guestId: string) {
+  async getMember(guestId: string, tenantId: string) {
     const account = await this.prisma.loyaltyAccount.findFirst({
-      where: { guestId },
+      where: { guestId, guest: { tenantId } },
       include: {
         guest: { select: { firstName: true, lastName: true, email: true, phone: true } },
         transactions: {
@@ -65,10 +66,10 @@ export class LoyaltyService {
     return account;
   }
 
-  async earnPoints(dto: any) {
+  async earnPoints(dto: any, tenantId: string) {
     const { guestId, points, description, referenceId, referenceType } = dto;
 
-    const account = await this.prisma.loyaltyAccount.findFirst({ where: { guestId } });
+    const account = await this.prisma.loyaltyAccount.findFirst({ where: { guestId, guest: { tenantId } } });
     if (!account) throw new NotFoundException('Loyalty account not found');
 
     const newPoints = account.points + points;
@@ -95,10 +96,10 @@ export class LoyaltyService {
     return updated;
   }
 
-  async redeemPoints(dto: any) {
+  async redeemPoints(dto: any, tenantId: string) {
     const { guestId, points, reward, referenceId } = dto;
 
-    const account = await this.prisma.loyaltyAccount.findFirst({ where: { guestId } });
+    const account = await this.prisma.loyaltyAccount.findFirst({ where: { guestId, guest: { tenantId } } });
     if (!account) throw new NotFoundException('Loyalty account not found');
     if (account.points < points) throw new BadRequestException('Insufficient points');
 
@@ -121,29 +122,32 @@ export class LoyaltyService {
     return updated;
   }
 
-  async getRules() {
+  async getRules(tenantId: string) {
     return this.prisma.loyaltyRule.findMany({
-      where: { isActive: true } as any,
+      where: { isActive: true, tenantId } as any,
       orderBy: { createdAt: 'asc' } as any,
     });
   }
 
-  async createRule(dto: any) {
-    return this.prisma.loyaltyRule.create({ data: dto } as any);
+  async createRule(dto: any, tenantId: string) {
+    return this.prisma.loyaltyRule.create({ data: { ...dto, tenantId } } as any);
   }
 
-  async updateRule(id: string, dto: any) {
+  async updateRule(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.loyaltyRule.findFirst({ where: { id, tenantId } as any, select: { id: true } });
+    if (!existing) throw new NotFoundException('Loyalty rule not found');
     return this.prisma.loyaltyRule.update({ where: { id }, data: dto } as any);
   }
 
-  async getStats(propertyId: string) {
+  async getStats(tenantId: string) {
     const [total, byTier, pointsThisMonth] = await Promise.all([
-      this.prisma.loyaltyAccount.count(),
-      this.prisma.loyaltyAccount.groupBy({ by: ['tier'], _count: { id: true } }),
+      this.prisma.loyaltyAccount.count({ where: { guest: { tenantId } } }),
+      this.prisma.loyaltyAccount.groupBy({ by: ['tier'], where: { guest: { tenantId } }, _count: { id: true } }),
       this.prisma.loyaltyTransaction.aggregate({
         where: {
           type: 'EARN',
           createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
+          account: { guest: { tenantId } },
         },
         _sum: { points: true },
       }),

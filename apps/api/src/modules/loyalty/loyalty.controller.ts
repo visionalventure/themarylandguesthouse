@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -14,59 +14,59 @@ export class LoyaltyController {
 
   @Get('members')
   @ApiOperation({ summary: 'List loyalty members' })
-  getMembers(@Query() query: any) {
-    return this.service.getMembers(query);
+  getMembers(@Query() query: any, @Request() req: any) {
+    return this.service.getMembers(req.user.tenantId, query);
   }
 
   @Get('members/:guestId')
   @ApiOperation({ summary: 'Get member detail with transaction history' })
-  getMember(@Param('guestId') guestId: string) {
-    return this.service.getMember(guestId);
+  getMember(@Param('guestId') guestId: string, @Request() req: any) {
+    return this.service.getMember(guestId, req.user.tenantId);
   }
 
   @Post('earn')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Manually earn points for a guest' })
-  earnPoints(@Body() dto: any) {
-    return this.service.earnPoints(dto);
+  earnPoints(@Body() dto: any, @Request() req: any) {
+    return this.service.earnPoints(dto, req.user.tenantId);
   }
 
   @Post('redeem')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Redeem points for a reward' })
-  redeemPoints(@Body() dto: any) {
-    return this.service.redeemPoints(dto);
+  redeemPoints(@Body() dto: any, @Request() req: any) {
+    return this.service.redeemPoints(dto, req.user.tenantId);
   }
 
   @Get('rules')
   @ApiOperation({ summary: 'List loyalty earning rules' })
-  getRules() {
-    return this.service.getRules();
+  getRules(@Request() req: any) {
+    return this.service.getRules(req.user.tenantId);
   }
 
   @Post('rules')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Create loyalty rule' })
-  createRule(@Body() dto: any) {
-    return this.service.createRule(dto);
+  createRule(@Body() dto: any, @Request() req: any) {
+    return this.service.createRule(dto, req.user.tenantId);
   }
 
   @Put('rules/:id')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Update loyalty rule' })
-  updateRule(@Param('id') id: string, @Body() dto: any) {
-    return this.service.updateRule(id, dto);
+  updateRule(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
+    return this.service.updateRule(id, dto, req.user.tenantId);
   }
 
   @Get('stats')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Program overview stats' })
-  getStats(@Query('propertyId') propertyId: string) {
-    return this.service.getStats(propertyId);
+  getStats(@Request() req: any) {
+    return this.service.getStats(req.user.tenantId);
   }
 }

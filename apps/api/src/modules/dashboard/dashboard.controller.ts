@@ -34,6 +34,8 @@ export class DashboardController {
   }
 
   @Get('occupancy-chart')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
   @ApiOperation({ summary: 'Get occupancy trend chart data' })
   getOccupancyChart(@Request() req: any, @Query('propertyId') propertyId: string, @Query('days') days?: number) {
     return this.dashboardService.getOccupancyChart(propertyId, req.user.tenantId, days);
@@ -48,6 +50,8 @@ export class DashboardController {
   }
 
   @Get('booking-sources')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @ApiOperation({ summary: 'Get booking sources distribution' })
   getBookingSources(@Request() req: any, @Query('propertyId') propertyId: string) {
     return this.dashboardService.getBookingSourcesChart(propertyId, req.user.tenantId);
@@ -62,6 +66,8 @@ export class DashboardController {
   }
 
   @Get('front-desk')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
   @ApiOperation({ summary: 'Front desk summary — arrivals, departures, room status, balances' })
   getFrontDeskSummary(@Request() req: any, @Query('propertyId') propertyId: string) {
     return this.dashboardService.getFrontDeskSummary(propertyId, req.user.tenantId);

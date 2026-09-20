@@ -20,8 +20,8 @@ export class PropertiesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get property details' })
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.service.findOne(id, req.user.tenantId);
   }
 
   @Post()
