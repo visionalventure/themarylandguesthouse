@@ -151,12 +151,6 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
-
-            <div className="mt-4 p-3 rounded-lg bg-[#9079E9]/10 border border-[#9079E9]/20">
-              <p className="text-slate-400 text-xs text-center">
-                Demo: <span className="text-[#9079E9]">admin@marylandguesthouse.com</span> / <span className="text-[#9079E9]">Admin@123!</span>
-              </p>
-            </div>
           </CardContent>
         </Card>
 
