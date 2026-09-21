@@ -18,11 +18,12 @@ export class LoyaltyService {
   async getMembers(tenantId: string, query: any = {}) {
     const { tier, search, page = 1, limit = 20 } = query;
     const skip = (Number(page) - 1) * Number(limit);
-    const where: any = { guest: { tenantId } };
+    const where: any = { guest: { tenantId, isDeleted: false } };
     if (tier) where.tier = tier;
     if (search) {
       where.guest = {
         tenantId,
+        isDeleted: false,
         OR: [
           { firstName: { contains: search, mode: 'insensitive' } },
           { lastName: { contains: search, mode: 'insensitive' } },
@@ -141,13 +142,13 @@ export class LoyaltyService {
 
   async getStats(tenantId: string) {
     const [total, byTier, pointsThisMonth] = await Promise.all([
-      this.prisma.loyaltyAccount.count({ where: { guest: { tenantId } } }),
-      this.prisma.loyaltyAccount.groupBy({ by: ['tier'], where: { guest: { tenantId } }, _count: { id: true } }),
+      this.prisma.loyaltyAccount.count({ where: { guest: { tenantId, isDeleted: false } } }),
+      this.prisma.loyaltyAccount.groupBy({ by: ['tier'], where: { guest: { tenantId, isDeleted: false } }, _count: { id: true } }),
       this.prisma.loyaltyTransaction.aggregate({
         where: {
           type: 'EARN',
           createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
-          account: { guest: { tenantId } },
+          account: { guest: { tenantId, isDeleted: false } },
         },
         _sum: { points: true },
       }),

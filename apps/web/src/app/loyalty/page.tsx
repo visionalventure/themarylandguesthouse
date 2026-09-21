@@ -60,7 +60,7 @@ export default function LoyaltyPage() {
   const members: any[] = membersData?.data ?? [];
   const rules: any[] = Array.isArray(rulesData) ? rulesData : [];
 
-  const tierCounts = statsData?.tierCounts ?? {};
+  const tierCounts = statsData?.byTier ?? {};
   const totalMembers = Object.values(tierCounts).reduce((a: number, b: unknown) => a + Number(b), 0);
 
   return (
