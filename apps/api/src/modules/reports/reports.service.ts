@@ -1,4 +1,5 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
+import { eachDayOfInterval, startOfDay, endOfDay } from 'date-fns';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
@@ -19,17 +20,32 @@ export class ReportsService {
   async getOccupancyReport(propertyId: string, tenantId: string, params: any = {}) {
     await this.assertPropertyTenant(propertyId, tenantId);
     const range = this.dateRange(params.startDate, params.endDate);
-    const totalRooms = await this.prisma.room.count({ where: { propertyId } });
+    const totalRooms = await this.prisma.room.count({ where: { propertyId, isActive: true } });
 
-    const reservations = await this.prisma.reservation.findMany({
-      where: {
-        propertyId,
-        status: { in: ['CHECKED_IN', 'CHECKED_OUT', 'CONFIRMED'] },
-        checkIn: { lte: range.lte },
-        checkOut: { gte: range.gte },
-      },
-      select: { checkIn: true, checkOut: true, rooms: { select: { roomId: true } } },
-    });
+    const byDay = await Promise.all(
+      eachDayOfInterval({ start: range.gte, end: range.lte }).map(async (day) => {
+        const dayStart = startOfDay(day);
+        const dayEnd = endOfDay(day);
+        const occupiedRooms = await this.prisma.reservationRoom.count({
+          where: {
+            reservation: {
+              propertyId,
+              status: { in: ['CHECKED_IN', 'CHECKED_OUT', 'CONFIRMED'] },
+              checkIn: { lte: dayEnd },
+              checkOut: { gte: dayStart },
+            },
+          },
+        });
+        return {
+          date: dayStart.toISOString().split('T')[0],
+          occupancyRate: totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 1000) / 10 : 0,
+        };
+      }),
+    );
+
+    const averageOccupancy = byDay.length > 0
+      ? byDay.reduce((s, d) => s + d.occupancyRate, 0) / byDay.length
+      : 0;
 
     const byCategory = await this.prisma.room.groupBy({
       by: ['categoryId'],
@@ -37,51 +53,62 @@ export class ReportsService {
       _count: { id: true },
     });
 
-    return { totalRooms, reservations: reservations.length, byCategory };
+    return { totalRooms, byDay, averageOccupancy, byCategory };
   }
 
   async getRevenueReport(propertyId: string, tenantId: string, params: any = {}) {
     await this.assertPropertyTenant(propertyId, tenantId);
     const range = this.dateRange(params.startDate, params.endDate);
 
-    const [bySource, daily] = await Promise.all([
+    const [bySourceRaw, reservations] = await Promise.all([
       this.prisma.reservation.groupBy({
         by: ['source'],
         where: { propertyId, checkIn: range },
         _sum: { totalAmount: true },
-        _count: { id: true },
       }),
       this.prisma.reservation.findMany({
         where: { propertyId, checkIn: range },
-        select: { checkIn: true, totalAmount: true, source: true },
+        select: { checkIn: true, totalAmount: true },
         orderBy: { checkIn: 'asc' },
       }),
     ]);
 
-    const totalRevenue = bySource.reduce((s, r) => s + Number(r._sum.totalAmount ?? 0), 0);
-    return { totalRevenue, bySource, daily };
+    const bySource = bySourceRaw.map((r) => ({ source: r.source, total: Number(r._sum.totalAmount ?? 0) }));
+    const total = bySource.reduce((s, r) => s + r.total, 0);
+
+    const grouped: Record<string, number> = {};
+    reservations.forEach((r) => {
+      const date = r.checkIn.toISOString().split('T')[0];
+      grouped[date] = (grouped[date] || 0) + Number(r.totalAmount);
+    });
+    const byDay = Object.entries(grouped).map(([date, revenue]) => ({ date, revenue }));
+
+    return { total, bySource, byDay };
   }
 
   async getGuestReport(propertyId: string, tenantId: string, params: any = {}) {
     await this.assertPropertyTenant(propertyId, tenantId);
     const range = this.dateRange(params.startDate, params.endDate);
 
-    const [topSpenders, repeatGuests, newGuests] = await Promise.all([
+    const [topGuests, total, repeatGuests, newGuests] = await Promise.all([
       this.prisma.guest.findMany({
-        where: { tenantId, reservations: { some: { propertyId, checkIn: range } } },
+        where: { tenantId, isDeleted: false, reservations: { some: { propertyId, checkIn: range } } },
         orderBy: { totalSpent: 'desc' },
         take: 10,
-        select: { firstName: true, lastName: true, email: true, totalStays: true, totalSpent: true },
+        select: { id: true, firstName: true, lastName: true, email: true, totalStays: true, totalSpent: true },
       }),
       this.prisma.guest.count({
-        where: { tenantId, reservations: { some: { propertyId } }, totalStays: { gt: 1 } },
+        where: { tenantId, isDeleted: false, reservations: { some: { propertyId } } },
       }),
       this.prisma.guest.count({
-        where: { tenantId, createdAt: range },
+        where: { tenantId, isDeleted: false, reservations: { some: { propertyId } }, totalStays: { gt: 1 } },
+      }),
+      this.prisma.guest.count({
+        where: { tenantId, isDeleted: false, createdAt: range },
       }),
     ]);
 
-    return { topSpenders, repeatGuests, newGuests };
+    return { topGuests, total, repeatGuests, newGuests };
   }
 
   async getHousekeepingReport(propertyId: string, tenantId: string, params: any = {}) {

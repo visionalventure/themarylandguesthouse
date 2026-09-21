@@ -235,7 +235,7 @@ export default function ReportsPage() {
                         <p className="text-xs text-muted-foreground">{g.email}</p>
                       </td>
                       <td className="px-4 py-2 text-muted-foreground">{g.totalStays ?? g._count?.reservations ?? 0}</td>
-                      <td className="px-4 py-2 text-right font-semibold">${Number(g.totalSpend ?? g._sum?.totalAmount ?? 0).toFixed(0)}</td>
+                      <td className="px-4 py-2 text-right font-semibold">${Number(g.totalSpent ?? 0).toFixed(0)}</td>
                     </tr>
                   ))}
                 </tbody>
