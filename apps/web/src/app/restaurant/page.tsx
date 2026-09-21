@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, UtensilsCrossed, ShoppingBag, DollarSign, TrendingUp, X, ArrowRightLeft, CheckCircle } from 'lucide-react';
+import { Plus, UtensilsCrossed, ShoppingBag, DollarSign, TrendingUp, X, ArrowRightLeft, CheckCircle, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +46,7 @@ export default function RestaurantPage() {
   const propertyId = useAuthStore((s) => s.propertyId);
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   const [menuDialogOpen, setMenuDialogOpen] = useState(false);
+  const [editingMenuItem, setEditingMenuItem] = useState<any | null>(null);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
   const [selectedTable, setSelectedTable] = useState<any | null>(null);
   const [moveTableMode, setMoveTableMode] = useState(false);
@@ -102,6 +103,15 @@ export default function RestaurantPage() {
       setSelectedTable(null);
       toast({ title: 'Order updated' });
     },
+  });
+
+  const deleteMenuItemMutation = useMutation({
+    mutationFn: (id: string) => restaurantApi.deleteMenuItem(id),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ['menu'] });
+      toast({ title: res.data?.hidden ? 'Item hidden (it has past orders, so it was kept for order history)' : 'Menu item deleted' });
+    },
+    onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed to delete item' }),
   });
 
   const moveTableMutation = useMutation({
@@ -274,7 +284,7 @@ export default function RestaurantPage() {
         {/* Menu */}
         <TabsContent value="menu">
           <div className="mt-4 space-y-4">
-            {(menuData?.categories ?? []).map((cat: any) => (
+            {(menuData?.categories ?? []).filter((cat: any) => cat.items?.length).map((cat: any) => (
               <Card key={cat.id}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">{cat.name}</CardTitle>
@@ -282,7 +292,7 @@ export default function RestaurantPage() {
                 <CardContent className="p-0">
                   <table className="w-full text-sm">
                     <tbody>
-                      {cat.menuItems?.map((item: any) => (
+                      {cat.items?.map((item: any) => (
                         <tr key={item.id} className="border-t border-border hover:bg-muted/30">
                           <td className="px-4 py-2 font-medium text-foreground">{item.name}</td>
                           <td className="px-4 py-2 text-xs text-muted-foreground max-w-[200px] truncate">{item.description}</td>
@@ -292,6 +302,22 @@ export default function RestaurantPage() {
                               {item.isAvailable ? 'Available' : 'Unavailable'}
                             </Badge>
                           </td>
+                          <td className="px-4 py-2">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingMenuItem(item)}>
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-red-600 hover:text-red-700"
+                                disabled={deleteMenuItemMutation.isPending}
+                                onClick={() => { if (confirm(`Delete "${item.name}"?`)) deleteMenuItemMutation.mutate(item.id); }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -299,7 +325,48 @@ export default function RestaurantPage() {
                 </CardContent>
               </Card>
             ))}
-            {(!menuData?.categories || menuData.categories.length === 0) && (
+            {(menuData?.uncategorised ?? []).length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Uncategorised</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <table className="w-full text-sm">
+                    <tbody>
+                      {menuData.uncategorised.map((item: any) => (
+                        <tr key={item.id} className="border-t border-border hover:bg-muted/30">
+                          <td className="px-4 py-2 font-medium text-foreground">{item.name}</td>
+                          <td className="px-4 py-2 text-xs text-muted-foreground max-w-[200px] truncate">{item.description}</td>
+                          <td className="px-4 py-2 text-right font-semibold text-foreground">${Number(item.price).toFixed(2)}</td>
+                          <td className="px-4 py-2">
+                            <Badge variant="outline" className={cn('text-xs', item.isAvailable ? 'text-green-600' : 'text-red-600')}>
+                              {item.isAvailable ? 'Available' : 'Unavailable'}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-2">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingMenuItem(item)}>
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-red-600 hover:text-red-700"
+                                disabled={deleteMenuItemMutation.isPending}
+                                onClick={() => { if (confirm(`Delete "${item.name}"?`)) deleteMenuItemMutation.mutate(item.id); }}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            )}
+            {!(menuData?.categories?.some((c: any) => c.items?.length)) && !(menuData?.uncategorised?.length) && (
               <div className="py-12 text-center text-muted-foreground text-sm">
                 No menu items yet. Add some using the "Add Menu Item" button.
               </div>
@@ -310,6 +377,12 @@ export default function RestaurantPage() {
 
       <OrderDialog open={orderDialogOpen} onOpenChange={setOrderDialogOpen} restaurantId={restaurantId} />
       <MenuItemDialog open={menuDialogOpen} onOpenChange={setMenuDialogOpen} restaurantId={restaurantId} />
+      <MenuItemDialog
+        open={!!editingMenuItem}
+        onOpenChange={(v) => { if (!v) setEditingMenuItem(null); }}
+        restaurantId={restaurantId}
+        item={editingMenuItem}
+      />
 
       {/* Bill Detail Dialog */}
       <Dialog open={!!selectedTable} onOpenChange={(v) => { if (!v) { setSelectedTable(null); setMoveTableMode(false); } }}>

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -49,6 +49,13 @@ export class RestaurantController {
   @ApiOperation({ summary: 'Update menu item' })
   updateMenuItem(@Param('id') id: string, @Body() dto: UpdateMenuItemDto, @Request() req: any) {
     return this.service.updateMenuItem(id, dto, req.user.tenantId);
+  }
+
+  @Delete('menu-items/:id')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'Delete a menu item (hidden instead if it has order history)' })
+  deleteMenuItem(@Param('id') id: string, @Request() req: any) {
+    return this.service.deleteMenuItem(id, req.user.tenantId);
   }
 
   @Get(':id/orders')

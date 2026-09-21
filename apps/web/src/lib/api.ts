@@ -359,6 +359,7 @@ export const restaurantApi = {
   menu: (restaurantId: string) => api.get(`/v1/restaurant/${restaurantId}/menu`),
   createMenuItem: (restaurantId: string, data: any) => api.post(`/v1/restaurant/${restaurantId}/menu-items`, data),
   updateMenuItem: (id: string, data: any) => api.put(`/v1/restaurant/menu-items/${id}`, data),
+  deleteMenuItem: (id: string) => api.delete(`/v1/restaurant/menu-items/${id}`),
   orders: (restaurantId: string, params?: any) => api.get(`/v1/restaurant/${restaurantId}/orders`, { params }),
   createOrder: (restaurantId: string, data: any) => api.post(`/v1/restaurant/${restaurantId}/orders`, data),
   updateOrderStatus: (id: string, status: string) => api.patch(`/v1/restaurant/orders/${id}`, { status }),

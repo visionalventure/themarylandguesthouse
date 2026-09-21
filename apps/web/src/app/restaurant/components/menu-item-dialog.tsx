@@ -14,18 +14,30 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { restaurantApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
-interface Props { open: boolean; onOpenChange: (v: boolean) => void; restaurantId: string; }
+interface Props { open: boolean; onOpenChange: (v: boolean) => void; restaurantId: string; item?: any | null; }
 
-export function MenuItemDialog({ open, onOpenChange, restaurantId }: Props) {
+export function MenuItemDialog({ open, onOpenChange, restaurantId, item }: Props) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isEdit = !!item?.id;
   const { register, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: { name: '', description: '', price: '', categoryId: '', isAvailable: true },
   });
 
   useEffect(() => {
-    if (open) reset({ name: '', description: '', price: '', categoryId: '', isAvailable: true });
-  }, [open, reset]);
+    if (!open) return;
+    if (item) {
+      reset({
+        name: item.name ?? '',
+        description: item.description ?? '',
+        price: item.price != null ? String(item.price) : '',
+        categoryId: item.categoryId ?? '',
+        isAvailable: item.isAvailable ?? true,
+      });
+    } else {
+      reset({ name: '', description: '', price: '', categoryId: '', isAvailable: true });
+    }
+  }, [open, item, reset]);
 
   const { data: menuData } = useQuery({
     queryKey: ['menu', restaurantId],
@@ -35,14 +47,13 @@ export function MenuItemDialog({ open, onOpenChange, restaurantId }: Props) {
   const categories: any[] = menuData?.categories ?? [];
 
   const mutation = useMutation({
-    mutationFn: (values: any) => restaurantApi.createMenuItem(restaurantId, {
-      ...values,
-      price: Number(values.price),
-      categoryId: values.categoryId || undefined,
-    }),
+    mutationFn: (values: any) => {
+      const payload = { ...values, price: Number(values.price), categoryId: values.categoryId || undefined };
+      return isEdit ? restaurantApi.updateMenuItem(item.id, payload) : restaurantApi.createMenuItem(restaurantId, payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu'] });
-      toast({ title: 'Menu item added' });
+      toast({ title: isEdit ? 'Menu item updated' : 'Menu item added' });
       onOpenChange(false);
     },
     onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed' }),
@@ -51,7 +62,7 @@ export function MenuItemDialog({ open, onOpenChange, restaurantId }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Add Menu Item</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isEdit ? 'Edit Menu Item' : 'Add Menu Item'}</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="space-y-4">
           <div className="space-y-2">
             <Label>Item Name *</Label>
@@ -88,7 +99,7 @@ export function MenuItemDialog({ open, onOpenChange, restaurantId }: Props) {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={mutation.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {mutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Add Item
+              {isEdit ? 'Save Changes' : 'Add Item'}
             </Button>
           </DialogFooter>
         </form>

@@ -37,6 +37,7 @@ export function OrderDialog({ open, onOpenChange, restaurantId }: Props) {
 
   const tables: any[] = (Array.isArray(tablesData) ? tablesData : []).filter(t => t.status === 'AVAILABLE');
   const categories: any[] = menuData?.categories ?? [];
+  const uncategorised: any[] = menuData?.uncategorised ?? [];
 
   const addItem = (menuItem: any) => {
     setItems(prev => {
@@ -53,6 +54,33 @@ export function OrderDialog({ open, onOpenChange, restaurantId }: Props) {
   };
 
   const total = items.reduce((s, i) => s + i.price * i.quantity, 0);
+
+  const renderItemRow = (item: any) => {
+    const inOrder = items.find(i => i.menuItemId === item.id);
+    return (
+      <div key={item.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/70">
+        <div>
+          <span className="text-sm font-medium">{item.name}</span>
+          <span className="ml-2 text-xs text-muted-foreground">${Number(item.price).toFixed(2)}</span>
+        </div>
+        {inOrder ? (
+          <div className="flex items-center gap-2">
+            <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => updateQty(item.id, -1)}>
+              <Minus className="w-3 h-3" />
+            </Button>
+            <span className="text-sm w-4 text-center">{inOrder.quantity}</span>
+            <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => updateQty(item.id, 1)}>
+              <Plus className="w-3 h-3" />
+            </Button>
+          </div>
+        ) : (
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => addItem(item)}>
+            Add
+          </Button>
+        )}
+      </div>
+    );
+  };
 
   const mutation = useMutation({
     mutationFn: () => restaurantApi.createOrder(restaurantId, {
@@ -93,35 +121,18 @@ export function OrderDialog({ open, onOpenChange, restaurantId }: Props) {
                 <div key={cat.id}>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">{cat.name}</p>
                   <div className="grid grid-cols-1 gap-1">
-                    {cat.menuItems?.filter((i: any) => i.isAvailable).map((item: any) => {
-                      const inOrder = items.find(i => i.menuItemId === item.id);
-                      return (
-                        <div key={item.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/70">
-                          <div>
-                            <span className="text-sm font-medium">{item.name}</span>
-                            <span className="ml-2 text-xs text-muted-foreground">${Number(item.price).toFixed(2)}</span>
-                          </div>
-                          {inOrder ? (
-                            <div className="flex items-center gap-2">
-                              <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => updateQty(item.id, -1)}>
-                                <Minus className="w-3 h-3" />
-                              </Button>
-                              <span className="text-sm w-4 text-center">{inOrder.quantity}</span>
-                              <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => updateQty(item.id, 1)}>
-                                <Plus className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => addItem(item)}>
-                              Add
-                            </Button>
-                          )}
-                        </div>
-                      );
-                    })}
+                    {cat.items?.filter((i: any) => i.isAvailable).map(renderItemRow)}
                   </div>
                 </div>
               ))}
+              {uncategorised.filter((i: any) => i.isAvailable).length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Other</p>
+                  <div className="grid grid-cols-1 gap-1">
+                    {uncategorised.filter((i: any) => i.isAvailable).map(renderItemRow)}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

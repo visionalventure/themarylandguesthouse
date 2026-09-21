@@ -41,12 +41,15 @@ export class RestaurantService {
 
   async getMenu(restaurantId: string, tenantId: string) {
     await this.assertRestaurantInTenant(restaurantId, tenantId);
+    // Returns every item, available or not, so the Menu management view can
+    // see and re-enable a hidden item - callers that should only offer
+    // orderable items (the New Order dialog) filter isAvailable themselves.
     const categories = await this.prisma.menuCategory.findMany({
       where: { tenantId } as any,
       orderBy: { name: 'asc' },
       include: {
         items: {
-          where: { isAvailable: true, restaurantId },
+          where: { restaurantId },
           orderBy: { name: 'asc' },
         },
       } as any,
@@ -54,7 +57,7 @@ export class RestaurantService {
 
     // Also get uncategorised items
     const uncategorised = await this.prisma.menuItem.findMany({
-      where: { restaurantId, categoryId: null, isAvailable: true },
+      where: { restaurantId, categoryId: null },
       orderBy: { name: 'asc' },
     });
 
@@ -75,6 +78,23 @@ export class RestaurantService {
     });
     if (!existing) throw new NotFoundException('Menu item not found');
     return this.prisma.menuItem.update({ where: { id }, data: dto });
+  }
+
+  async deleteMenuItem(id: string, tenantId: string) {
+    const existing = await this.prisma.menuItem.findFirst({
+      where: { id, restaurant: { property: { tenantId } } },
+      select: { id: true, _count: { select: { orderItems: true } } },
+    });
+    if (!existing) throw new NotFoundException('Menu item not found');
+
+    // An item that's been ordered before can't be hard-deleted without
+    // breaking those past orders' line items - hide it from the menu instead.
+    if (existing._count.orderItems > 0) {
+      await this.prisma.menuItem.update({ where: { id }, data: { isAvailable: false } });
+      return { deleted: false, hidden: true };
+    }
+    await this.prisma.menuItem.delete({ where: { id } });
+    return { deleted: true, hidden: false };
   }
 
   async getOrders(restaurantId: string, tenantId: string, query: any = {}) {
