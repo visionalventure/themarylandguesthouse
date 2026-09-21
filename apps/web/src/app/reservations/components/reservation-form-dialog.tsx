@@ -55,10 +55,11 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   propertyId: string;
-  initialData?: any; // existing reservation for edit mode
+  initialData?: any; // existing reservation for edit mode, or a partial prefill (no id) for create mode
+  onSuccess?: (reservation: any) => void;
 }
 
-export function ReservationFormDialog({ open, onOpenChange, propertyId, initialData }: Props) {
+export function ReservationFormDialog({ open, onOpenChange, propertyId, initialData, onSuccess }: Props) {
   const isEdit = !!initialData?.id;
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -131,11 +132,12 @@ export function ReservationFormDialog({ open, onOpenChange, propertyId, initialD
         ? reservationsApi.update(initialData.id, payload)
         : reservationsApi.create(payload);
     },
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['reservations-calendar'] });
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
       toast({ title: isEdit ? 'Reservation updated' : 'Reservation created successfully' });
       onOpenChange(false);
+      onSuccess?.(res.data);
     },
     onError: (err: any) => {
       toast({

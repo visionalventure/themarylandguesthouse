@@ -108,6 +108,16 @@ export const reservationsApi = {
   calendar: (params: any) => api.get('/v1/reservations/calendar', { params }),
 };
 
+export const inquiriesApi = {
+  stats: (propertyId: string) => api.get('/v1/inquiries/stats', { params: { propertyId } }),
+  list: (params: any) => api.get('/v1/inquiries', { params }),
+  get: (id: string) => api.get(`/v1/inquiries/${id}`),
+  create: (data: any) => api.post('/v1/inquiries', data),
+  update: (id: string, data: any) => api.put(`/v1/inquiries/${id}`, data),
+  prepareConversion: (id: string) => api.post(`/v1/inquiries/${id}/prepare-conversion`),
+  convert: (id: string, reservationId: string) => api.post(`/v1/inquiries/${id}/convert`, { reservationId }),
+};
+
 export const guestsApi = {
   stats: () => api.get('/v1/guests/stats'),
   list: (params: any) => api.get('/v1/guests', { params }),

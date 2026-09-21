@@ -7,6 +7,7 @@ const SKIP_PATHS = ['/auth/login', '/auth/logout', '/auth/refresh', '/auth/forgo
 
 const PATH_TO_ENTITY: Record<string, string> = {
   reservations: 'RESERVATION',
+  inquiries: 'INQUIRY',
   guests: 'GUEST',
   rooms: 'ROOM',
   invoices: 'INVOICE',

@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ReservationsModule } from './modules/reservations/reservations.module';
+import { InquiriesModule } from './modules/inquiries/inquiries.module';
 import { GuestsModule } from './modules/guests/guests.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { HousekeepingModule } from './modules/housekeeping/housekeeping.module';
@@ -46,6 +47,7 @@ import { EmailModule } from './modules/email/email.module';
     PropertiesModule,
     DashboardModule,
     ReservationsModule,
+    InquiriesModule,
     GuestsModule,
     RoomsModule,
     HousekeepingModule,

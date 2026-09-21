@@ -476,6 +476,7 @@ model Property {
 
   rooms        Room[]
   reservations Reservation[]
+  inquiries    Inquiry[]
   inventory    InventoryItem[]
   employees    Employee[]
   maintenanceAssets Asset[]
@@ -527,6 +528,7 @@ model User {
   auditLogs         AuditLog[]
   employee          Employee?
   createdReservations Reservation[] @relation("CreatedBy")
+  createdInquiries Inquiry[]
   assignedHousekeeping HousekeepingTask[] @relation("AssignedTo")
   createdJournalEntries JournalEntry[] @relation("JournalCreatedBy")
   approvedPurchaseOrders PurchaseOrder[] @relation("POApprovedBy")
@@ -832,6 +834,47 @@ model ReservationCharge {
   reservation   Reservation @relation(fields: [reservationId], references: [id])
 
   @@map("reservation_charges")
+}
+
+enum InquiryType {
+  EVENT_PARTY
+  LONG_STAY
+  ROOM_BOOKING
+  OTHER
+}
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  LOST
+}
+
+model Inquiry {
+  id               String        @id @default(cuid())
+  propertyId       String
+  inquiryDate      DateTime      @default(now())
+  guestName        String
+  phone            String
+  email            String?
+  type             InquiryType   @default(OTHER)
+  eventDate        DateTime?
+  startDate        DateTime?
+  endDate          DateTime?
+  partySize        Int?
+  quotedPrice      Decimal?      @db.Decimal(12,2)
+  source           String?
+  notes            String?
+  status           InquiryStatus @default(NEW)
+  convertedReservationId String? @unique
+  createdById      String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  property         Property      @relation(fields: [propertyId], references: [id])
+  createdBy        User?         @relation(fields: [createdById], references: [id])
+
+  @@map("inquiries")
 }
 
 model GroupBooking {
