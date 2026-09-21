@@ -207,4 +207,29 @@ export class EmailService {
       </body></html>`,
     );
   }
+
+  async sendUserInvite(opts: { to: string; name: string; role: string; setPasswordUrl: string; propertyName: string }) {
+    const propName = this.escape(opts.propertyName);
+    const name = this.escape(opts.name);
+    const role = this.escape(opts.role);
+    const safeUrl = this.isSafeUrl(opts.setPasswordUrl) ? opts.setPasswordUrl : '#';
+    await this.send(
+      opts.to,
+      `You've been invited to ${propName}`,
+      `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+        <div style="background:#1f2937;padding:20px;text-align:center;border-radius:8px 8px 0 0">
+          <h1 style="color:#fff;margin:0;font-size:24px">${propName}</h1>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:30px;border-radius:0 0 8px 8px">
+          <h2 style="color:#1f2937">You've been invited</h2>
+          <p>Hi ${name},</p>
+          <p>You've been added to ${propName} as <strong>${role}</strong>. Click the button below to set your password and get started:</p>
+          <div style="text-align:center;margin:30px 0">
+            <a href="${safeUrl}" style="background:#D4AF37;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Set Your Password</a>
+          </div>
+          <p style="color:#6b7280;font-size:14px">This link expires in 1 hour. If you weren't expecting this invite, you can safely ignore this email.</p>
+        </div>
+      </body></html>`,
+    );
+  }
 }

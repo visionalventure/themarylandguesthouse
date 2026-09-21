@@ -126,7 +126,7 @@ export class SettingsService {
 
     const rawPassword = randomBytes(12).toString('hex');
     const passwordHash = await bcrypt.hash(rawPassword, 12);
-    return this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         tenantId,
         firstName: dto.firstName,
@@ -139,6 +139,27 @@ export class SettingsService {
       },
       select: { id: true, firstName: true, lastName: true, email: true, role: true },
     });
+
+    // The user's real password is the unknown random hash above — let them set
+    // their own via the same reset-token flow forgotPassword uses, rather than
+    // requiring the admin to relay a raw credential out of band.
+    const token = randomBytes(32).toString('hex');
+    await this.prisma.passwordResetToken.create({
+      data: { userId: user.id, token, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+    });
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
+    const appUrl = this.config.get('APP_URL') ?? 'http://localhost:3000';
+    this.emailService
+      .sendUserInvite({
+        to: user.email,
+        name: `${user.firstName} ${user.lastName}`,
+        role: user.role,
+        setPasswordUrl: `${appUrl}/reset-password?token=${token}`,
+        propertyName: tenant?.name ?? this.config.get('PROPERTY_NAME', 'Maryland Guesthouse'),
+      })
+      .catch(() => {/* fire-and-forget */});
+
+    return user;
   }
 
   async updateUserRole(userId: string, role: UserRole, requestorRole: string, requestorTenantId: string) {
