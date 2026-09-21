@@ -439,6 +439,12 @@ function ManageUserDialog({ user, open, onClose, currentUser, queryClient, toast
     onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message || 'Failed to update status' }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => settingsApi.deleteUser(user.id),
+    onSuccess: () => { invalidate(); onClose(); toast({ title: 'User deleted' }); },
+    onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message || 'Failed to delete user' }),
+  });
+
   const handleCopy = () => {
     if (tempPassword) {
       navigator.clipboard.writeText(tempPassword);
@@ -571,16 +577,28 @@ function ManageUserDialog({ user, open, onClose, currentUser, queryClient, toast
                     Deactivate Account
                   </Button>
                 ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={restricted || toggleActiveMutation.isPending}
-                    className="border-green-300 text-green-600 hover:bg-green-50"
-                    onClick={() => toggleActiveMutation.mutate()}
-                  >
-                    {toggleActiveMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-                    Reactivate Account
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={restricted || toggleActiveMutation.isPending}
+                      className="border-green-300 text-green-600 hover:bg-green-50"
+                      onClick={() => toggleActiveMutation.mutate()}
+                    >
+                      {toggleActiveMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                      Reactivate Account
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={restricted || deleteMutation.isPending}
+                      className="border-red-300 text-red-600 hover:bg-red-50"
+                      onClick={() => { if (confirm(`Permanently delete ${user.firstName} ${user.lastName}'s account? This cannot be undone.`)) deleteMutation.mutate(); }}
+                    >
+                      {deleteMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                      Delete Account
+                    </Button>
+                  </div>
                 )}
               </div>
             </>

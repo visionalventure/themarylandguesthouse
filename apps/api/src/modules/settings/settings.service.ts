@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { ConfigService } from '@nestjs/config';
@@ -60,7 +60,7 @@ export class SettingsService {
 
   async getUsers(tenantId: string) {
     return this.prisma.user.findMany({
-      where: { tenantId },
+      where: { tenantId, isDeleted: false },
       select: {
         id: true, firstName: true, lastName: true, email: true,
         role: true, isActive: true, twoFactorEnabled: true,
@@ -113,6 +113,20 @@ export class SettingsService {
       await this.prisma.refreshToken.deleteMany({ where: { userId } });
     }
     return updated;
+  }
+
+  async deleteUser(userId: string, requestorRole: string, requestorId: string, requestorTenantId: string) {
+    if (userId === requestorId) throw new ForbiddenException('Cannot delete your own account');
+    await this.guardSuperAdmin(userId, requestorRole, requestorTenantId);
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { isActive: true, isDeleted: true } });
+    if (!user || user.isDeleted) throw new NotFoundException('User not found');
+    if (user.isActive) throw new BadRequestException('Deactivate the account before deleting it');
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: { isDeleted: true, deletedAt: new Date() } }),
+      this.prisma.refreshToken.deleteMany({ where: { userId } }),
+    ]);
+    return { deleted: true };
   }
 
   async inviteUser(dto: InviteUserDto, tenantId: string, requestorRole: string) {

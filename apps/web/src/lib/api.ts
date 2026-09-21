@@ -412,6 +412,7 @@ export const settingsApi = {
   updateUserEmail: (id: string, email: string) => api.put(`/v1/settings/users/${id}/email`, { email }),
   resetUserPassword: (id: string) => api.post(`/v1/settings/users/${id}/reset-password`),
   toggleUserActive: (id: string) => api.patch(`/v1/settings/users/${id}/active`),
+  deleteUser: (id: string) => api.delete(`/v1/settings/users/${id}`),
   getEmailConfig: (propertyId: string) => api.get('/v1/settings/email', { params: { propertyId } }),
   updateEmailConfig: (propertyId: string, data: any) => api.put('/v1/settings/email', data, { params: { propertyId } }),
   sendTestEmail: (propertyId: string, to: string) => api.post('/v1/settings/email/test', { to }, { params: { propertyId } }),

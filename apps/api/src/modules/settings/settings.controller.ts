@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Put, Post, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -96,6 +96,14 @@ export class SettingsController {
   @ApiOperation({ summary: 'Toggle user active status' })
   toggleUserActive(@Param('id') id: string, @Request() req: any) {
     return this.service.toggleUserActive(id, req.user.role, req.user.sub, req.user.tenantId);
+  }
+
+  @Delete('users/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Delete a deactivated user account' })
+  deleteUser(@Param('id') id: string, @Request() req: any) {
+    return this.service.deleteUser(id, req.user.role, req.user.sub, req.user.tenantId);
   }
 
   @Get('tax-rates')
