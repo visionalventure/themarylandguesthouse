@@ -284,11 +284,27 @@ export class ReservationsService {
   }
 
   async cancel(id: string, reason: string | undefined, tenantId: string) {
-    const existing = await this.prisma.reservation.findFirst({ where: { id, property: { tenantId } }, select: { id: true } });
+    const existing = await this.prisma.reservation.findFirst({
+      where: { id, property: { tenantId } },
+      include: { rooms: true },
+    });
     if (!existing) throw new NotFoundException('Reservation not found');
-    return this.prisma.reservation.update({
-      where: { id },
-      data: { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: reason },
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.reservation.update({
+        where: { id },
+        data: { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: reason },
+      });
+
+      // Release rooms this reservation was holding — unlike checkOut, a cancelled
+      // reservation never needs housekeeping, so rooms go straight back to AVAILABLE
+      // instead of VACANT_DIRTY. Without this, room.status (and the dashboard
+      // occupancy count that reads it) stays stuck at whatever checkIn last set.
+      for (const roomRes of existing.rooms) {
+        await tx.room.update({ where: { id: roomRes.roomId }, data: { status: 'AVAILABLE' } });
+      }
+
+      return updated;
     });
   }
 
