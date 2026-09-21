@@ -21,6 +21,14 @@ export class InquiriesController {
     return this.service.getStats(req.user.tenantId, propertyId);
   }
 
+  @Get('types')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
+  @ApiOperation({ summary: 'Get the built-in and previously-used custom inquiry categories' })
+  getTypes(@Request() req: any) {
+    return this.service.getTypes(req.user.tenantId);
+  }
+
   @Get()
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')

@@ -33,6 +33,8 @@ const TYPE_LABELS: Record<string, string> = {
   OTHER: 'Other',
 };
 
+const CUSTOM_TYPE_SENTINEL = '__custom__';
+
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   NEW:       { label: 'New',       color: 'bg-primary/15 text-primary border-primary/30' },
   CONTACTED: { label: 'Contacted', color: 'bg-amber-500/15 text-amber-500 border-amber-500/30' },
@@ -48,13 +50,21 @@ function NewInquiryDialog({ open, onOpenChange, propertyId }: { open: boolean; o
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { register, handleSubmit, control, reset, formState: { errors } } = useForm({
+  const { data: typesData } = useQuery({
+    queryKey: ['inquiry-types'],
+    queryFn: () => inquiriesApi.types().then((r) => r.data),
+    enabled: open,
+  });
+  const customTypes: string[] = typesData?.custom ?? [];
+
+  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm({
     defaultValues: {
-      guestName: '', phone: '', email: '', type: 'ROOM_BOOKING',
+      guestName: '', phone: '', email: '', type: 'ROOM_BOOKING', customType: '',
       eventDate: '', startDate: '', endDate: '', partySize: '', quotedPrice: '',
       source: '', notes: '',
     },
   });
+  const typeValue = watch('type');
 
   const mutation = useMutation({
     mutationFn: (values: any) => inquiriesApi.create({
@@ -62,7 +72,7 @@ function NewInquiryDialog({ open, onOpenChange, propertyId }: { open: boolean; o
       guestName: values.guestName,
       phone: values.phone,
       email: values.email || undefined,
-      type: values.type,
+      type: values.type === CUSTOM_TYPE_SENTINEL ? values.customType.trim() : values.type,
       eventDate: values.eventDate || undefined,
       startDate: values.startDate || undefined,
       endDate: values.endDate || undefined,
@@ -74,6 +84,7 @@ function NewInquiryDialog({ open, onOpenChange, propertyId }: { open: boolean; o
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inquiries'] });
       queryClient.invalidateQueries({ queryKey: ['inquiry-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['inquiry-types'] });
       toast({ title: 'Inquiry logged' });
       reset();
       onOpenChange(false);
@@ -111,10 +122,20 @@ function NewInquiryDialog({ open, onOpenChange, propertyId }: { open: boolean; o
               <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(TYPE_LABELS).map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}
+                  {Object.entries(TYPE_LABELS).filter(([v]) => v !== 'OTHER').map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}
+                  {customTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  <SelectItem value={CUSTOM_TYPE_SENTINEL}>+ Add new category…</SelectItem>
                 </SelectContent>
               </Select>
             )} />
+            {typeValue === CUSTOM_TYPE_SENTINEL && (
+              <Input
+                {...register('customType', { required: typeValue === CUSTOM_TYPE_SENTINEL })}
+                placeholder="e.g. Catering, Airport Pickup"
+                className="mt-1.5"
+              />
+            )}
+            {errors.customType && <p className="text-xs text-destructive">Enter a name for the new category</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

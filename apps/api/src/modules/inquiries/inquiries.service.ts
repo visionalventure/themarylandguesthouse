@@ -1,10 +1,24 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { CreateInquiryDto, UpdateInquiryDto, InquiryQueryDto } from './dto/inquiries.dto';
+import { CreateInquiryDto, UpdateInquiryDto, InquiryQueryDto, DEFAULT_INQUIRY_TYPES } from './dto/inquiries.dto';
 
 @Injectable()
 export class InquiriesService {
   constructor(private prisma: PrismaService) {}
+
+  // The built-in categories plus every distinct custom category anyone at
+  // this tenant has typed in before - so a custom type entered once shows up
+  // as a normal pickable option for every inquiry logged after it.
+  async getTypes(tenantId: string) {
+    const rows = await this.prisma.inquiry.findMany({
+      where: { property: { tenantId } },
+      distinct: ['type'],
+      select: { type: true },
+      orderBy: { type: 'asc' },
+    });
+    const custom = rows.map((r) => r.type).filter((t) => t && !DEFAULT_INQUIRY_TYPES.includes(t) && t !== 'OTHER');
+    return { defaults: DEFAULT_INQUIRY_TYPES, custom };
+  }
 
   async getStats(tenantId: string, propertyId?: string) {
     const where: any = { property: { tenantId }, ...(propertyId ? { propertyId } : {}) };

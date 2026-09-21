@@ -836,13 +836,6 @@ model ReservationCharge {
   @@map("reservation_charges")
 }
 
-enum InquiryType {
-  EVENT_PARTY
-  LONG_STAY
-  ROOM_BOOKING
-  OTHER
-}
-
 enum InquiryStatus {
   NEW
   CONTACTED
@@ -857,7 +850,7 @@ model Inquiry {
   guestName        String
   phone            String
   email            String?
-  type             InquiryType   @default(OTHER)
+  type             String        @default("OTHER")
   eventDate        DateTime?
   startDate        DateTime?
   endDate          DateTime?

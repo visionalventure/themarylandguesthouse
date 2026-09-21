@@ -110,6 +110,7 @@ export const reservationsApi = {
 
 export const inquiriesApi = {
   stats: (propertyId: string) => api.get('/v1/inquiries/stats', { params: { propertyId } }),
+  types: () => api.get('/v1/inquiries/types'),
   list: (params: any) => api.get('/v1/inquiries', { params }),
   get: (id: string) => api.get(`/v1/inquiries/${id}`),
   create: (data: any) => api.post('/v1/inquiries', data),

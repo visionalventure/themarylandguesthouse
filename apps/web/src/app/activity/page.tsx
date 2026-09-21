@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { FadeIn } from '@/components/ui/fade-in';
-import { useAuthStore } from '@/store/auth';
 import { settingsApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { usePageTitle } from '@/hooks/use-page-title';
@@ -36,16 +35,15 @@ const ENTITY_TYPES = [
 
 export default function ActivityPage() {
   usePageTitle('Activity Log');
-  const propertyId = useAuthStore((s) => s.propertyId);
   const [entityFilter, setEntityFilter] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['activity-log', entityFilter, page, propertyId],
+    queryKey: ['activity-log', entityFilter, page],
     queryFn: () =>
       settingsApi
-        .auditLog({ tenantId: propertyId, entityType: entityFilter || undefined, page, limit: 50 })
+        .auditLog({ entityType: entityFilter || undefined, page, limit: 50 })
         .then((r) => r.data),
     refetchInterval: 30_000,
   });
