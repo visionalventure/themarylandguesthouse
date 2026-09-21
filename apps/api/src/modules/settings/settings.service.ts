@@ -136,23 +136,49 @@ export class SettingsService {
     const existing = await this.prisma.user.findFirst({
       where: { tenantId, email: dto.email },
     });
-    if (existing) return existing;
+    if (existing && !existing.isDeleted) return existing;
 
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
+    const appUrl = this.config.get('APP_URL') ?? 'http://localhost:3000';
+    const propertyName = tenant?.name ?? this.config.get('PROPERTY_NAME', 'Maryland Guesthouse');
     const rawPassword = randomBytes(12).toString('hex');
     const passwordHash = await bcrypt.hash(rawPassword, 12);
-    const user = await this.prisma.user.create({
-      data: {
-        tenantId,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        email: dto.email,
-        role: dto.role,
-        phone: dto.phone,
-        passwordHash,
-        isActive: true,
-      },
-      select: { id: true, firstName: true, lastName: true, email: true, role: true },
-    });
+
+    let user: { id: string; firstName: string; lastName: string; email: string; role: string };
+
+    if (existing) {
+      // Re-inviting an email that belonged to a deleted account: restore it
+      // instead of creating a duplicate, and send a password-reset link since
+      // the account already exists (there's nothing new to "invite" them to).
+      user = await this.prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          role: dto.role,
+          phone: dto.phone,
+          passwordHash,
+          isActive: true,
+          isDeleted: false,
+          deletedAt: null,
+        },
+        select: { id: true, firstName: true, lastName: true, email: true, role: true },
+      });
+    } else {
+      user = await this.prisma.user.create({
+        data: {
+          tenantId,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          email: dto.email,
+          role: dto.role,
+          phone: dto.phone,
+          passwordHash,
+          isActive: true,
+        },
+        select: { id: true, firstName: true, lastName: true, email: true, role: true },
+      });
+    }
 
     // The user's real password is the unknown random hash above — let them set
     // their own via the same reset-token flow forgotPassword uses, rather than
@@ -161,17 +187,18 @@ export class SettingsService {
     await this.prisma.passwordResetToken.create({
       data: { userId: user.id, token, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
     });
-    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
-    const appUrl = this.config.get('APP_URL') ?? 'http://localhost:3000';
-    this.emailService
-      .sendUserInvite({
-        to: user.email,
-        name: `${user.firstName} ${user.lastName}`,
-        role: user.role,
-        setPasswordUrl: `${appUrl}/reset-password?token=${token}`,
-        propertyName: tenant?.name ?? this.config.get('PROPERTY_NAME', 'Maryland Guesthouse'),
-      })
-      .catch(() => {/* fire-and-forget */});
+    const resetUrl = `${appUrl}/reset-password?token=${token}`;
+    const name = `${user.firstName} ${user.lastName}`;
+
+    if (existing) {
+      this.emailService
+        .sendPasswordReset({ to: user.email, name, resetUrl, propertyName })
+        .catch(() => {/* fire-and-forget */});
+    } else {
+      this.emailService
+        .sendUserInvite({ to: user.email, name, role: user.role, setPasswordUrl: resetUrl, propertyName })
+        .catch(() => {/* fire-and-forget */});
+    }
 
     return user;
   }
