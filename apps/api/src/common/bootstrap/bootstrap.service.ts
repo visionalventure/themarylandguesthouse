@@ -22,10 +22,16 @@ export class BootstrapService implements OnApplicationBootstrap {
       where: { email: 'admin@marylandguesthouse.com' },
     });
 
-    // Always ensure reference data exists, even if admin was already seeded
-    await this.seedRooms();
-    await this.seedDepartments();
-    await this.seedRestaurant();
+    // Always ensure reference data exists, even if admin was already seeded.
+    // Each step runs independently of the others' success - e.g. seedRooms()
+    // throws if a room was manually renumbered to collide with a seed id,
+    // and that must never block seedChartOfAccounts()/backfillPaymentJournalEntries()
+    // from running on the same boot.
+    await this.runSeedStep('seedRooms', () => this.seedRooms());
+    await this.runSeedStep('seedDepartments', () => this.seedDepartments());
+    await this.runSeedStep('seedRestaurant', () => this.seedRestaurant());
+    await this.runSeedStep('seedChartOfAccounts', () => this.seedChartOfAccounts());
+    await this.runSeedStep('backfillPaymentJournalEntries', () => this.backfillPaymentJournalEntries());
 
     if (existing) return;
 
@@ -47,7 +53,7 @@ export class BootstrapService implements OnApplicationBootstrap {
       },
     });
 
-    const property = await this.prisma.property.upsert({
+    await this.prisma.property.upsert({
       where: { id: 'demo-property-id' },
       update: {},
       create: {
@@ -118,7 +124,33 @@ export class BootstrapService implements OnApplicationBootstrap {
       },
     });
 
-    // Basic chart of accounts so the app is functional on first login
+    // Property was just created above - the unconditional call earlier in
+    // seed() ran before it existed and no-opped, so seed its accounts now.
+    await this.runSeedStep('seedChartOfAccounts', () => this.seedChartOfAccounts());
+
+    this.logger.log('Bootstrap complete ✓');
+  }
+
+  private async runSeedStep(name: string, fn: () => Promise<void>) {
+    try {
+      await fn();
+    } catch (err: any) {
+      this.logger.error(`${name} failed:`, err?.message ?? err);
+    }
+  }
+
+  // Runs unconditionally on every boot (not just first-ever bootstrap) -
+  // this used to be nested inside the admin-already-exists early return, so
+  // on a production database whose admin user predates this GL seeding, it
+  // silently never ran and left the property with no Chart of Accounts.
+  // Without accounts coded 1000/4000, folio.service.ts's payment-journal-entry
+  // step has nothing to post to and skips silently, so collected payments
+  // showed on the Dashboard (which reads Payment rows directly) but never
+  // reached Accounting's P&L (which only reads posted journal entries).
+  private async seedChartOfAccounts() {
+    const property = await this.prisma.property.findUnique({ where: { id: 'demo-property-id' } });
+    if (!property) return; // property not created yet, full seed will handle this below
+
     const accountSeeds = [
       { code: '1000', name: 'Cash on Hand', type: 'ASSET' },
       { code: '1100', name: 'Bank Account - Ecobank', type: 'ASSET' },
@@ -147,7 +179,62 @@ export class BootstrapService implements OnApplicationBootstrap {
       });
     }
 
-    this.logger.log('Bootstrap complete ✓');
+    this.logger.log('Chart of accounts seed complete ✓  12 accounts');
+  }
+
+  // Catches up any payment collected before seedChartOfAccounts() above ran
+  // for its property - those posted no journal entry at the time (GL
+  // accounts didn't exist yet), so they'd show on the Dashboard forever but
+  // never in Accounting. One-time per payment - once a journal entry with
+  // its receipt number exists, it's excluded on every future boot.
+  private async backfillPaymentJournalEntries() {
+    const payments = await this.prisma.payment.findMany({
+      where: { status: 'COMPLETED', receiptNumber: { not: null }, reservationId: { not: null } },
+      include: { reservation: { select: { propertyId: true } } },
+    });
+    if (payments.length === 0) return;
+
+    const receiptNumbers = payments.map((p) => p.receiptNumber as string);
+    const existing = await this.prisma.journalEntry.findMany({
+      where: { referenceType: 'PAYMENT', reference: { in: receiptNumbers } },
+      select: { reference: true },
+    });
+    const covered = new Set(existing.map((e) => e.reference));
+    const missing = payments.filter((p) => p.reservation && !covered.has(p.receiptNumber));
+    if (missing.length === 0) return;
+
+    for (const payment of missing) {
+      const propertyId = payment.reservation!.propertyId;
+      const [cashAccount, revenueAccount] = await Promise.all([
+        this.prisma.account.findFirst({ where: { propertyId, code: '1000', isActive: true } }),
+        this.prisma.account.findFirst({ where: { propertyId, code: '4000', isActive: true } }),
+      ]);
+      if (!cashAccount || !revenueAccount) continue; // this property still has no chart of accounts - try again next boot
+
+      const year = new Date(payment.createdAt).getFullYear();
+      const count = await this.prisma.journalEntry.count({ where: { tenantId: payment.tenantId } });
+      await this.prisma.journalEntry.create({
+        data: {
+          tenantId: payment.tenantId,
+          entryNumber: `JE-${year}-${String(count + 1).padStart(5, '0')}`,
+          status: 'POSTED',
+          date: payment.processedAt ?? payment.createdAt,
+          description: `Payment received — Receipt ${payment.receiptNumber}`,
+          reference: payment.receiptNumber,
+          referenceType: 'PAYMENT',
+          totalDebit: payment.amount,
+          totalCredit: payment.amount,
+          lines: {
+            create: [
+              { accountId: cashAccount.id,    type: 'DEBIT',  amount: payment.amount, description: `Cash receipt ${payment.receiptNumber}` },
+              { accountId: revenueAccount.id, type: 'CREDIT', amount: payment.amount, description: `Room revenue ${payment.receiptNumber}` },
+            ],
+          },
+        },
+      });
+    }
+
+    this.logger.log(`Backfilled ${missing.length} payment journal entr${missing.length === 1 ? 'y' : 'ies'} ✓`);
   }
 
   private async seedRooms() {
