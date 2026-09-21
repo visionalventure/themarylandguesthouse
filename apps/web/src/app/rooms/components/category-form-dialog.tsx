@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -46,6 +48,8 @@ const categorySchema = z.object({
   maxOccupancy: z.string().min(1, 'Max occupancy is required'),
   bedCount: z.string().optional(),
   description: z.string().optional(),
+  hourlyRate: z.string().optional(),
+  isShortStayEligible: z.boolean().optional(),
 });
 
 type CategoryForm = z.infer<typeof categorySchema>;
@@ -54,38 +58,68 @@ interface CategoryFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   propertyId: string;
+  category?: any | null;
 }
 
-export function CategoryFormDialog({ open, onOpenChange, propertyId }: CategoryFormDialogProps) {
+const blankCategoryDefaults: CategoryForm = {
+  name: '', type: '', basePrice: '', maxOccupancy: '', bedCount: '1', description: '',
+  hourlyRate: '', isShortStayEligible: false,
+};
+
+export function CategoryFormDialog({ open, onOpenChange, propertyId, category }: CategoryFormDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isEdit = !!category?.id;
 
   const form = useForm<CategoryForm>({
     resolver: zodResolver(categorySchema),
-    defaultValues: { name: '', type: '', basePrice: '', maxOccupancy: '', bedCount: '1', description: '' },
+    defaultValues: blankCategoryDefaults,
   });
 
+  useEffect(() => {
+    if (!open) return;
+    if (category) {
+      form.reset({
+        name: category.name ?? '',
+        type: category.type ?? '',
+        basePrice: category.basePrice != null ? String(category.basePrice) : '',
+        maxOccupancy: category.maxOccupancy != null ? String(category.maxOccupancy) : '',
+        bedCount: category.bedCount != null ? String(category.bedCount) : '1',
+        description: category.description ?? '',
+        hourlyRate: category.hourlyRate != null ? String(category.hourlyRate) : '',
+        isShortStayEligible: category.isShortStayEligible ?? false,
+      });
+    } else {
+      form.reset(blankCategoryDefaults);
+    }
+  }, [open, category, form]);
+
   const mutation = useMutation({
-    mutationFn: (data: CategoryForm) =>
-      roomsApi.createCategory({
-        propertyId,
+    mutationFn: (data: CategoryForm) => {
+      const payload = {
         name: data.name,
         type: data.type,
         basePrice: Number(data.basePrice),
         maxOccupancy: Number(data.maxOccupancy),
         bedCount: Number(data.bedCount || 1),
         description: data.description || undefined,
-      }),
+        hourlyRate: data.hourlyRate ? Number(data.hourlyRate) : undefined,
+        isShortStayEligible: !!data.isShortStayEligible,
+      };
+      return isEdit
+        ? roomsApi.updateCategory(category.id, payload)
+        : roomsApi.createCategory({ ...payload, propertyId });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['room-categories', propertyId] });
-      toast({ title: 'Category created' });
+      toast({ title: isEdit ? 'Category updated' : 'Category created' });
       form.reset();
       onOpenChange(false);
     },
     onError: (error: any) => {
       toast({
         variant: 'destructive',
-        title: 'Failed to create category',
+        title: isEdit ? 'Failed to update category' : 'Failed to create category',
         description: error.response?.data?.message || 'Something went wrong',
       });
     },
@@ -97,9 +131,9 @@ export function CategoryFormDialog({ open, onOpenChange, propertyId }: CategoryF
     <Dialog open={open} onOpenChange={(v) => { if (!v) form.reset(); onOpenChange(v); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>New Room Category</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit Room Category' : 'New Room Category'}</DialogTitle>
           <DialogDescription>
-            Define a new room type for this property.
+            {isEdit ? 'Update this room type, including short-stay settings.' : 'Define a new room type for this property.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -186,13 +220,40 @@ export function CategoryFormDialog({ open, onOpenChange, propertyId }: CategoryF
             />
           </div>
 
+          <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="cat-short-stay"
+                checked={form.watch('isShortStayEligible')}
+                onCheckedChange={(v: boolean) => form.setValue('isShortStayEligible', v)}
+              />
+              <Label htmlFor="cat-short-stay" className="text-sm font-medium">Eligible for Short Stay</Label>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cat-hourly-rate">Hourly Rate</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                <Input
+                  id="cat-hourly-rate"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="15.00"
+                  className="pl-7"
+                  {...form.register('hourlyRate')}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Pre-fills the rate when this category's rooms are picked for a short stay.</p>
+            </div>
+          </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => { form.reset(); onOpenChange(false); }}>
               Cancel
             </Button>
             <Button type="submit" disabled={mutation.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {mutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Create Category
+              {isEdit ? 'Save Changes' : 'Create Category'}
             </Button>
           </DialogFooter>
         </form>

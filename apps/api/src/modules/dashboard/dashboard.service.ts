@@ -31,6 +31,7 @@ export class DashboardService {
       lowStockAlerts,
       pendingMaintenance,
       presentStaff,
+      activeShortStays,
     ] = await Promise.all([
       this.prisma.room.count({ where: { propertyId, isActive: true } }),
       this.prisma.room.count({ where: { propertyId, status: 'OCCUPIED' } }),
@@ -90,6 +91,9 @@ export class DashboardService {
           employee: { propertyId },
         },
       }),
+      this.prisma.shortStayBooking.count({
+        where: { propertyId, status: 'CHECKED_IN' },
+      }),
     ]);
 
     const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
@@ -108,6 +112,7 @@ export class DashboardService {
       lowStockAlerts,
       pendingMaintenance,
       presentStaff,
+      activeShortStays,
     };
   }
 

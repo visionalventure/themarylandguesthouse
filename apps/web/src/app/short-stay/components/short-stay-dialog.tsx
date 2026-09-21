@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { roomsApi, shortStayApi } from '@/lib/api';
+import { guestsApi, shortStayApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -25,21 +25,38 @@ export function ShortStayDialog({ open, onOpenChange, propertyId }: Props) {
 
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm({
     defaultValues: {
-      roomId: '', guestName: '', guestPhone: '', durationHours: 3, hourlyRate: '',
+      roomId: '', guestId: '', guestName: '', guestPhone: '', durationHours: 3, hourlyRate: '',
       depositAmount: '', depositMethod: '', notes: '',
     },
   });
 
   useEffect(() => {
-    if (open) reset({ roomId: '', guestName: '', guestPhone: '', durationHours: 3, hourlyRate: '', depositAmount: '', depositMethod: '', notes: '' });
+    if (open) reset({ roomId: '', guestId: '', guestName: '', guestPhone: '', durationHours: 3, hourlyRate: '', depositAmount: '', depositMethod: '', notes: '' });
   }, [open, reset]);
 
   const { data: roomsData } = useQuery({
-    queryKey: ['rooms-available', propertyId],
-    queryFn: () => roomsApi.list({ propertyId, status: 'AVAILABLE', limit: 200 }).then((r) => r.data),
+    queryKey: ['short-stay-eligible-rooms', propertyId],
+    queryFn: () => shortStayApi.eligibleRooms(propertyId).then((r) => r.data),
     enabled: open && !!propertyId,
   });
   const rooms: any[] = Array.isArray(roomsData) ? roomsData : [];
+
+  const { data: guestsData } = useQuery({
+    queryKey: ['guests-for-short-stay', propertyId],
+    queryFn: () => guestsApi.list({ propertyId, limit: 200 }).then((r) => r.data),
+    enabled: open && !!propertyId,
+  });
+  const guests: any[] = guestsData?.data ?? [];
+
+  const roomId = watch('roomId');
+  useEffect(() => {
+    if (!roomId) return;
+    const room = rooms.find((r) => r.id === roomId);
+    if (room?.category?.hourlyRate && !watch('hourlyRate')) {
+      setValue('hourlyRate', String(room.category.hourlyRate));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
 
   const durationHours = Number(watch('durationHours')) || 0;
   const hourlyRate = Number(watch('hourlyRate')) || 0;
@@ -49,6 +66,7 @@ export function ShortStayDialog({ open, onOpenChange, propertyId }: Props) {
   const mutation = useMutation({
     mutationFn: (values: any) => shortStayApi.create({
       roomId: values.roomId,
+      guestId: values.guestId || undefined,
       guestName: values.guestName || undefined,
       guestPhone: values.guestPhone || undefined,
       durationHours: Number(values.durationHours),
@@ -100,6 +118,23 @@ export function ShortStayDialog({ open, onOpenChange, propertyId }: Props) {
               <Input {...register('guestPhone')} placeholder="optional" />
             </div>
           </div>
+
+          {guests.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Link Existing Guest (optional)</Label>
+              <Controller name="guestId" control={control} render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger><SelectValue placeholder="None — treat as a new/anonymous guest" /></SelectTrigger>
+                  <SelectContent>
+                    {guests.map((g: any) => (
+                      <SelectItem key={g.id} value={g.id}>{g.firstName} {g.lastName}{g.phone ? ` · ${g.phone}` : ''}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )} />
+              <p className="text-xs text-muted-foreground">Linking a guest enables loyalty points on checkout.</p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-xs">Duration</Label>

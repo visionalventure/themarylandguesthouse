@@ -95,7 +95,7 @@ export class RoomsService {
   }
 
   async createCategory(dto: any, tenantId: string) {
-    const { propertyId, name, type, description, basePrice, maxOccupancy, bedCount, amenities } = dto;
+    const { propertyId, name, type, description, basePrice, maxOccupancy, bedCount, amenities, hourlyRate, isShortStayEligible } = dto;
     const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
     if (!property) throw new BadRequestException('Invalid propertyId');
     return this.prisma.roomCategory.create({
@@ -108,6 +108,8 @@ export class RoomsService {
         maxOccupancy: Number(maxOccupancy),
         bedCount: Number(bedCount ?? 1),
         amenities: amenities ?? [],
+        hourlyRate: hourlyRate != null ? Number(hourlyRate) : undefined,
+        isShortStayEligible: isShortStayEligible ?? false,
       },
     });
   }
@@ -117,11 +119,11 @@ export class RoomsService {
     if (!category) throw new NotFoundException('Room category not found');
     const property = await this.prisma.property.findFirst({ where: { id: category.propertyId, tenantId }, select: { id: true } });
     if (!property) throw new NotFoundException('Room category not found');
-    const allowed = ['name', 'type', 'description', 'basePrice', 'maxOccupancy', 'bedCount', 'amenities'];
-    const numericKeys = ['basePrice', 'maxOccupancy', 'bedCount'];
+    const allowed = ['name', 'type', 'description', 'basePrice', 'maxOccupancy', 'bedCount', 'amenities', 'hourlyRate', 'isShortStayEligible'];
+    const numericKeys = ['basePrice', 'maxOccupancy', 'bedCount', 'hourlyRate'];
     const data: any = {};
     for (const key of allowed) {
-      if (key in dto) data[key] = numericKeys.includes(key) ? Number(dto[key]) : dto[key];
+      if (key in dto) data[key] = numericKeys.includes(key) && dto[key] != null ? Number(dto[key]) : dto[key];
     }
     return this.prisma.roomCategory.update({ where: { id }, data });
   }

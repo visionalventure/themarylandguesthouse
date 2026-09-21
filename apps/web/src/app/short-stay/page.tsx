@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Plus, Clock, DollarSign, AlarmClock, BedDouble, Phone, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import {
+  Plus, Clock, DollarSign, AlarmClock, BedDouble, Phone, Loader2, CheckCircle2, XCircle,
+  PlusCircle, ArrowUpCircle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,18 +15,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FadeIn } from '@/components/ui/fade-in';
 import { StaggerGrid, StaggerItem } from '@/components/ui/stagger-grid';
 import { AnimatedCounter } from '@/components/ui/animated-counter';
-import { shortStayApi } from '@/lib/api';
+import { shortStayApi, reservationsApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { usePageTitle } from '@/hooks/use-page-title';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/auth';
 import { ShortStayDialog } from './components/short-stay-dialog';
+import { ExtendStayDialog } from './components/extend-stay-dialog';
+import { CheckoutDialog } from './components/checkout-dialog';
+import { ReservationFormDialog } from '@/app/reservations/components/reservation-form-dialog';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   CHECKED_IN:  { label: 'Checked In',  color: 'bg-primary/15 text-primary border-primary/30' },
   CHECKED_OUT: { label: 'Checked Out', color: 'bg-muted text-muted-foreground border-border' },
   CANCELLED:   { label: 'Cancelled',   color: 'bg-red-500/15 text-red-500 border-red-500/30' },
+  UPGRADED:    { label: 'Upgraded',    color: 'bg-violet-500/15 text-violet-500 border-violet-500/30' },
 };
 
 export default function ShortStayPage() {
@@ -34,6 +41,10 @@ export default function ShortStayPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('CHECKED_IN');
   const [newOpen, setNewOpen] = useState(false);
+  const [extendingBooking, setExtendingBooking] = useState<any | null>(null);
+  const [checkoutBooking, setCheckoutBooking] = useState<any | null>(null);
+  const [upgradePrefill, setUpgradePrefill] = useState<any | null>(null);
+  const [upgradingBookingId, setUpgradingBookingId] = useState<string | null>(null);
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const { data: stats } = useQuery({
@@ -57,17 +68,6 @@ export default function ShortStayPage() {
 
   const bookings: any[] = data?.data ?? [];
 
-  const checkOutMutation = useMutation({
-    mutationFn: (id: string) => shortStayApi.checkOut(id),
-    onSuccess: (res: any) => {
-      queryClient.invalidateQueries({ queryKey: ['short-stays'] });
-      queryClient.invalidateQueries({ queryKey: ['short-stay-stats'] });
-      const amount = res.data?.totalAmount;
-      toast({ title: 'Checked out', description: amount ? `Final amount: $${Number(amount).toFixed(2)}` : undefined });
-    },
-    onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed to check out' }),
-  });
-
   const cancelMutation = useMutation({
     mutationFn: (id: string) => shortStayApi.cancel(id),
     onSuccess: () => {
@@ -76,6 +76,33 @@ export default function ShortStayPage() {
       toast({ title: 'Booking cancelled' });
     },
     onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed to cancel' }),
+  });
+
+  const prepareUpgradeMutation = useMutation({
+    mutationFn: (id: string) => shortStayApi.prepareUpgrade(id).then((r) => r.data),
+    onSuccess: (seed, id) => {
+      setUpgradingBookingId(id);
+      // ReservationFormDialog reads the room to prefill from
+      // initialData.rooms[0].roomId (the shape a real reservation carries).
+      setUpgradePrefill({ ...seed, rooms: [{ roomId: seed.roomId }] });
+    },
+    onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed to start upgrade' }),
+  });
+
+  const finalizeUpgradeMutation = useMutation({
+    mutationFn: async (reservation: any) => {
+      // The guest is already in the room - bring the new reservation to
+      // CHECKED_IN immediately rather than leaving it sitting as RESERVED.
+      await reservationsApi.checkIn(reservation.id);
+      await shortStayApi.upgrade(upgradingBookingId as string, reservation.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['short-stays'] });
+      queryClient.invalidateQueries({ queryKey: ['short-stay-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['reservations-calendar'] });
+      toast({ title: 'Upgraded to a full reservation' });
+    },
+    onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Reservation created, but the upgrade link failed to save' }),
   });
 
   const isOverdue = (b: any) => b.status === 'CHECKED_IN' && new Date(b.checkOutPlanned) < new Date();
@@ -152,6 +179,7 @@ export default function ShortStayPage() {
                 {bookings.map((b) => {
                   const paid = (b.payments ?? []).reduce((s: number, p: any) => s + Number(p.amount), 0);
                   const overdue = isOverdue(b);
+                  const canUpgrade = !b.guestPhone && !b.guestId;
                   return (
                     <tr key={b.id} className="border-b border-border hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium text-foreground">Room {b.room?.roomNumber}</td>
@@ -176,11 +204,18 @@ export default function ShortStayPage() {
                       <td className="px-4 py-3 text-right">
                         {b.status === 'CHECKED_IN' ? (
                           <div className="flex items-center justify-end gap-1">
+                            <Button size="sm" variant="ghost" title="Extend Stay" onClick={() => setExtendingBooking(b)}>
+                              <PlusCircle className="w-3.5 h-3.5" />
+                            </Button>
                             <Button
-                              size="sm" variant="outline"
-                              disabled={checkOutMutation.isPending}
-                              onClick={() => checkOutMutation.mutate(b.id)}
+                              size="sm" variant="ghost"
+                              title={canUpgrade ? 'Add a phone number first so a guest can be linked' : 'Upgrade to Reservation'}
+                              disabled={canUpgrade || prepareUpgradeMutation.isPending}
+                              onClick={() => prepareUpgradeMutation.mutate(b.id)}
                             >
+                              <ArrowUpCircle className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setCheckoutBooking(b)}>
                               <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Check Out
                             </Button>
                             <Button
@@ -205,6 +240,22 @@ export default function ShortStayPage() {
       </Card>
 
       <ShortStayDialog open={newOpen} onOpenChange={setNewOpen} propertyId={propertyId} />
+      <ExtendStayDialog booking={extendingBooking} onOpenChange={(v) => { if (!v) setExtendingBooking(null); }} />
+      <CheckoutDialog booking={checkoutBooking} onOpenChange={(v) => { if (!v) setCheckoutBooking(null); }} />
+
+      {upgradePrefill && (
+        <ReservationFormDialog
+          open={!!upgradePrefill}
+          onOpenChange={(v) => { if (!v) { setUpgradePrefill(null); setUpgradingBookingId(null); } }}
+          propertyId={propertyId}
+          initialData={upgradePrefill}
+          onSuccess={(reservation) => {
+            finalizeUpgradeMutation.mutate(reservation);
+            setUpgradePrefill(null);
+            setUpgradingBookingId(null);
+          }}
+        />
+      )}
     </FadeIn>
   );
 }

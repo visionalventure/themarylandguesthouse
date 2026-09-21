@@ -4,7 +4,9 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { ShortStayService } from './short-stay.service';
-import { CreateShortStayDto, ShortStayQueryDto } from './dto/short-stay.dto';
+import {
+  CreateShortStayDto, ShortStayQueryDto, ExtendShortStayDto, CheckOutShortStayDto, ConvertShortStayDto,
+} from './dto/short-stay.dto';
 
 @ApiTags('short-stay')
 @ApiBearerAuth()
@@ -18,6 +20,13 @@ export class ShortStayController {
   @ApiOperation({ summary: 'Get short stay pipeline stats' })
   getStats(@Query('propertyId') propertyId: string, @Request() req: any) {
     return this.service.getStats(req.user.tenantId, propertyId);
+  }
+
+  @Get('eligible-rooms')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
+  @ApiOperation({ summary: 'Get rooms eligible for a new short stay booking' })
+  getEligibleRooms(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getEligibleRooms(propertyId, req.user.tenantId);
   }
 
   @Get()
@@ -41,11 +50,18 @@ export class ShortStayController {
     return this.service.create(dto, req.user.tenantId, req.user.sub);
   }
 
+  @Post(':id/extend')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
+  @ApiOperation({ summary: 'Add hours to an in-progress short stay' })
+  extend(@Param('id') id: string, @Body() dto: ExtendShortStayDto, @Request() req: any) {
+    return this.service.extend(id, dto.additionalHours, req.user.tenantId);
+  }
+
   @Post(':id/checkout')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
-  @ApiOperation({ summary: 'Check out a short stay booking' })
-  checkOut(@Param('id') id: string, @Request() req: any) {
-    return this.service.checkOut(id, req.user.tenantId);
+  @ApiOperation({ summary: 'Check out a short stay booking, optionally collecting the remaining balance' })
+  checkOut(@Param('id') id: string, @Body() dto: CheckOutShortStayDto, @Request() req: any) {
+    return this.service.checkOut(id, dto, req.user.tenantId);
   }
 
   @Post(':id/cancel')
@@ -53,5 +69,19 @@ export class ShortStayController {
   @ApiOperation({ summary: 'Cancel a short stay booking before checkout' })
   cancel(@Param('id') id: string, @Request() req: any) {
     return this.service.cancel(id, req.user.tenantId);
+  }
+
+  @Post(':id/prepare-upgrade')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
+  @ApiOperation({ summary: 'Find-or-create the guest behind this short stay and return New Reservation seed values' })
+  prepareUpgrade(@Param('id') id: string, @Request() req: any) {
+    return this.service.prepareUpgrade(id, req.user.tenantId);
+  }
+
+  @Post(':id/upgrade')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
+  @ApiOperation({ summary: 'Mark a short stay upgraded and link the resulting reservation' })
+  upgrade(@Param('id') id: string, @Body() dto: ConvertShortStayDto, @Request() req: any) {
+    return this.service.markUpgraded(id, dto.reservationId, req.user.tenantId);
   }
 }

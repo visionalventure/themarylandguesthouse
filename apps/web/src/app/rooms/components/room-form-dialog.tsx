@@ -63,6 +63,7 @@ export function RoomFormDialog({ open, onOpenChange, mode, initialData, property
   const [amenities, setAmenities] = useState<string[]>([]);
   const [customInput, setCustomInput] = useState('');
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
 
   const { data: categories } = useQuery({
     queryKey: ['room-categories', propertyId],
@@ -243,13 +244,24 @@ export function RoomFormDialog({ open, onOpenChange, mode, initialData, property
               {form.formState.errors.categoryId && (
                 <p className="text-red-500 text-xs">{form.formState.errors.categoryId.message}</p>
               )}
-              <button
-                type="button"
-                onClick={() => setCategoryDialogOpen(true)}
-                className="text-xs text-primary hover:underline underline-offset-2"
-              >
-                + New Category
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCategoryDialogOpen(true)}
+                  className="text-xs text-primary hover:underline underline-offset-2"
+                >
+                  + New Category
+                </button>
+                {watchedCategoryId && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingCategory(catList.find((c: any) => c.id === watchedCategoryId) ?? null)}
+                    className="text-xs text-primary hover:underline underline-offset-2"
+                  >
+                    Edit Category
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -373,6 +385,12 @@ export function RoomFormDialog({ open, onOpenChange, mode, initialData, property
         open={categoryDialogOpen}
         onOpenChange={setCategoryDialogOpen}
         propertyId={propertyId}
+      />
+      <CategoryFormDialog
+        open={!!editingCategory}
+        onOpenChange={(v) => { if (!v) setEditingCategory(null); }}
+        propertyId={propertyId}
+        category={editingCategory}
       />
     </>
   );

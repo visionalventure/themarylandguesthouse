@@ -697,6 +697,8 @@ model RoomCategory {
   bedCount     Int      @default(1)
   amenities    String[] @default([])
   images       String[] @default([])
+  hourlyRate   Decimal? @db.Decimal(10,2)
+  isShortStayEligible Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -878,6 +880,7 @@ enum ShortStayStatus {
   CHECKED_IN
   CHECKED_OUT
   CANCELLED
+  UPGRADED
 }
 
 model ShortStayBooking {
@@ -894,6 +897,7 @@ model ShortStayBooking {
   hourlyRate      Decimal         @db.Decimal(10,2)
   totalAmount     Decimal         @db.Decimal(12,2)
   status          ShortStayStatus @default(CHECKED_IN)
+  upgradedReservationId String?   @unique
   notes           String?
   createdById     String?
   createdAt       DateTime        @default(now())

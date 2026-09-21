@@ -23,10 +23,12 @@ export enum ShortStayStatusEnum {
   CHECKED_IN = 'CHECKED_IN',
   CHECKED_OUT = 'CHECKED_OUT',
   CANCELLED = 'CANCELLED',
+  UPGRADED = 'UPGRADED',
 }
 
 export class CreateShortStayDto {
   @ApiProperty() @IsString() roomId: string;
+  @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsString() guestId?: string;
   @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsString() @MaxLength(150) guestName?: string;
   @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsString() @MaxLength(30) guestPhone?: string;
   @ApiProperty() @Type(() => Number) @IsInt() @Min(1) durationHours: number;
@@ -42,4 +44,17 @@ export class ShortStayQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;
+}
+
+export class ExtendShortStayDto {
+  @ApiProperty() @Type(() => Number) @IsInt() @Min(1) additionalHours: number;
+}
+
+export class CheckOutShortStayDto {
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() @Min(0) paymentAmount?: number;
+  @ApiPropertyOptional({ enum: ShortStayDepositMethodEnum }) @IsOptional() @IsEnum(ShortStayDepositMethodEnum) paymentMethod?: ShortStayDepositMethodEnum;
+}
+
+export class ConvertShortStayDto {
+  @ApiProperty() @IsString() reservationId: string;
 }

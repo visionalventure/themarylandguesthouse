@@ -55,6 +55,8 @@ export class CreateRoomCategoryDto {
   @ApiProperty() @IsInt() @Min(1) maxOccupancy: number;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) bedCount?: number;
   @ApiPropertyOptional() @IsOptional() @IsArray() @IsString({ each: true }) amenities?: string[];
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) hourlyRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isShortStayEligible?: boolean;
 }
 
 export class UpdateRoomCategoryDto extends PartialType(CreateRoomCategoryDto) {}

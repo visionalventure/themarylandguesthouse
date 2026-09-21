@@ -15,6 +15,7 @@ import {
   Plus,
   CalendarCheck,
   ClipboardList,
+  Clock,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -248,6 +249,17 @@ export default function DashboardPage() {
             numericValue={kpis?.checkOutsToday ?? 0}
             icon={ArrowUpFromLine}
             color="amber"
+            loading={kpisLoading}
+            error={kpisError}
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <KPICard
+            title="Active Short Stays"
+            value={kpis?.activeShortStays ?? 0}
+            numericValue={kpis?.activeShortStays ?? 0}
+            icon={Clock}
+            color="purple"
             loading={kpisLoading}
             error={kpisError}
           />
