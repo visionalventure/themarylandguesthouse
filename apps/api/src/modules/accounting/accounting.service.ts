@@ -341,6 +341,7 @@ export class AccountingService {
       })
       .catch(() => {/* fire-and-forget */});
     if (invoice.guest?.email) {
+      const { propertyName, branding } = await this.emailService.getBranding(invoice.propertyId, tenantId);
       this.emailService
         .sendInvoiceEmail({
           to: invoice.guest.email,
@@ -348,7 +349,8 @@ export class AccountingService {
           invoiceNumber: invoice.invoiceNumber,
           dueDate: format(new Date(invoice.dueDate), 'dd MMM yyyy'),
           totalAmount: `$${Number(invoice.totalAmount).toLocaleString()}`,
-          propertyName: 'Maryland Guesthouse',
+          propertyName,
+          branding,
         })
         .catch(() => {/* fire-and-forget */});
     }
@@ -356,7 +358,10 @@ export class AccountingService {
   }
 
   async markInvoicePaid(id: string, dto: { amount: number; paymentMethod?: string }, tenantId: string) {
-    const invoice = await this.prisma.invoice.findFirst({ where: { id, tenantId } });
+    const invoice = await this.prisma.invoice.findFirst({
+      where: { id, tenantId },
+      include: { guest: { select: { firstName: true, lastName: true, email: true } } },
+    });
     if (!invoice) throw new NotFoundException();
     const newPaid = Number(invoice.paidAmount) + Number(dto.amount);
     const status = newPaid >= Number(invoice.totalAmount) ? 'PAID' : 'PARTIALLY_PAID';
@@ -365,7 +370,7 @@ export class AccountingService {
     const count = await this.prisma.payment.count({ where: { receiptNumber: { startsWith: `RCP-${year}-` } } });
     const receiptNumber = `RCP-${year}-${String(count + 1).padStart(6, '0')}`;
 
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       await tx.payment.create({
         data: {
           tenantId,
@@ -384,6 +389,24 @@ export class AccountingService {
         data: { paidAmount: newPaid, status, ...(status === 'PAID' ? { paidAt: new Date() } : {}) },
       });
     });
+
+    if (invoice.guest?.email) {
+      const { propertyName, branding } = await this.emailService.getBranding(invoice.propertyId, tenantId);
+      this.emailService
+        .sendPaymentReceipt({
+          to: invoice.guest.email,
+          guestName: `${invoice.guest.firstName} ${invoice.guest.lastName}`,
+          amount: `$${Number(dto.amount).toLocaleString()}`,
+          method: dto.paymentMethod ?? 'CASH',
+          date: format(new Date(), 'dd MMM yyyy'),
+          balanceRemaining: `$${Math.max(Number(invoice.totalAmount) - newPaid, 0).toLocaleString()}`,
+          propertyName,
+          branding,
+        })
+        .catch(() => {/* fire-and-forget */});
+    }
+
+    return updated;
   }
 
   // ─── Bank Reconciliation ──────────────────────────────────────────────────

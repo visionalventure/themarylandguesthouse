@@ -1,10 +1,15 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { format } from 'date-fns';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class FolioService {
   private readonly logger = new Logger(FolioService.name);
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   async getFolio(reservationId: string, tenantId: string) {
     const [reservation, charges, payments] = await Promise.all([
@@ -142,7 +147,7 @@ export class FolioService {
   async collectPayment(reservationId: string, dto: any, collectedById: string, tenantId: string) {
     const reservation = await this.prisma.reservation.findFirst({
       where: { id: reservationId, property: { tenantId } },
-      include: { property: { select: { id: true } } },
+      include: { property: { select: { id: true } }, guest: { select: { firstName: true, lastName: true, email: true } } },
     });
     if (!reservation) throw new NotFoundException('Reservation not found');
 
@@ -151,7 +156,7 @@ export class FolioService {
       data: {
         reservationId,
         guestId: reservation.guestId,
-        tenantId: dto.tenantId,
+        tenantId,
         receiptNumber,
         amount: Number(dto.amount),
         method: dto.method,
@@ -163,7 +168,29 @@ export class FolioService {
     });
 
     // Auto-create accounting journal entry
-    await this.createPaymentJournalEntry(payment, reservation.propertyId, dto.tenantId).catch(() => null);
+    await this.createPaymentJournalEntry(payment, reservation.propertyId, tenantId).catch(() => null);
+
+    if (reservation.guest?.email) {
+      const [charges, payments] = await Promise.all([
+        this.prisma.reservationCharge.findMany({ where: { reservationId } }),
+        this.prisma.payment.findMany({ where: { reservationId, status: 'COMPLETED' } }),
+      ]);
+      const totalCharges = charges.reduce((s, c) => s + Number(c.amount), 0);
+      const totalPaid = payments.reduce((s, p) => s + Number(p.amount), 0);
+      const { propertyName, branding } = await this.emailService.getBranding(reservation.propertyId, tenantId);
+      this.emailService
+        .sendPaymentReceipt({
+          to: reservation.guest.email,
+          guestName: `${reservation.guest.firstName} ${reservation.guest.lastName}`,
+          amount: `$${Number(dto.amount).toLocaleString()}`,
+          method: dto.method,
+          date: format(new Date(), 'dd MMM yyyy'),
+          balanceRemaining: `$${Math.max(totalCharges - totalPaid, 0).toLocaleString()}`,
+          propertyName,
+          branding,
+        })
+        .catch(() => {/* fire-and-forget */});
+    }
 
     return { payment, receiptNumber };
   }

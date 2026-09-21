@@ -1,6 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
+import { PrismaService } from '../../common/prisma/prisma.service';
+
+export interface EmailBranding {
+  companyHeader?: string;
+  tagline?: string;
+  primaryColor?: string;
+  logoUrl?: string;
+  logoAlign?: 'left' | 'center' | 'right';
+  footerNote?: string;
+}
 
 @Injectable()
 export class EmailService {
@@ -8,8 +18,61 @@ export class EmailService {
   private readonly from: string;
   private readonly logger = new Logger(EmailService.name);
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     this.from = this.config.get('EMAIL_FROM') ?? 'noreply@marylandguesthouse.com';
+  }
+
+  // Shared source of truth for "how should system emails look" — the same
+  // Property.invoiceTemplate JSON the Settings > Invoice Template tab edits,
+  // reused across every outbound email so branding only needs setting once.
+  async getBranding(propertyId: string | null | undefined, tenantId: string): Promise<{ propertyName: string; branding: EmailBranding }> {
+    const property = propertyId
+      ? await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { name: true, logoUrl: true, invoiceTemplate: true } })
+      : await this.prisma.property.findFirst({ where: { tenantId }, select: { name: true, logoUrl: true, invoiceTemplate: true } });
+    const tmpl = (property?.invoiceTemplate as EmailBranding | null) ?? {};
+    return {
+      propertyName: tmpl.companyHeader || property?.name || 'Maryland Guesthouse',
+      branding: {
+        companyHeader: tmpl.companyHeader,
+        tagline: tmpl.tagline,
+        primaryColor: tmpl.primaryColor,
+        logoUrl: property?.logoUrl ?? undefined,
+        logoAlign: tmpl.logoAlign,
+        footerNote: tmpl.footerNote,
+      },
+    };
+  }
+
+  // Shared chrome (logo, header band, footer note) every templated email renders
+  // through, so branding set once in Settings applies everywhere consistently.
+  private wrapEmail(opts: { headerBg: string; headerText: string; branding?: EmailBranding; bodyHtml: string }) {
+    const b = opts.branding ?? {};
+    const bg = this.escape(b.primaryColor || opts.headerBg);
+    const header = this.escape(b.companyHeader || opts.headerText);
+    const tagline = b.tagline
+      ? `<p style="color:#fff;margin:4px 0 0;font-size:13px;opacity:.85">${this.escape(b.tagline)}</p>`
+      : '';
+    const logo = b.logoUrl && this.isSafeUrl(b.logoUrl)
+      ? `<img src="${b.logoUrl}" alt="" style="max-height:40px;margin-bottom:8px" />`
+      : '';
+    const align = b.logoAlign === 'left' ? 'flex-start' : b.logoAlign === 'right' ? 'flex-end' : 'center';
+    const footer = b.footerNote
+      ? `<p style="text-align:center;color:#9ca3af;font-size:12px;margin-top:16px">${this.escape(b.footerNote)}</p>`
+      : '';
+    return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+        <div style="background:${bg};padding:20px;text-align:center;border-radius:8px 8px 0 0;display:flex;flex-direction:column;align-items:${align}">
+          ${logo}
+          <h1 style="color:#fff;margin:0;font-size:24px">${header}</h1>
+          ${tagline}
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:30px;border-radius:0 0 8px 8px">
+          ${opts.bodyHtml}
+        </div>
+        ${footer}
+      </body></html>`;
   }
 
   private getResend(): Resend {
@@ -58,6 +121,7 @@ export class EmailService {
     checkOut: string;
     roomNumbers: string[];
     propertyName: string;
+    branding?: EmailBranding;
   }) {
     const propName = this.escape(opts.propertyName);
     const guestName = this.escape(opts.guestName);
@@ -68,11 +132,11 @@ export class EmailService {
     await this.send(
       opts.to,
       `Booking Confirmation — ${reservationNo}`,
-      `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
-        <div style="background:#D4AF37;padding:20px;text-align:center;border-radius:8px 8px 0 0">
-          <h1 style="color:#fff;margin:0;font-size:24px">${propName}</h1>
-        </div>
-        <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:30px;border-radius:0 0 8px 8px">
+      this.wrapEmail({
+        headerBg: '#D4AF37',
+        headerText: propName,
+        branding: opts.branding,
+        bodyHtml: `
           <h2 style="color:#1f2937">Booking Confirmed!</h2>
           <p>Dear ${guestName},</p>
           <p>Your reservation has been confirmed. Here are your details:</p>
@@ -83,9 +147,8 @@ export class EmailService {
             <tr><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Room(s)</td><td style="padding:12px;border:1px solid #e5e7eb">${rooms}</td></tr>
           </table>
           <p style="color:#6b7280;font-size:14px">If you have any questions, please contact us directly. We look forward to welcoming you!</p>
-          <p>Warm regards,<br><strong>${propName}</strong></p>
-        </div>
-      </body></html>`,
+          <p>Warm regards,<br><strong>${propName}</strong></p>`,
+      }),
     );
   }
 
@@ -96,32 +159,33 @@ export class EmailService {
     dueDate: string;
     totalAmount: string;
     propertyName: string;
+    branding?: EmailBranding;
   }) {
     const propName = this.escape(opts.propertyName);
     const guestName = this.escape(opts.guestName);
     const invoiceNumber = this.escape(opts.invoiceNumber);
     const dueDate = this.escape(opts.dueDate);
     const totalAmount = this.escape(opts.totalAmount);
+    const accent = this.escape(opts.branding?.primaryColor || '#D4AF37');
     await this.send(
       opts.to,
       `Invoice ${invoiceNumber} from ${propName}`,
-      `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
-        <div style="background:#D4AF37;padding:20px;text-align:center;border-radius:8px 8px 0 0">
-          <h1 style="color:#fff;margin:0;font-size:24px">${propName}</h1>
-        </div>
-        <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:30px;border-radius:0 0 8px 8px">
+      this.wrapEmail({
+        headerBg: '#D4AF37',
+        headerText: propName,
+        branding: opts.branding,
+        bodyHtml: `
           <h2 style="color:#1f2937">Invoice ${invoiceNumber}</h2>
           <p>Dear ${guestName},</p>
           <p>Please find your invoice details below:</p>
           <table style="width:100%;border-collapse:collapse;margin:20px 0">
             <tr style="background:#f9fafb"><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Invoice No.</td><td style="padding:12px;border:1px solid #e5e7eb">${invoiceNumber}</td></tr>
-            <tr><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Amount Due</td><td style="padding:12px;border:1px solid #e5e7eb;font-size:18px;color:#D4AF37"><strong>${totalAmount}</strong></td></tr>
+            <tr><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Amount Due</td><td style="padding:12px;border:1px solid #e5e7eb;font-size:18px;color:${accent}"><strong>${totalAmount}</strong></td></tr>
             <tr style="background:#f9fafb"><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Due Date</td><td style="padding:12px;border:1px solid #e5e7eb">${dueDate}</td></tr>
           </table>
           <p style="color:#6b7280;font-size:14px">Please contact us if you have any questions about this invoice.</p>
-          <p>Thank you,<br><strong>${propName}</strong></p>
-        </div>
-      </body></html>`,
+          <p>Thank you,<br><strong>${propName}</strong></p>`,
+      }),
     );
   }
 
@@ -133,6 +197,7 @@ export class EmailService {
     date: string;
     balanceRemaining: string;
     propertyName: string;
+    branding?: EmailBranding;
   }) {
     const propName = this.escape(opts.propertyName);
     const guestName = this.escape(opts.guestName);
@@ -143,11 +208,12 @@ export class EmailService {
     await this.send(
       opts.to,
       `Payment Receipt — ${propName}`,
-      `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
-        <div style="background:#16a34a;padding:20px;text-align:center;border-radius:8px 8px 0 0">
-          <h1 style="color:#fff;margin:0;font-size:24px">Payment Received</h1>
-        </div>
-        <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:30px;border-radius:0 0 8px 8px">
+      this.wrapEmail({
+        headerBg: '#16a34a',
+        headerText: propName,
+        branding: opts.branding,
+        bodyHtml: `
+          <h2 style="color:#1f2937">Payment Received</h2>
           <p>Dear ${guestName},</p>
           <p>We have received your payment. Here are the details:</p>
           <table style="width:100%;border-collapse:collapse;margin:20px 0">
@@ -156,9 +222,8 @@ export class EmailService {
             <tr style="background:#f9fafb"><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Date</td><td style="padding:12px;border:1px solid #e5e7eb">${date}</td></tr>
             <tr><td style="padding:12px;font-weight:bold;border:1px solid #e5e7eb">Balance Remaining</td><td style="padding:12px;border:1px solid #e5e7eb">${balanceRemaining}</td></tr>
           </table>
-          <p>Thank you,<br><strong>${propName}</strong></p>
-        </div>
-      </body></html>`,
+          <p>Thank you,<br><strong>${propName}</strong></p>`,
+      }),
     );
   }
 
@@ -184,52 +249,52 @@ export class EmailService {
     );
   }
 
-  async sendPasswordReset(opts: { to: string; name: string; resetUrl: string; propertyName: string }) {
+  async sendPasswordReset(opts: { to: string; name: string; resetUrl: string; propertyName: string; branding?: EmailBranding }) {
     const propName = this.escape(opts.propertyName);
     const name = this.escape(opts.name);
     const safeUrl = this.isSafeUrl(opts.resetUrl) ? opts.resetUrl : '#';
+    const accent = this.escape(opts.branding?.primaryColor || '#D4AF37');
     await this.send(
       opts.to,
       `Reset Your Password — ${propName}`,
-      `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
-        <div style="background:#1f2937;padding:20px;text-align:center;border-radius:8px 8px 0 0">
-          <h1 style="color:#fff;margin:0;font-size:24px">${propName}</h1>
-        </div>
-        <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:30px;border-radius:0 0 8px 8px">
+      this.wrapEmail({
+        headerBg: '#1f2937',
+        headerText: propName,
+        branding: opts.branding,
+        bodyHtml: `
           <h2 style="color:#1f2937">Password Reset Request</h2>
           <p>Hi ${name},</p>
           <p>We received a request to reset your password. Click the button below to choose a new password:</p>
           <div style="text-align:center;margin:30px 0">
-            <a href="${safeUrl}" style="background:#D4AF37;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Reset Password</a>
+            <a href="${safeUrl}" style="background:${accent};color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Reset Password</a>
           </div>
-          <p style="color:#6b7280;font-size:14px">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
-        </div>
-      </body></html>`,
+          <p style="color:#6b7280;font-size:14px">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>`,
+      }),
     );
   }
 
-  async sendUserInvite(opts: { to: string; name: string; role: string; setPasswordUrl: string; propertyName: string }) {
+  async sendUserInvite(opts: { to: string; name: string; role: string; setPasswordUrl: string; propertyName: string; branding?: EmailBranding }) {
     const propName = this.escape(opts.propertyName);
     const name = this.escape(opts.name);
     const role = this.escape(opts.role);
     const safeUrl = this.isSafeUrl(opts.setPasswordUrl) ? opts.setPasswordUrl : '#';
+    const accent = this.escape(opts.branding?.primaryColor || '#D4AF37');
     await this.send(
       opts.to,
       `You've been invited to ${propName}`,
-      `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
-        <div style="background:#1f2937;padding:20px;text-align:center;border-radius:8px 8px 0 0">
-          <h1 style="color:#fff;margin:0;font-size:24px">${propName}</h1>
-        </div>
-        <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:30px;border-radius:0 0 8px 8px">
+      this.wrapEmail({
+        headerBg: '#1f2937',
+        headerText: propName,
+        branding: opts.branding,
+        bodyHtml: `
           <h2 style="color:#1f2937">You've been invited</h2>
           <p>Hi ${name},</p>
           <p>You've been added to ${propName} as <strong>${role}</strong>. Click the button below to set your password and get started:</p>
           <div style="text-align:center;margin:30px 0">
-            <a href="${safeUrl}" style="background:#D4AF37;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Set Your Password</a>
+            <a href="${safeUrl}" style="background:${accent};color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Set Your Password</a>
           </div>
-          <p style="color:#6b7280;font-size:14px">This link expires in 1 hour. If you weren't expecting this invite, you can safely ignore this email.</p>
-        </div>
-      </body></html>`,
+          <p style="color:#6b7280;font-size:14px">This link expires in 1 hour. If you weren't expecting this invite, you can safely ignore this email.</p>`,
+      }),
     );
   }
 }

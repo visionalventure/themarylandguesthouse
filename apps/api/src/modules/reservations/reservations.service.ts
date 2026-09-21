@@ -135,6 +135,23 @@ export class ReservationsService {
           notes: 'Deposit collected at booking',
         },
       });
+
+      if (reservation.guest?.email) {
+        const { propertyName, branding } = await this.emailService.getBranding(propertyId, tenantId);
+        const balanceRemaining = Number(reservation.totalAmount) - Number(depositAmount);
+        this.emailService
+          .sendPaymentReceipt({
+            to: reservation.guest.email,
+            guestName: `${reservation.guest.firstName} ${reservation.guest.lastName}`,
+            amount: `$${Number(depositAmount).toLocaleString()}`,
+            method: depositMethod,
+            date: format(new Date(), 'dd MMM yyyy'),
+            balanceRemaining: `$${Math.max(balanceRemaining, 0).toLocaleString()}`,
+            propertyName,
+            branding,
+          })
+          .catch(() => {/* fire-and-forget */});
+      }
     }
 
     // Fire notification for ADMIN/MANAGER
@@ -151,6 +168,7 @@ export class ReservationsService {
 
     if (reservation.guest?.email) {
       const roomNumbers = roomRecords.map((r) => r.roomNumber);
+      const { propertyName, branding } = await this.emailService.getBranding(propertyId, tenantId);
       this.emailService
         .sendBookingConfirmation({
           to: reservation.guest.email,
@@ -159,7 +177,8 @@ export class ReservationsService {
           checkIn: format(new Date(checkIn), 'dd MMM yyyy'),
           checkOut: format(new Date(checkOut), 'dd MMM yyyy'),
           roomNumbers,
-          propertyName: property?.name ?? 'Maryland Guesthouse',
+          propertyName,
+          branding,
         })
         .catch(() => {/* fire-and-forget */});
     }

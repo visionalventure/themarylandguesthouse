@@ -138,9 +138,8 @@ export class SettingsService {
     });
     if (existing && !existing.isDeleted) return existing;
 
-    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } });
     const appUrl = this.config.get('APP_URL') ?? 'http://localhost:3000';
-    const propertyName = tenant?.name ?? this.config.get('PROPERTY_NAME', 'Maryland Guesthouse');
+    const { propertyName, branding } = await this.emailService.getBranding(undefined, tenantId);
     const rawPassword = randomBytes(12).toString('hex');
     const passwordHash = await bcrypt.hash(rawPassword, 12);
 
@@ -192,11 +191,11 @@ export class SettingsService {
 
     if (existing) {
       this.emailService
-        .sendPasswordReset({ to: user.email, name, resetUrl, propertyName })
+        .sendPasswordReset({ to: user.email, name, resetUrl, propertyName, branding })
         .catch(() => {/* fire-and-forget */});
     } else {
       this.emailService
-        .sendUserInvite({ to: user.email, name, role: user.role, setPasswordUrl: resetUrl, propertyName })
+        .sendUserInvite({ to: user.email, name, role: user.role, setPasswordUrl: resetUrl, propertyName, branding })
         .catch(() => {/* fire-and-forget */});
     }
 
