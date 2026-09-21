@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -35,6 +35,23 @@ const TYPE_LABELS: Record<string, string> = {
 
 const CUSTOM_TYPE_SENTINEL = '__custom__';
 
+// Which detail fields matter for each inquiry type, grouped into rows of up
+// to two. Types with no entry here (custom categories, or before one is
+// known) fall back to DEFAULT_FIELD_ROWS and show everything.
+const TYPE_FIELD_ROWS: Record<string, string[][]> = {
+  EVENT_PARTY: [['eventDate', 'partySize']],
+  LONG_STAY: [['startDate', 'endDate'], ['partySize']],
+  ROOM_BOOKING: [['startDate', 'endDate'], ['partySize']],
+};
+const DEFAULT_FIELD_ROWS = [['eventDate', 'partySize'], ['startDate', 'endDate']];
+
+const FIELD_DEFS: Record<string, { label: string; type: string; props?: Record<string, any> }> = {
+  eventDate: { label: 'Event Date', type: 'date' },
+  startDate: { label: 'Start Date', type: 'date' },
+  endDate: { label: 'End Date', type: 'date' },
+  partySize: { label: 'Party Size', type: 'number', props: { min: '1', placeholder: '30' } },
+};
+
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   NEW:       { label: 'New',       color: 'bg-primary/15 text-primary border-primary/30' },
   CONTACTED: { label: 'Contacted', color: 'bg-amber-500/15 text-amber-500 border-amber-500/30' },
@@ -57,7 +74,7 @@ function NewInquiryDialog({ open, onOpenChange, propertyId }: { open: boolean; o
   });
   const customTypes: string[] = typesData?.custom ?? [];
 
-  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm({
+  const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
       guestName: '', phone: '', email: '', type: 'ROOM_BOOKING', customType: '',
       eventDate: '', startDate: '', endDate: '', partySize: '', quotedPrice: '',
@@ -65,6 +82,17 @@ function NewInquiryDialog({ open, onOpenChange, propertyId }: { open: boolean; o
     },
   });
   const typeValue = watch('type');
+  const fieldRows = TYPE_FIELD_ROWS[typeValue] ?? DEFAULT_FIELD_ROWS;
+
+  // Clear out whatever the previous type's fields held so switching, say,
+  // Event/Party -> Room Booking doesn't silently submit a leftover Event Date.
+  useEffect(() => {
+    const visible = new Set(fieldRows.flat());
+    (['eventDate', 'startDate', 'endDate', 'partySize'] as const).forEach((key) => {
+      if (!visible.has(key)) setValue(key, '');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeValue]);
 
   const mutation = useMutation({
     mutationFn: (values: any) => inquiriesApi.create({
@@ -137,26 +165,19 @@ function NewInquiryDialog({ open, onOpenChange, propertyId }: { open: boolean; o
             )}
             {errors.customType && <p className="text-xs text-destructive">Enter a name for the new category</p>}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Event Date</Label>
-              <Input type="date" {...register('eventDate')} />
+          {fieldRows.map((row) => (
+            <div key={row.join('-')} className={cn('grid gap-3', row.length === 2 ? 'grid-cols-2' : 'grid-cols-1')}>
+              {row.map((key) => {
+                const def = FIELD_DEFS[key];
+                return (
+                  <div key={key} className="space-y-1.5">
+                    <Label className="text-xs">{def.label}</Label>
+                    <Input type={def.type} {...def.props} {...register(key as any)} />
+                  </div>
+                );
+              })}
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Party Size</Label>
-              <Input type="number" min="1" {...register('partySize')} placeholder="30" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Start Date</Label>
-              <Input type="date" {...register('startDate')} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">End Date</Label>
-              <Input type="date" {...register('endDate')} />
-            </div>
-          </div>
+          ))}
           <div className="space-y-1.5">
             <Label className="text-xs">Quoted Price ($)</Label>
             <Input type="number" min="0" step="0.01" {...register('quotedPrice')} placeholder="250" />
