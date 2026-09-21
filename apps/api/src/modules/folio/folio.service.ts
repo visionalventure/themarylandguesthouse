@@ -240,7 +240,9 @@ export class FolioService {
     };
   }
 
-  private async generateReceiptNumber(): Promise<string> {
+  // Public - also used by ShortStayService, which posts payments the same
+  // way but isn't going through this folio's collectPayment().
+  async generateReceiptNumber(): Promise<string> {
     const year = new Date().getFullYear();
     const count = await this.prisma.payment.count({
       where: { receiptNumber: { startsWith: `RCP-${year}-` } },
@@ -248,7 +250,7 @@ export class FolioService {
     return `RCP-${year}-${String(count + 1).padStart(6, '0')}`;
   }
 
-  private async createPaymentJournalEntry(payment: any, propertyId: string, tenantId: string) {
+  async createPaymentJournalEntry(payment: any, propertyId: string, tenantId: string) {
     const [cashAccount, revenueAccount] = await Promise.all([
       this.prisma.account.findFirst({ where: { propertyId, code: '1000', isActive: true } }),
       this.prisma.account.findFirst({ where: { propertyId, code: '4000', isActive: true } }),

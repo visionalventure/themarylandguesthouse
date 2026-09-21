@@ -28,6 +28,7 @@ import {
   Activity,
   ClipboardCheck,
   PhoneCall,
+  Clock,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -47,6 +48,7 @@ const navSections = [
       { name: 'Front Desk',       href: '/front-desk',   icon: Hotel },
       { name: 'Dashboard',        href: '/dashboard',    icon: LayoutDashboard, roles: MANAGER_ROLES },
       { name: 'Inquiries',        href: '/inquiries',    icon: PhoneCall,       roles: OPS_ROLES },
+      { name: 'Short Stay',       href: '/short-stay',   icon: Clock,           roles: OPS_ROLES },
       { name: 'Reservations',     href: '/reservations', icon: CalendarDays },
       { name: 'Guests / CRM',     href: '/guests',       icon: Users },
       { name: 'Rooms',            href: '/rooms',        icon: BedDouble },

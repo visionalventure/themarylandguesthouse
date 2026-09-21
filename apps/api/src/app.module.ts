@@ -10,6 +10,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ReservationsModule } from './modules/reservations/reservations.module';
 import { InquiriesModule } from './modules/inquiries/inquiries.module';
+import { ShortStayModule } from './modules/short-stay/short-stay.module';
 import { GuestsModule } from './modules/guests/guests.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { HousekeepingModule } from './modules/housekeeping/housekeeping.module';
@@ -48,6 +49,7 @@ import { EmailModule } from './modules/email/email.module';
     DashboardModule,
     ReservationsModule,
     InquiriesModule,
+    ShortStayModule,
     GuestsModule,
     RoomsModule,
     HousekeepingModule,

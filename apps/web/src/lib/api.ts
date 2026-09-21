@@ -119,6 +119,15 @@ export const inquiriesApi = {
   convert: (id: string, reservationId: string) => api.post(`/v1/inquiries/${id}/convert`, { reservationId }),
 };
 
+export const shortStayApi = {
+  stats: (propertyId: string) => api.get('/v1/short-stay/stats', { params: { propertyId } }),
+  list: (params: any) => api.get('/v1/short-stay', { params }),
+  get: (id: string) => api.get(`/v1/short-stay/${id}`),
+  create: (data: any) => api.post('/v1/short-stay', data),
+  checkOut: (id: string) => api.post(`/v1/short-stay/${id}/checkout`),
+  cancel: (id: string) => api.post(`/v1/short-stay/${id}/cancel`),
+};
+
 export const guestsApi = {
   stats: () => api.get('/v1/guests/stats'),
   list: (params: any) => api.get('/v1/guests', { params }),

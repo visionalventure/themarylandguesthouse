@@ -477,6 +477,7 @@ model Property {
   rooms        Room[]
   reservations Reservation[]
   inquiries    Inquiry[]
+  shortStayBookings ShortStayBooking[]
   inventory    InventoryItem[]
   employees    Employee[]
   maintenanceAssets Asset[]
@@ -529,6 +530,7 @@ model User {
   employee          Employee?
   createdReservations Reservation[] @relation("CreatedBy")
   createdInquiries Inquiry[]
+  createdShortStays ShortStayBooking[]
   assignedHousekeeping HousekeepingTask[] @relation("AssignedTo")
   createdJournalEntries JournalEntry[] @relation("JournalCreatedBy")
   approvedPurchaseOrders PurchaseOrder[] @relation("POApprovedBy")
@@ -606,6 +608,7 @@ model Guest {
   loyaltyAccount  LoyaltyAccount?
   invoices        Invoice[]
   privacyLogs     GuestPrivacyLog[]
+  shortStayBookings ShortStayBooking[]
 
   @@unique([tenantId, email])
   @@map("guests")
@@ -720,6 +723,7 @@ model Room {
   property      Property      @relation(fields: [propertyId], references: [id])
   category      RoomCategory  @relation(fields: [categoryId], references: [id])
   reservations  ReservationRoom[]
+  shortStayBookings ShortStayBooking[]
   housekeepingTasks HousekeepingTask[]
   maintenanceWorkOrders WorkOrder[]
   roomPricing   RoomPricing[]
@@ -870,6 +874,40 @@ model Inquiry {
   @@map("inquiries")
 }
 
+enum ShortStayStatus {
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+model ShortStayBooking {
+  id              String          @id @default(cuid())
+  propertyId      String
+  roomId          String
+  guestId         String?
+  guestName       String?
+  guestPhone      String?
+  checkIn         DateTime        @default(now())
+  checkOutPlanned DateTime
+  checkOutActual  DateTime?
+  durationHours   Int
+  hourlyRate      Decimal         @db.Decimal(10,2)
+  totalAmount     Decimal         @db.Decimal(12,2)
+  status          ShortStayStatus @default(CHECKED_IN)
+  notes           String?
+  createdById     String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  property        Property        @relation(fields: [propertyId], references: [id])
+  room            Room            @relation(fields: [roomId], references: [id])
+  guest           Guest?          @relation(fields: [guestId], references: [id])
+  createdBy       User?           @relation(fields: [createdById], references: [id])
+  payments        Payment[]
+
+  @@map("short_stay_bookings")
+}
+
 model GroupBooking {
   id            String   @id @default(cuid())
   tenantId      String
@@ -933,6 +971,7 @@ model Payment {
   tenantId        String
   reservationId   String?
   invoiceId       String?
+  shortStayBookingId String?
   guestId         String?
   amount          Decimal       @db.Decimal(12,2)
   currency        String        @default("USD")
@@ -952,6 +991,7 @@ model Payment {
 
   reservation     Reservation?  @relation(fields: [reservationId], references: [id])
   invoice         Invoice?      @relation(fields: [invoiceId], references: [id])
+  shortStayBooking ShortStayBooking? @relation(fields: [shortStayBookingId], references: [id])
 
   @@map("payments")
 }
