@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -75,5 +75,13 @@ export class InquiriesController {
   @ApiOperation({ summary: 'Mark an inquiry converted and link the resulting reservation' })
   convert(@Param('id') id: string, @Body() dto: ConvertInquiryDto, @Request() req: any) {
     return this.service.markConverted(id, dto.reservationId, req.user.tenantId);
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN')
+  @ApiOperation({ summary: 'Delete an inquiry (Super Admin only)' })
+  remove(@Param('id') id: string, @Request() req: any) {
+    return this.service.remove(id, req.user.tenantId);
   }
 }
