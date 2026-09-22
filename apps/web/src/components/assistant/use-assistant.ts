@@ -30,11 +30,18 @@ export function useAssistant() {
         content: res.data.reply,
       };
       setMessages(prev => [...prev, assistantMsg]);
-    } catch {
+    } catch (err: any) {
+      const serverMessage = err?.response?.data?.message;
+      const statusCode = err?.response?.status;
+      const fallback = err?.request && !err?.response
+        ? 'Sorry, the assistant could not be reached (network error). Please try again.'
+        : statusCode
+          ? `Sorry, the assistant returned an error (HTTP ${statusCode}). Please try again.`
+          : 'Sorry, I could not connect to the assistant. Please try again.';
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: 'Sorry, I could not connect to the assistant. Please try again.',
+        content: serverMessage || fallback,
       }]);
     } finally {
       setLoading(false);
