@@ -87,6 +87,7 @@ export class InvoiceLineItemInputDto {
 
 export class CreateInvoiceDto {
   @ApiPropertyOptional() @IsOptional() @IsString() propertyId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() reservationId?: string;
   @ApiProperty() @IsString() guestId: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() issueDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() dueDate?: string;
@@ -102,6 +103,7 @@ export class CreateInvoiceDto {
 
 export class InvoiceQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() propertyId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() reservationId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;

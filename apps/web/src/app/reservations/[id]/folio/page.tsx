@@ -57,6 +57,13 @@ export default function FolioPage() {
     enabled: !!id,
   });
 
+  const { data: reservationInvoices } = useQuery({
+    queryKey: ['reservation-invoice', id],
+    queryFn: () => accountingApi.invoices({ reservationId: id }).then(r => r.data),
+    enabled: !!id,
+  });
+  const existingInvoice = reservationInvoices?.data?.[0];
+
   const postChargeMutation = useMutation({
     mutationFn: (values: any) => api.post(`/v1/folio/${id}/charges`, values),
     onSuccess: () => {
@@ -123,6 +130,7 @@ export default function FolioPage() {
       const folio = data!;
       return accountingApi.createInvoice({
         propertyId,
+        reservationId: id,
         guestId: folio.reservation.guestId,
         notes: `Invoice for reservation ${folio.reservation.reservationNo}`,
         lineItems: folio.charges.map((c: any) => ({
@@ -134,6 +142,7 @@ export default function FolioPage() {
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservation-invoice', id] });
       toast({ title: 'Invoice generated', description: 'View it in Accounting → Invoices' });
     },
     onError: (e: any) => toast({ variant: 'destructive', title: e.response?.data?.message ?? 'Invoice generation failed' }),
@@ -210,14 +219,24 @@ export default function FolioPage() {
         <Button size="sm" variant="outline" onClick={() => window.print()}>
           <Printer className="w-4 h-4 mr-1" /> Print Folio
         </Button>
-        <Button
-          size="sm" variant="outline"
-          onClick={() => generateInvoiceMutation.mutate()}
-          disabled={generateInvoiceMutation.isPending || !data?.charges?.length}
-        >
-          {generateInvoiceMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <FileText className="w-4 h-4 mr-1" />}
-          Generate Invoice
-        </Button>
+        {existingInvoice ? (
+          <Button
+            size="sm" variant="outline"
+            onClick={() => window.open(`/accounting/invoices/${existingInvoice.id}/print`, '_blank')}
+          >
+            <FileText className="w-4 h-4 mr-1" />
+            View Invoice
+          </Button>
+        ) : (
+          <Button
+            size="sm" variant="outline"
+            onClick={() => generateInvoiceMutation.mutate()}
+            disabled={generateInvoiceMutation.isPending || !data?.charges?.length}
+          >
+            {generateInvoiceMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <FileText className="w-4 h-4 mr-1" />}
+            Generate Invoice
+          </Button>
+        )}
         {status === 'CHECKED_IN' && (
           <Button
             size="sm"
