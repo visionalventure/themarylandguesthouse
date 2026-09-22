@@ -143,7 +143,7 @@ export class ReservationsService {
       await this.folioService.createPaymentJournalEntry(payment, propertyId, tenantId).catch(() => null);
 
       if (reservation.guest?.email) {
-        const { propertyName, branding } = await this.emailService.getBranding(propertyId, tenantId);
+        const { propertyName, branding } = await this.emailService.getBranding(propertyId, tenantId, 'receipt');
         const balanceRemaining = Number(reservation.totalAmount) - Number(depositAmount);
         this.emailService
           .sendPaymentReceipt({

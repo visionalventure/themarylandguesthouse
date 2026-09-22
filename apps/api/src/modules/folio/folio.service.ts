@@ -177,7 +177,7 @@ export class FolioService {
       ]);
       const totalCharges = charges.reduce((s, c) => s + Number(c.amount), 0);
       const totalPaid = payments.reduce((s, p) => s + Number(p.amount), 0);
-      const { propertyName, branding } = await this.emailService.getBranding(reservation.propertyId, tenantId);
+      const { propertyName, branding } = await this.emailService.getBranding(reservation.propertyId, tenantId, 'receipt');
       this.emailService
         .sendPaymentReceipt({
           to: reservation.guest.email,
@@ -202,7 +202,7 @@ export class FolioService {
         include: {
           guest: true,
           rooms: { include: { room: true } },
-          property: { select: { name: true, address: true, phone: true, email: true, logoUrl: true, currency: true, invoiceTemplate: true } },
+          property: { select: { name: true, address: true, phone: true, email: true, logoUrl: true, currency: true, receiptTemplate: true } },
         },
       }),
       this.prisma.payment.findFirst({ where: { id: paymentId, reservationId, tenantId } }),

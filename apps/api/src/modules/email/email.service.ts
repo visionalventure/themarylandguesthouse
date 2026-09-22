@@ -26,13 +26,16 @@ export class EmailService {
   }
 
   // Shared source of truth for "how should system emails look" — the same
-  // Property.invoiceTemplate JSON the Settings > Invoice Template tab edits,
-  // reused across every outbound email so branding only needs setting once.
-  async getBranding(propertyId: string | null | undefined, tenantId: string): Promise<{ propertyName: string; branding: EmailBranding }> {
+  // Property.invoiceTemplate/receiptTemplate JSON the Settings > Invoice
+  // Template / Receipt Template tabs edit, reused across every outbound
+  // email so branding only needs setting once. Payment receipts use their
+  // own template; everything else (booking confirmations, invoices,
+  // password resets, invites) uses the invoice one.
+  async getBranding(propertyId: string | null | undefined, tenantId: string, kind: 'invoice' | 'receipt' = 'invoice'): Promise<{ propertyName: string; branding: EmailBranding }> {
     const property = propertyId
-      ? await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { name: true, logoUrl: true, invoiceTemplate: true } })
-      : await this.prisma.property.findFirst({ where: { tenantId }, select: { name: true, logoUrl: true, invoiceTemplate: true } });
-    const tmpl = (property?.invoiceTemplate as EmailBranding | null) ?? {};
+      ? await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { name: true, logoUrl: true, invoiceTemplate: true, receiptTemplate: true } })
+      : await this.prisma.property.findFirst({ where: { tenantId }, select: { name: true, logoUrl: true, invoiceTemplate: true, receiptTemplate: true } });
+    const tmpl = ((kind === 'receipt' ? property?.receiptTemplate : property?.invoiceTemplate) as EmailBranding | null) ?? {};
     return {
       propertyName: tmpl.companyHeader || property?.name || 'Maryland Guesthouse',
       branding: {
