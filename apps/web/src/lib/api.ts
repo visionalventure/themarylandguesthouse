@@ -117,6 +117,7 @@ export const inquiriesApi = {
   update: (id: string, data: any) => api.put(`/v1/inquiries/${id}`, data),
   prepareConversion: (id: string) => api.post(`/v1/inquiries/${id}/prepare-conversion`),
   convert: (id: string, reservationId: string) => api.post(`/v1/inquiries/${id}/convert`, { reservationId }),
+  delete: (id: string) => api.delete(`/v1/inquiries/${id}`),
 };
 
 export const shortStayApi = {

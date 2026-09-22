@@ -150,4 +150,11 @@ export class InquiriesService {
       data: { status: 'CONVERTED', convertedReservationId: reservationId },
     });
   }
+
+  async remove(id: string, tenantId: string) {
+    const existing = await this.prisma.inquiry.findFirst({ where: { id, property: { tenantId } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Inquiry not found');
+    await this.prisma.inquiry.delete({ where: { id } });
+    return { deleted: true };
+  }
 }

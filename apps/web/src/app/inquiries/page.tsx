@@ -5,7 +5,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
-  Plus, Search, Phone, Mail, Loader2, PhoneCall, Users, Clock, CheckCircle2, XCircle,
+  Plus, Search, Phone, Mail, Loader2, PhoneCall, Users, Clock, CheckCircle2, XCircle, Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { FadeIn } from '@/components/ui/fade-in';
 import { StaggerGrid, StaggerItem } from '@/components/ui/stagger-grid';
 import { AnimatedCounter } from '@/components/ui/animated-counter';
@@ -213,6 +214,8 @@ function NewInquiryDialog({ open, onOpenChange, propertyId }: { open: boolean; o
 export default function InquiriesPage() {
   usePageTitle('Inquiries');
   const propertyId = useAuthStore((s) => s.propertyId);
+  const user = useAuthStore((s) => s.user);
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -220,6 +223,7 @@ export default function InquiriesPage() {
   const [newOpen, setNewOpen] = useState(false);
   const [convertPrefill, setConvertPrefill] = useState<any | null>(null);
   const [convertingInquiryId, setConvertingInquiryId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const { data: stats } = useQuery({
@@ -268,6 +272,16 @@ export default function InquiriesPage() {
       queryClient.invalidateQueries({ queryKey: ['inquiry-stats'] });
       toast({ title: 'Inquiry converted to reservation' });
     },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => inquiriesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inquiries'] });
+      queryClient.invalidateQueries({ queryKey: ['inquiry-stats'] });
+      toast({ title: 'Inquiry deleted' });
+    },
+    onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed to delete inquiry' }),
   });
 
   const formatRange = (i: any) => {
@@ -378,23 +392,35 @@ export default function InquiriesPage() {
                       </Select>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {i.status === 'CONVERTED' ? (
-                        <Badge variant="outline" className="text-xs border-green-500/30 text-green-500">
-                          <CheckCircle2 className="w-3 h-3 mr-1" />Booked
-                        </Badge>
-                      ) : i.status === 'LOST' ? (
-                        <span className="text-xs text-muted-foreground inline-flex items-center gap-1"><XCircle className="w-3 h-3" />Lost</span>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={convertMutation.isPending}
-                          onClick={() => convertMutation.mutate(i.id)}
-                        >
-                          {convertMutation.isPending && convertMutation.variables === i.id && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-                          Convert
-                        </Button>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {i.status === 'CONVERTED' ? (
+                          <Badge variant="outline" className="text-xs border-green-500/30 text-green-500">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />Booked
+                          </Badge>
+                        ) : i.status === 'LOST' ? (
+                          <span className="text-xs text-muted-foreground inline-flex items-center gap-1"><XCircle className="w-3 h-3" />Lost</span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={convertMutation.isPending}
+                            onClick={() => convertMutation.mutate(i.id)}
+                          >
+                            {convertMutation.isPending && convertMutation.variables === i.id && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                            Convert
+                          </Button>
+                        )}
+                        {isSuperAdmin && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                            onClick={() => setDeleteTargetId(i.id)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -419,6 +445,18 @@ export default function InquiriesPage() {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={!!deleteTargetId}
+        onOpenChange={(v) => { if (!v) setDeleteTargetId(null); }}
+        title="Delete inquiry?"
+        description="This will permanently remove the inquiry. This action cannot be undone."
+        confirmLabel="Delete"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteTargetId) deleteMutation.mutate(deleteTargetId, { onSettled: () => setDeleteTargetId(null) });
+        }}
+      />
     </FadeIn>
   );
 }
