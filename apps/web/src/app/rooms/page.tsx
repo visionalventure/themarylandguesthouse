@@ -13,6 +13,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { roomsApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -195,6 +196,7 @@ export default function RoomsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<any | null>(null);
   const [pricingRoom, setPricingRoom] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
 
   const params: any = { propertyId: propertyId };
   if (statusFilter !== 'ALL') params.status = statusFilter;
@@ -225,6 +227,19 @@ export default function RoomsPage() {
         title: 'Failed to update status',
         description: error.response?.data?.message || 'Something went wrong',
       });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => roomsApi.delete(id),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+      toast({ title: res.data?.hidden ? 'Room hidden (it has booking/operational history, so it was kept for records)' : 'Room deleted' });
+      setDeleteTarget(null);
+    },
+    onError: (error: any) => {
+      toast({ variant: 'destructive', title: error.response?.data?.message || 'Failed to delete room' });
+      setDeleteTarget(null);
     },
   });
 
@@ -363,6 +378,14 @@ export default function RoomsPage() {
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(room)}>
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-600 hover:text-red-700"
+                            onClick={() => setDeleteTarget(room)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -386,6 +409,16 @@ export default function RoomsPage() {
         room={pricingRoom}
         open={!!pricingRoom}
         onClose={() => setPricingRoom(null)}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+        title={`Delete Room ${deleteTarget?.roomNumber}?`}
+        description="This will permanently remove the room. If it has any booking or operational history, it will be hidden instead of deleted, to keep those records intact. This action cannot be undone."
+        confirmLabel="Delete"
+        loading={deleteMutation.isPending}
+        onConfirm={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
       />
     </FadeIn>
   );

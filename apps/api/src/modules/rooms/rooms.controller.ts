@@ -72,6 +72,14 @@ export class RoomsController {
     return this.service.update(id, dto, req.user.tenantId);
   }
 
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'Delete a room (hidden instead if it has booking/operational history)' })
+  deleteRoom(@Param('id') id: string, @Request() req: any) {
+    return this.service.deleteRoom(id, req.user.tenantId);
+  }
+
   @Patch(':id/status')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK')
