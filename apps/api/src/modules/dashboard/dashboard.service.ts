@@ -23,6 +23,8 @@ export class DashboardService {
       totalRooms,
       occupiedRooms,
       availableRooms,
+      totalApartments,
+      occupiedApartments,
       checkInsToday,
       checkOutsToday,
       revenueToday,
@@ -33,9 +35,11 @@ export class DashboardService {
       presentStaff,
       activeShortStays,
     ] = await Promise.all([
-      this.prisma.room.count({ where: { propertyId, isActive: true } }),
-      this.prisma.room.count({ where: { propertyId, status: 'OCCUPIED' } }),
-      this.prisma.room.count({ where: { propertyId, status: 'AVAILABLE' } }),
+      this.prisma.room.count({ where: { propertyId, isActive: true, category: { type: { not: 'APARTMENT' } } } }),
+      this.prisma.room.count({ where: { propertyId, status: 'OCCUPIED', category: { type: { not: 'APARTMENT' } } } }),
+      this.prisma.room.count({ where: { propertyId, status: 'AVAILABLE', category: { type: { not: 'APARTMENT' } } } }),
+      this.prisma.room.count({ where: { propertyId, isActive: true, category: { type: 'APARTMENT' } } }),
+      this.prisma.room.count({ where: { propertyId, status: 'OCCUPIED', category: { type: 'APARTMENT' } } }),
       this.prisma.reservation.count({
         where: {
           propertyId,
@@ -97,12 +101,16 @@ export class DashboardService {
     ]);
 
     const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
+    const apartmentOccupancyRate = totalApartments > 0 ? Math.round((occupiedApartments / totalApartments) * 100) : 0;
 
     return {
       occupancyRate,
       totalRooms,
       occupiedRooms,
       availableRooms,
+      apartmentOccupancyRate,
+      totalApartments,
+      occupiedApartments,
       checkInsToday,
       checkOutsToday,
       revenueToday: Number(revenueToday._sum.amount || 0),

@@ -16,6 +16,7 @@ import {
   CalendarCheck,
   ClipboardList,
   Clock,
+  DoorOpen,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -202,6 +203,19 @@ export default function DashboardPage() {
             subtitle={`${kpis?.occupiedRooms ?? 0} of ${kpis?.totalRooms ?? 0} rooms`}
             icon={Percent}
             color="blue"
+            loading={kpisLoading}
+            error={kpisError}
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <KPICard
+            title="Apartment Occupancy"
+            value={`${kpis?.apartmentOccupancyRate ?? 0}%`}
+            numericValue={kpis?.apartmentOccupancyRate ?? 0}
+            formatter={(v) => `${v}%`}
+            subtitle={`${kpis?.occupiedApartments ?? 0} of ${kpis?.totalApartments ?? 0} apartments`}
+            icon={DoorOpen}
+            color="cyan"
             loading={kpisLoading}
             error={kpisError}
           />
