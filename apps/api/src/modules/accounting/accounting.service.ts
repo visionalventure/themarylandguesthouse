@@ -343,6 +343,17 @@ export class AccountingService {
     });
   }
 
+  async deleteInvoice(id: string, tenantId: string) {
+    const invoice = await this.prisma.invoice.findFirst({ where: { id, tenantId } });
+    if (!invoice) throw new NotFoundException();
+    if (invoice.status !== 'DRAFT') throw new BadRequestException('Only DRAFT invoices can be deleted');
+    await this.prisma.$transaction([
+      this.prisma.invoiceLineItem.deleteMany({ where: { invoiceId: id } }),
+      this.prisma.invoice.delete({ where: { id } }),
+    ]);
+    return { deleted: true };
+  }
+
   async sendInvoice(id: string, tenantId: string) {
     const invoice = await this.prisma.invoice.findFirst({
       where: { id, tenantId },

@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { accountingApi, guestsApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/auth';
@@ -42,6 +43,7 @@ export default function InvoicesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [markPaidId, setMarkPaidId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('CASH');
   const [guestId, setGuestId] = useState('');
@@ -102,6 +104,20 @@ export default function InvoicesPage() {
     mutationFn: (id: string) => accountingApi.sendInvoice(id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['invoices'] }); toast({ title: 'Invoice marked as sent' }); },
     onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed' }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => accountingApi.deleteInvoice(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      toast({ title: 'Invoice deleted' });
+      setDeleteTarget(null);
+      setPreviewId(null);
+    },
+    onError: (err: any) => {
+      toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed to delete invoice' });
+      setDeleteTarget(null);
+    },
   });
 
   const paidMutation = useMutation({
@@ -203,6 +219,10 @@ export default function InvoicesPage() {
                             {['SENT', 'PARTIALLY_PAID', 'OVERDUE'].includes(inv.status) && (
                               <Button size="sm" variant="outline" className="h-6 text-xs px-2"
                                 onClick={() => { setMarkPaidId(inv.id); setPayAmount(String(Number(inv.totalAmount) - Number(inv.paidAmount))); }}>Pay</Button>
+                            )}
+                            {inv.status === 'DRAFT' && (
+                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                                onClick={() => setDeleteTarget(inv)}><Trash2 className="w-3.5 h-3.5" /></Button>
                             )}
                           </div>
                         </td>
@@ -390,6 +410,11 @@ export default function InvoicesPage() {
                       Record Payment
                     </Button>
                   )}
+                  {inv.status === 'DRAFT' && (
+                    <Button variant="outline" className="text-red-600 hover:text-red-700" onClick={() => setDeleteTarget(inv)}>
+                      <Trash2 className="w-4 h-4 mr-1.5" /> Delete
+                    </Button>
+                  )}
                 </div>
               </>
             );
@@ -430,6 +455,16 @@ export default function InvoicesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+        title={`Delete Invoice ${deleteTarget?.invoiceNumber}?`}
+        description="This will permanently delete this draft invoice. This action cannot be undone."
+        confirmLabel="Delete"
+        loading={deleteMutation.isPending}
+        onConfirm={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
+      />
     </FadeIn>
   );
 }

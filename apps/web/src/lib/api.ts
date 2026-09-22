@@ -180,6 +180,7 @@ export const accountingApi = {
   invoices: (params: any) => api.get('/v1/accounting/invoices', { params }),
   getInvoice: (id: string) => api.get(`/v1/accounting/invoices/${id}`),
   createInvoice: (data: any) => api.post('/v1/accounting/invoices', data),
+  deleteInvoice: (id: string) => api.delete(`/v1/accounting/invoices/${id}`),
   sendInvoice: (id: string) => api.patch(`/v1/accounting/invoices/${id}/send`, {}),
   markInvoicePaid: (id: string, data: any) => api.patch(`/v1/accounting/invoices/${id}/mark-paid`, data),
   // Bank reconciliation
