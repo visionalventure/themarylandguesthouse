@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
-  IsString, IsOptional, IsNumber, IsBoolean, IsEnum, IsArray, IsInt,
+  IsString, IsOptional, IsNumber, IsBoolean, IsEnum, IsArray, IsInt, IsIn,
   ValidateNested, Min, MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -43,6 +43,17 @@ export class CreateMenuItemDto {
 
 export class UpdateMenuItemDto extends PartialType(CreateMenuItemDto) {}
 
+const TABLE_STATUSES = ['AVAILABLE', 'OCCUPIED', 'RESERVED'];
+
+export class CreateTableDto {
+  @ApiProperty() @IsString() @MaxLength(20) tableNumber: string;
+  @ApiProperty() @IsInt() @Min(1) capacity: number;
+  @ApiPropertyOptional({ enum: TABLE_STATUSES }) @IsOptional() @IsIn(TABLE_STATUSES) status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(50) location?: string;
+}
+
+export class UpdateTableDto extends PartialType(CreateTableDto) {}
+
 export class OrderItemInputDto {
   @ApiProperty() @IsString() menuItemId: string;
   @ApiProperty() @IsInt() @Min(1) quantity: number;
@@ -51,6 +62,10 @@ export class OrderItemInputDto {
 
 export class CreateOrderDto {
   @ApiPropertyOptional() @IsOptional() @IsString() tableId?: string;
+  // A currently checked-in reservation - when set, this is a room-service
+  // order and the backend derives guestName/roomNumber/orderType itself
+  // rather than trusting client-sent values for them.
+  @ApiPropertyOptional() @IsOptional() @IsString() reservationId?: string;
   @ApiProperty({ type: [OrderItemInputDto] })
   @IsArray()
   @ValidateNested({ each: true })
@@ -64,9 +79,11 @@ export class CreateOrderDto {
 
 export class UpdateOrderStatusDto {
   @ApiProperty({ enum: OrderStatusEnum }) @IsEnum(OrderStatusEnum) status: OrderStatusEnum;
-  // Required when status is SERVED - that's the moment the bill is closed
-  // and the sale needs to actually post to Accounting.
+  // Exactly one of paymentMethod/chargeToRoom is required when status is
+  // SERVED - that's the moment the bill is closed and either the sale
+  // posts to Accounting now, or the charge defers to the guest's folio.
   @ApiPropertyOptional({ enum: OrderPaymentMethodEnum }) @IsOptional() @IsEnum(OrderPaymentMethodEnum) paymentMethod?: OrderPaymentMethodEnum;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() chargeToRoom?: boolean;
 }
 
 export class MoveTableDto {

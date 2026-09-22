@@ -6,7 +6,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { RestaurantService } from './restaurant.service';
 import {
   CreateMenuItemDto, UpdateMenuItemDto, CreateOrderDto, UpdateOrderStatusDto,
-  MoveTableDto, OrdersQueryDto, RevenueQueryDto,
+  MoveTableDto, OrdersQueryDto, RevenueQueryDto, CreateTableDto, UpdateTableDto,
 } from './dto/restaurant.dto';
 
 @ApiTags('restaurant')
@@ -28,6 +28,20 @@ export class RestaurantController {
   @ApiOperation({ summary: 'Get table layout with current status' })
   getTables(@Param('id') id: string, @Request() req: any) {
     return this.service.getTables(id, req.user.tenantId);
+  }
+
+  @Post(':id/tables')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'Create table' })
+  createTable(@Param('id') restaurantId: string, @Body() dto: CreateTableDto, @Request() req: any) {
+    return this.service.createTable(restaurantId, dto, req.user.tenantId);
+  }
+
+  @Put('tables/:id')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'Update table' })
+  updateTable(@Param('id') id: string, @Body() dto: UpdateTableDto, @Request() req: any) {
+    return this.service.updateTable(id, dto, req.user.tenantId);
   }
 
   @Get(':id/menu')
@@ -76,7 +90,7 @@ export class RestaurantController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK', 'RESTAURANT_STAFF')
   @ApiOperation({ summary: 'Update order status' })
   updateOrderStatus(@Param('id') id: string, @Body() body: UpdateOrderStatusDto, @Request() req: any) {
-    return this.service.updateOrderStatus(id, body.status, req.user.tenantId, body.paymentMethod);
+    return this.service.updateOrderStatus(id, body.status, req.user.tenantId, body.paymentMethod, body.chargeToRoom);
   }
 
   @Patch('orders/:id/move-table')

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { restaurantApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const PAYMENT_METHODS = ['CASH', 'VISA', 'MASTERCARD', 'BANK_TRANSFER', 'ORANGE_MONEY', 'MTN_MOBILE_MONEY'];
 
@@ -18,13 +19,17 @@ export function CloseBillDialog({ order, onOpenChange, onClosed }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [paymentMethod, setPaymentMethod] = useState('CASH');
+  const [payMode, setPayMode] = useState<'PAY_NOW' | 'CHARGE_TO_ROOM'>('PAY_NOW');
 
   useEffect(() => {
-    if (order) setPaymentMethod('CASH');
+    if (order) { setPaymentMethod('CASH'); setPayMode('PAY_NOW'); }
   }, [order]);
 
   const mutation = useMutation({
-    mutationFn: () => restaurantApi.updateOrderStatus(order.id, 'SERVED', paymentMethod),
+    mutationFn: () => restaurantApi.updateOrderStatus(
+      order.id, 'SERVED',
+      payMode === 'CHARGE_TO_ROOM' ? { chargeToRoom: true } : { paymentMethod },
+    ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['tables'] });
@@ -47,15 +52,44 @@ export function CloseBillDialog({ order, onOpenChange, onClosed }: Props) {
             <span className="text-muted-foreground">Total</span>
             <span className="font-bold text-primary">${Number(order?.totalAmount ?? 0).toFixed(2)}</span>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Payment Method</Label>
-            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m.replace(/_/g, ' ')}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+
+          {order?.reservationId && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPayMode('PAY_NOW')}
+                className={cn('flex-1 text-xs font-medium rounded-md border px-3 py-1.5 transition-colors',
+                  payMode === 'PAY_NOW' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground')}
+              >
+                Pay Now
+              </button>
+              <button
+                type="button"
+                onClick={() => setPayMode('CHARGE_TO_ROOM')}
+                className={cn('flex-1 text-xs font-medium rounded-md border px-3 py-1.5 transition-colors',
+                  payMode === 'CHARGE_TO_ROOM' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground')}
+              >
+                Charge to Room
+              </button>
+            </div>
+          )}
+
+          {payMode === 'CHARGE_TO_ROOM' ? (
+            <p className="text-xs text-muted-foreground rounded-md border border-border bg-muted/20 px-3 py-2">
+              This amount will be added to {order?.guestName ?? 'the guest'}&rsquo;s folio
+              {order?.roomNumber ? ` (Room ${order.roomNumber})` : ''} and settled at checkout.
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Payment Method</Label>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m.replace(/_/g, ' ')}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -65,7 +99,7 @@ export function CloseBillDialog({ order, onOpenChange, onClosed }: Props) {
             onClick={() => mutation.mutate()}
           >
             {mutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Confirm & Close Bill
+            {payMode === 'CHARGE_TO_ROOM' ? 'Charge to Room & Close Bill' : 'Confirm & Close Bill'}
           </Button>
         </DialogFooter>
       </DialogContent>

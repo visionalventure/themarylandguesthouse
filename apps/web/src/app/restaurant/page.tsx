@@ -26,6 +26,7 @@ import { useChartColors } from '@/hooks/use-chart-colors';
 import { OrderDialog } from './components/order-dialog';
 import { MenuItemDialog } from './components/menu-item-dialog';
 import { CloseBillDialog } from './components/close-bill-dialog';
+import { TableFormDialog } from './components/table-form-dialog';
 
 import { usePageTitle } from '@/hooks/use-page-title';
 import { useAuthStore } from '@/store/auth';
@@ -61,6 +62,8 @@ export default function RestaurantPage() {
   const [moveTableMode, setMoveTableMode] = useState(false);
   const [closingOrder, setClosingOrder] = useState<any | null>(null);
   const [reportRange, setReportRange] = useState<'today' | '7d' | '30d' | 'all'>('7d');
+  const [tableDialogOpen, setTableDialogOpen] = useState(false);
+  const [editingTable, setEditingTable] = useState<any | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const chartColors = useChartColors();
@@ -192,6 +195,9 @@ export default function RestaurantPage() {
           <p className="text-muted-foreground text-sm">Restaurant & Bar — Point of Sale</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { setEditingTable(null); setTableDialogOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" /> Add Table
+          </Button>
           <Button variant="outline" onClick={() => setMenuDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" /> Add Menu Item
           </Button>
@@ -244,10 +250,17 @@ export default function RestaurantPage() {
                 <div
                   key={table.id}
                   onClick={() => handleTableClick(table)}
-                  className={cn('border rounded-xl p-4 text-center space-y-1 transition-all',
+                  className={cn('relative border rounded-xl p-4 text-center space-y-1 transition-all',
                     TABLE_STATUS_COLORS[table.status] ?? 'bg-muted border-border',
                     table.status === 'OCCUPIED' ? 'cursor-pointer hover:ring-2 hover:ring-primary/50 hover:scale-[1.02]' : 'cursor-default')}
                 >
+                  <button
+                    type="button"
+                    className="absolute top-1.5 right-1.5 h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-black/10 dark:hover:bg-white/10"
+                    onClick={(e) => { e.stopPropagation(); setEditingTable(table); setTableDialogOpen(true); }}
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
                   <p className="text-xl font-bold">{table.tableNumber}</p>
                   <p className="text-[10px] font-medium capitalize">{table.status.toLowerCase()}</p>
                   <p className="text-[9px] opacity-60">Cap: {table.capacity}</p>
@@ -273,7 +286,7 @@ export default function RestaurantPage() {
                   <thead className="sticky top-0 z-10 bg-background">
                     <tr className="border-b border-border bg-muted/50">
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Order #</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Table</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Table / Room</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Items</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Total</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
@@ -285,7 +298,9 @@ export default function RestaurantPage() {
                     {activeOrders.map(order => (
                       <tr key={order.id} className="border-b border-border hover:bg-muted/30">
                         <td className="px-4 py-3 font-mono text-xs text-primary">{order.orderNumber}</td>
-                        <td className="px-4 py-3 text-sm">{order.table?.tableNumber ?? order.roomNumber ?? '—'}</td>
+                        <td className="px-4 py-3 text-sm">
+                          {order.table?.tableNumber ?? (order.roomNumber ? `Room ${order.roomNumber} — ${order.guestName}` : '—')}
+                        </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">
                           {order.items?.map((i: any) => `${i.quantity}× ${i.menuItem?.name}`).join(', ')}
                         </td>
@@ -538,13 +553,19 @@ export default function RestaurantPage() {
         </TabsContent>
       </Tabs>
 
-      <OrderDialog open={orderDialogOpen} onOpenChange={setOrderDialogOpen} restaurantId={restaurantId} />
+      <OrderDialog open={orderDialogOpen} onOpenChange={setOrderDialogOpen} restaurantId={restaurantId} propertyId={propertyId} />
       <MenuItemDialog open={menuDialogOpen} onOpenChange={setMenuDialogOpen} restaurantId={restaurantId} />
       <MenuItemDialog
         open={!!editingMenuItem}
         onOpenChange={(v) => { if (!v) setEditingMenuItem(null); }}
         restaurantId={restaurantId}
         item={editingMenuItem}
+      />
+      <TableFormDialog
+        open={tableDialogOpen}
+        onOpenChange={(v) => { setTableDialogOpen(v); if (!v) setEditingTable(null); }}
+        restaurantId={restaurantId}
+        table={editingTable}
       />
       <CloseBillDialog
         order={closingOrder}

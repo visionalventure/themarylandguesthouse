@@ -371,13 +371,16 @@ export const maintenanceApi = {
 export const restaurantApi = {
   list: (propertyId: string) => api.get(`/v1/restaurant?propertyId=${propertyId}`),
   tables: (restaurantId: string) => api.get(`/v1/restaurant/${restaurantId}/tables`),
+  createTable: (restaurantId: string, data: any) => api.post(`/v1/restaurant/${restaurantId}/tables`, data),
+  updateTable: (id: string, data: any) => api.put(`/v1/restaurant/tables/${id}`, data),
   menu: (restaurantId: string) => api.get(`/v1/restaurant/${restaurantId}/menu`),
   createMenuItem: (restaurantId: string, data: any) => api.post(`/v1/restaurant/${restaurantId}/menu-items`, data),
   updateMenuItem: (id: string, data: any) => api.put(`/v1/restaurant/menu-items/${id}`, data),
   deleteMenuItem: (id: string) => api.delete(`/v1/restaurant/menu-items/${id}`),
   orders: (restaurantId: string, params?: any) => api.get(`/v1/restaurant/${restaurantId}/orders`, { params }),
   createOrder: (restaurantId: string, data: any) => api.post(`/v1/restaurant/${restaurantId}/orders`, data),
-  updateOrderStatus: (id: string, status: string, paymentMethod?: string) => api.patch(`/v1/restaurant/orders/${id}`, { status, paymentMethod }),
+  updateOrderStatus: (id: string, status: string, opts?: { paymentMethod?: string; chargeToRoom?: boolean }) =>
+    api.patch(`/v1/restaurant/orders/${id}`, { status, ...opts }),
   moveTable: (id: string, tableId: string) => api.patch(`/v1/restaurant/orders/${id}/move-table`, { tableId }),
   revenue: (restaurantId: string, params?: any) => api.get(`/v1/restaurant/${restaurantId}/revenue`, { params }),
 };
