@@ -113,6 +113,14 @@ export class AccountingController {
     return this.service.createInvoice(dto, req.user.tenantId);
   }
 
+  @Delete('invoices/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
+  @ApiOperation({ summary: 'Delete a draft invoice' })
+  deleteInvoice(@Param('id') id: string, @Request() req: any) {
+    return this.service.deleteInvoice(id, req.user.tenantId);
+  }
+
   @Patch('invoices/:id/send')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT', 'FRONT_DESK')

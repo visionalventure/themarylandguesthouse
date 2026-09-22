@@ -12,11 +12,20 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
 
+    const { user, method } = context.switchToHttp().getRequest();
+
+    // OWNER is a read-only oversight role: it can view any GET endpoint
+    // regardless of that route's allow-list, but never bypasses the
+    // allow-list on a mutating request, so it can't create/edit/delete
+    // anywhere unless explicitly granted like any other role.
+    if (user?.role === 'OWNER' && method === 'GET') {
+      return true;
+    }
+
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest();
     return requiredRoles.includes(user?.role);
   }
 }

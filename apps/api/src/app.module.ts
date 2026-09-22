@@ -32,6 +32,7 @@ import { SearchModule } from './modules/search/search.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
 import { StorageModule } from './common/storage/storage.module';
 import { EmailModule } from './modules/email/email.module';
+import { OwnerModule } from './modules/owner/owner.module';
 
 @Module({
   providers: [
@@ -70,6 +71,7 @@ import { EmailModule } from './modules/email/email.module';
     AssistantModule,
     StorageModule,
     EmailModule,
+    OwnerModule,
   ],
 })
 export class AppModule {}

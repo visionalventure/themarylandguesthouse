@@ -52,8 +52,8 @@ export class SettingsService {
       select: { role: true, tenantId: true },
     });
     if (!target || target.tenantId !== requestorTenantId) throw new NotFoundException('User not found');
-    if (target.role === 'SUPER_ADMIN' && requestorRole !== 'SUPER_ADMIN') {
-      throw new ForbiddenException('Only SUPER_ADMIN can manage other SUPER_ADMIN users');
+    if ((target.role === 'SUPER_ADMIN' || target.role === 'OWNER') && requestorRole !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Only SUPER_ADMIN can manage other SUPER_ADMIN or OWNER users');
     }
     return target;
   }
@@ -130,8 +130,8 @@ export class SettingsService {
   }
 
   async inviteUser(dto: InviteUserDto, tenantId: string, requestorRole: string) {
-    if (dto.role === 'SUPER_ADMIN' && requestorRole !== 'SUPER_ADMIN') {
-      throw new ForbiddenException('Only SUPER_ADMIN can invite another SUPER_ADMIN');
+    if ((dto.role === 'SUPER_ADMIN' || dto.role === 'OWNER') && requestorRole !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Only SUPER_ADMIN can invite a SUPER_ADMIN or OWNER');
     }
     const existing = await this.prisma.user.findFirst({
       where: { tenantId, email: dto.email },

@@ -39,7 +39,8 @@ export default function LoginPage() {
       if (result?.requiresTwoFactor) {
         setRequiresTwoFactor(true);
       } else {
-        router.push('/dashboard');
+        const role = useAuthStore.getState().user?.role;
+        router.push(role === 'OWNER' ? '/owner-overview' : '/dashboard');
       }
     } catch {
       // error handled in store

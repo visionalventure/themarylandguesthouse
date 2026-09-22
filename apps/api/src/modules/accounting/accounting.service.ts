@@ -265,8 +265,9 @@ export class AccountingService {
   }
 
   async getInvoices(tenantId: string, query: any = {}) {
-    const { page = 1, limit = 20, status, search } = query;
+    const { page = 1, limit = 20, status, search, reservationId } = query;
     const where: any = { tenantId };
+    if (reservationId) where.reservationId = reservationId;
     if (status && status !== 'ALL') where.status = status;
     if (search) {
       where.OR = [
@@ -287,17 +288,39 @@ export class AccountingService {
   }
 
   async createInvoice(dto: any, tenantId: string) {
+    if (dto.reservationId) {
+      const existing = await this.prisma.invoice.findFirst({
+        where: { reservationId: dto.reservationId, tenantId, status: { not: 'CANCELLED' } },
+        include: { guest: { select: { firstName: true, lastName: true } }, lineItems: true },
+      });
+      if (existing) return existing;
+    }
+
     const invoiceNumber = await this.generateInvoiceNumber(tenantId);
     const subtotal = dto.lineItems?.reduce((s: number, l: any) => s + Number(l.quantity) * Number(l.unitPrice), 0) ?? 0;
     const taxAmount = dto.lineItems?.reduce((s: number, l: any) => s + Number(l.quantity) * Number(l.unitPrice) * (Number(l.taxRate ?? 0) / 100), 0) ?? 0;
     const totalAmount = subtotal + taxAmount;
 
+    // A folio-generated invoice (reservationId set) may already have
+    // payments collected against the stay before the invoice existed -
+    // reflect that instead of always starting the invoice as unpaid.
+    let paidAmount = 0;
+    if (dto.reservationId) {
+      const paid = await this.prisma.payment.aggregate({
+        where: { reservationId: dto.reservationId, status: 'COMPLETED' },
+        _sum: { amount: true },
+      });
+      paidAmount = Math.min(Number(paid._sum.amount || 0), totalAmount);
+    }
+    const status = paidAmount >= totalAmount && totalAmount > 0 ? 'PAID' : paidAmount > 0 ? 'PARTIALLY_PAID' : 'DRAFT';
+
     return this.prisma.invoice.create({
       data: {
         tenantId,
         invoiceNumber,
+        reservationId: dto.reservationId,
         guestId: dto.guestId,
-        status: 'DRAFT',
+        status,
         issueDate: dto.issueDate ? new Date(dto.issueDate) : new Date(),
         dueDate: dto.dueDate ? new Date(dto.dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         notes: dto.notes,
@@ -305,7 +328,7 @@ export class AccountingService {
         subtotal,
         taxAmount,
         totalAmount,
-        paidAmount: 0,
+        paidAmount,
         lineItems: {
           create: (dto.lineItems ?? []).map((l: any) => ({
             description: l.description,
@@ -318,6 +341,17 @@ export class AccountingService {
       },
       include: { guest: { select: { firstName: true, lastName: true } }, lineItems: true },
     });
+  }
+
+  async deleteInvoice(id: string, tenantId: string) {
+    const invoice = await this.prisma.invoice.findFirst({ where: { id, tenantId } });
+    if (!invoice) throw new NotFoundException();
+    if (invoice.status !== 'DRAFT') throw new BadRequestException('Only DRAFT invoices can be deleted');
+    await this.prisma.$transaction([
+      this.prisma.invoiceLineItem.deleteMany({ where: { invoiceId: id } }),
+      this.prisma.invoice.delete({ where: { id } }),
+    ]);
+    return { deleted: true };
   }
 
   async sendInvoice(id: string, tenantId: string) {

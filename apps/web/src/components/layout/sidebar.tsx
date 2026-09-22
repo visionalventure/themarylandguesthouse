@@ -30,6 +30,7 @@ import {
   PhoneCall,
   Clock,
   DoorOpen,
+  Crown,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -43,6 +44,12 @@ const HR_ROLES      = ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER'];
 const OPS_ROLES     = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK'];
 
 const navSections = [
+  {
+    label: 'Overview',
+    items: [
+      { name: 'Owner Overview', href: '/owner-overview', icon: Crown, roles: ['SUPER_ADMIN', 'ADMIN', 'OWNER'] },
+    ],
+  },
   {
     label: 'Operations',
     items: [
@@ -117,7 +124,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
   const [propertyOpen, setPropertyOpen] = useState(false);
   const { propertyId, setPropertyId, user } = useAuthStore();
   const userRole = user?.role ?? '';
-  const visible = (item: { roles?: string[] }) => !item.roles || item.roles.includes(userRole);
+  const visible = (item: { roles?: string[] }) => !item.roles || item.roles.includes(userRole) || userRole === 'OWNER';
 
   const { data: propertiesData } = useQuery({
     queryKey: ['properties-list'],

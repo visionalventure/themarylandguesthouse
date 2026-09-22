@@ -7,5 +7,6 @@ import { StorageModule } from '../../common/storage/storage.module';
   imports: [StorageModule],
   controllers: [DocumentsController],
   providers: [DocumentsService],
+  exports: [DocumentsService],
 })
 export class DocumentsModule {}

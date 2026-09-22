@@ -180,6 +180,7 @@ export const accountingApi = {
   invoices: (params: any) => api.get('/v1/accounting/invoices', { params }),
   getInvoice: (id: string) => api.get(`/v1/accounting/invoices/${id}`),
   createInvoice: (data: any) => api.post('/v1/accounting/invoices', data),
+  deleteInvoice: (id: string) => api.delete(`/v1/accounting/invoices/${id}`),
   sendInvoice: (id: string) => api.patch(`/v1/accounting/invoices/${id}/send`, {}),
   markInvoicePaid: (id: string, data: any) => api.patch(`/v1/accounting/invoices/${id}/mark-paid`, data),
   // Bank reconciliation
@@ -475,6 +476,21 @@ export const documentsApi = {
 export const reportsExportApi = {
   export: (params: { type: string; propertyId: string; startDate?: string; endDate?: string }) => {
     const url = new URL('/api/v1/reports/export', typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001');
+    Object.entries(params).forEach(([k, v]) => v && url.searchParams.set(k, v));
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    return fetch(url.toString(), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  },
+};
+
+export const ownerApi = {
+  overview: (propertyId: string) => api.get('/v1/owner/overview', { params: { propertyId } }),
+};
+
+export const ownerExportApi = {
+  export: (params: { section: string; propertyId: string }) => {
+    const url = new URL('/api/v1/owner/overview/export', typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001');
     Object.entries(params).forEach(([k, v]) => v && url.searchParams.set(k, v));
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     return fetch(url.toString(), {
