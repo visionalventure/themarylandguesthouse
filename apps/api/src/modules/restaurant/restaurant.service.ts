@@ -43,6 +43,29 @@ export class RestaurantService {
     });
   }
 
+  async createTable(restaurantId: string, dto: any, tenantId: string) {
+    await this.assertRestaurantInTenant(restaurantId, tenantId);
+    try {
+      return await this.prisma.restaurantTable.create({
+        data: { restaurantId, tableNumber: dto.tableNumber, capacity: dto.capacity, status: dto.status ?? 'AVAILABLE', location: dto.location },
+      });
+    } catch (e: any) {
+      if (e?.code === 'P2002') throw new BadRequestException(`Table ${dto.tableNumber} already exists for this restaurant`);
+      throw e;
+    }
+  }
+
+  async updateTable(id: string, dto: any, tenantId: string) {
+    const existing = await this.prisma.restaurantTable.findFirst({ where: { id, restaurant: { property: { tenantId } } }, select: { id: true } });
+    if (!existing) throw new NotFoundException('Table not found');
+    try {
+      return await this.prisma.restaurantTable.update({ where: { id }, data: dto });
+    } catch (e: any) {
+      if (e?.code === 'P2002') throw new BadRequestException(`Table ${dto.tableNumber} already exists for this restaurant`);
+      throw e;
+    }
+  }
+
   async getMenu(restaurantId: string, tenantId: string) {
     await this.assertRestaurantInTenant(restaurantId, tenantId);
     // Returns every item, available or not, so the Menu management view can
@@ -133,7 +156,23 @@ export class RestaurantService {
 
   async createOrder(restaurantId: string, dto: any, tenantId: string) {
     const restaurant = await this.assertRestaurantInTenant(restaurantId, tenantId);
-    const { tableId, items, guestName, roomNumber, notes, orderType } = dto;
+    const { tableId, reservationId, items, notes } = dto;
+
+    let guestName = dto.guestName;
+    let roomNumber = dto.roomNumber;
+    let orderType = dto.orderType || 'DINE_IN';
+
+    if (reservationId) {
+      if (tableId) throw new BadRequestException('An order cannot have both a table and a room-service reservation');
+      const reservation = await this.prisma.reservation.findFirst({
+        where: { id: reservationId, status: 'CHECKED_IN', propertyId: restaurant.propertyId, property: { tenantId } },
+        include: { guest: true, rooms: { include: { room: true } } },
+      });
+      if (!reservation) throw new NotFoundException('No checked-in reservation found for that room/guest');
+      guestName = `${reservation.guest.firstName} ${reservation.guest.lastName}`.trim();
+      roomNumber = reservation.rooms[0]?.room?.roomNumber;
+      orderType = 'ROOM_SERVICE';
+    }
 
     const orderNumber = `ORD-${Date.now()}`;
     let subtotal = 0;
@@ -164,11 +203,12 @@ export class RestaurantService {
       data: {
         restaurantId,
         tableId: tableId || undefined,
+        reservationId: reservationId || undefined,
         orderNumber,
         guestName,
         roomNumber,
         notes,
-        orderType: orderType || 'DINE_IN',
+        orderType,
         subtotal,
         taxAmount,
         totalAmount,
@@ -191,23 +231,34 @@ export class RestaurantService {
     return order;
   }
 
-  async updateOrderStatus(id: string, status: string, tenantId: string, paymentMethod?: string) {
+  async updateOrderStatus(id: string, status: string, tenantId: string, paymentMethod?: string, chargeToRoom?: boolean) {
     const order = await this.prisma.restaurantOrder.findFirst({
       where: { id, restaurant: { property: { tenantId } } },
       include: { restaurant: { select: { propertyId: true } } },
     });
     if (!order) throw new NotFoundException('Order not found');
 
-    // Closing the bill is the moment the sale actually happens - it must be
-    // paid for, so accounting has something real to post.
-    if (status === 'SERVED' && !paymentMethod) {
-      throw new BadRequestException('A payment method is required to close the bill');
+    // Closing the bill is the moment the sale actually happens - it must
+    // either be paid for now, or charged to the guest's room folio to
+    // settle at checkout, so accounting has something real to post (now
+    // or later).
+    if (status === 'SERVED') {
+      if (paymentMethod && chargeToRoom) {
+        throw new BadRequestException('Choose either a payment method or Charge to Room, not both');
+      }
+      if (!paymentMethod && !chargeToRoom) {
+        throw new BadRequestException('A payment method or Charge to Room is required to close the bill');
+      }
+      if (chargeToRoom && !order.reservationId) {
+        throw new BadRequestException("This order isn't linked to a room and can't be charged to room");
+      }
     }
 
     const data: any = { status };
     if (status === 'PREPARING') data.preparedAt = new Date();
     if (status === 'SERVED') {
       data.servedAt = new Date();
+      if (chargeToRoom) data.chargeToRoom = true;
       if (order.tableId) {
         await this.prisma.restaurantTable.update({
           where: { id: order.tableId },
@@ -237,6 +288,19 @@ export class RestaurantService {
           revenueLabel: 'Food & Beverage revenue',
         })
         .catch(() => null);
+    }
+
+    if (status === 'SERVED' && chargeToRoom) {
+      const charge = await this.folioService.postCharge(
+        order.reservationId!,
+        {
+          chargeType: 'F&B',
+          description: `Room Service — Order ${order.orderNumber}`,
+          amount: Number(order.totalAmount),
+        },
+        tenantId,
+      );
+      await this.prisma.reservationCharge.update({ where: { id: charge.id }, data: { orderId: order.id } });
     }
 
     return updated;

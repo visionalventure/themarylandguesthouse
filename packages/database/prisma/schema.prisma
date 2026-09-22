@@ -805,6 +805,7 @@ model Reservation {
   payments        Payment[]
   invoices        Invoice[]
   charges         ReservationCharge[]
+  restaurantOrders RestaurantOrder[]
   corporateAccount CorporateAccount? @relation(fields: [corporateId], references: [id])
   group           GroupBooking?     @relation(fields: [groupId], references: [id])
 
@@ -839,6 +840,7 @@ model ReservationCharge {
   createdAt     DateTime    @default(now())
 
   reservation   Reservation @relation(fields: [reservationId], references: [id])
+  order         RestaurantOrder? @relation(fields: [orderId], references: [id])
 
   @@map("reservation_charges")
 }
@@ -1187,8 +1189,10 @@ model RestaurantOrder {
 
   restaurant    Restaurant   @relation(fields: [restaurantId], references: [id])
   table         RestaurantTable? @relation(fields: [tableId], references: [id])
+  reservation   Reservation? @relation(fields: [reservationId], references: [id])
   items         OrderItem[]
   payments      Payment[]
+  charges       ReservationCharge[]
 
   @@map("restaurant_orders")
 }

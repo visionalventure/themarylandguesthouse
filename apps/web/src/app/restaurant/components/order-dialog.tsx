@@ -9,21 +9,23 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { restaurantApi } from '@/lib/api';
+import { restaurantApi, reservationsApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { cn, getCategoryAccent } from '@/lib/utils';
 
 interface OrderItem { menuItemId: string; name: string; price: number; quantity: number; }
-interface Props { open: boolean; onOpenChange: (v: boolean) => void; restaurantId: string; }
+interface Props { open: boolean; onOpenChange: (v: boolean) => void; restaurantId: string; propertyId: string; }
 
-export function OrderDialog({ open, onOpenChange, restaurantId }: Props) {
+export function OrderDialog({ open, onOpenChange, restaurantId, propertyId }: Props) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [orderMode, setOrderMode] = useState<'DINE_IN' | 'ROOM_SERVICE'>('DINE_IN');
   const [tableId, setTableId] = useState('');
+  const [reservationId, setReservationId] = useState('');
   const [items, setItems] = useState<OrderItem[]>([]);
 
   useEffect(() => {
-    if (open) { setTableId(''); setItems([]); }
+    if (open) { setOrderMode('DINE_IN'); setTableId(''); setReservationId(''); setItems([]); }
   }, [open]);
 
   const { data: tablesData } = useQuery({
@@ -36,8 +38,14 @@ export function OrderDialog({ open, onOpenChange, restaurantId }: Props) {
     queryFn: () => restaurantApi.menu(restaurantId).then(r => r.data),
     enabled: open && !!restaurantId,
   });
+  const { data: checkedInData } = useQuery({
+    queryKey: ['checked-in-reservations', propertyId],
+    queryFn: () => reservationsApi.list({ propertyId, status: 'CHECKED_IN', limit: 100 }).then(r => r.data),
+    enabled: open && orderMode === 'ROOM_SERVICE' && !!propertyId,
+  });
 
   const tables: any[] = (Array.isArray(tablesData) ? tablesData : []).filter(t => t.status === 'AVAILABLE');
+  const checkedInReservations: any[] = checkedInData?.data ?? [];
   const categories: any[] = menuData?.categories ?? [];
   const uncategorised: any[] = menuData?.uncategorised ?? [];
 
@@ -87,7 +95,8 @@ export function OrderDialog({ open, onOpenChange, restaurantId }: Props) {
 
   const mutation = useMutation({
     mutationFn: () => restaurantApi.createOrder(restaurantId, {
-      tableId: tableId || undefined,
+      tableId: orderMode === 'DINE_IN' ? (tableId || undefined) : undefined,
+      reservationId: orderMode === 'ROOM_SERVICE' ? (reservationId || undefined) : undefined,
       items: items.map(({ menuItemId, quantity }) => ({ menuItemId, quantity })),
     }),
     onSuccess: () => {
@@ -105,17 +114,59 @@ export function OrderDialog({ open, onOpenChange, restaurantId }: Props) {
         <DialogHeader><DialogTitle>New Order</DialogTitle></DialogHeader>
         <div className="space-y-5">
           <div className="space-y-2">
-            <Label>Table (optional)</Label>
-            <Select value={tableId} onValueChange={setTableId}>
-              <SelectTrigger><SelectValue placeholder="Walk-in / No table" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Walk-in / No table</SelectItem>
-                {tables.map(t => (
-                  <SelectItem key={t.id} value={t.id}>Table {t.tableNumber} (Cap: {t.capacity})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Order Type</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setOrderMode('DINE_IN')}
+                className={cn('flex-1 text-sm font-medium rounded-md border px-3 py-1.5 transition-colors',
+                  orderMode === 'DINE_IN' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground')}
+              >
+                Dine-in
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderMode('ROOM_SERVICE')}
+                className={cn('flex-1 text-sm font-medium rounded-md border px-3 py-1.5 transition-colors',
+                  orderMode === 'ROOM_SERVICE' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground')}
+              >
+                Room Service
+              </button>
+            </div>
           </div>
+
+          {orderMode === 'DINE_IN' ? (
+            <div className="space-y-2">
+              <Label>Table (optional)</Label>
+              <Select value={tableId} onValueChange={setTableId}>
+                <SelectTrigger><SelectValue placeholder="Walk-in / No table" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Walk-in / No table</SelectItem>
+                  {tables.map(t => (
+                    <SelectItem key={t.id} value={t.id}>Table {t.tableNumber} (Cap: {t.capacity})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>Room / Guest</Label>
+              <Select value={reservationId} onValueChange={setReservationId}>
+                <SelectTrigger><SelectValue placeholder="Select a checked-in room" /></SelectTrigger>
+                <SelectContent>
+                  {checkedInReservations.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">No checked-in guests right now</div>
+                  ) : (
+                    checkedInReservations.map((r: any) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        Room {r.rooms?.[0]?.room?.roomNumber ?? '—'} — {r.guest?.firstName} {r.guest?.lastName}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div>
             <Label className="mb-2 block">Add Items</Label>
@@ -163,7 +214,7 @@ export function OrderDialog({ open, onOpenChange, restaurantId }: Props) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             onClick={() => mutation.mutate()}
-            disabled={items.length === 0 || mutation.isPending}
+            disabled={items.length === 0 || mutation.isPending || (orderMode === 'ROOM_SERVICE' && !reservationId)}
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             {mutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
