@@ -40,6 +40,7 @@ export class UpdatePropertyDto {
   @ApiPropertyOptional() @IsOptional() @IsString() currency?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() timezone?: string;
   @ApiPropertyOptional() @IsOptional() @IsObject() invoiceTemplate?: Record<string, unknown>;
+  @ApiPropertyOptional() @IsOptional() @IsObject() receiptTemplate?: Record<string, unknown>;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() requireIdentification?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() requireAddress?: boolean;

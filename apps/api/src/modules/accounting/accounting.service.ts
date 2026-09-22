@@ -391,7 +391,7 @@ export class AccountingService {
     });
 
     if (invoice.guest?.email) {
-      const { propertyName, branding } = await this.emailService.getBranding(invoice.propertyId, tenantId);
+      const { propertyName, branding } = await this.emailService.getBranding(invoice.propertyId, tenantId, 'receipt');
       this.emailService
         .sendPaymentReceipt({
           to: invoice.guest.email,

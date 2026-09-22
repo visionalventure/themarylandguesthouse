@@ -42,7 +42,7 @@ export default function ReceiptPage() {
   }
 
   const { receipt, guest, reservation, property, summary } = data;
-  const tpl = property?.invoiceTemplate ?? {};
+  const tpl = property?.receiptTemplate ?? {};
   const brandColor = tpl.primaryColor ?? '#D4AF37';
   const outstanding = Number(summary?.outstandingBalance ?? 0);
 

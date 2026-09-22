@@ -462,6 +462,7 @@ model Property {
   currency        String       @default("USD")
   timezone        String       @default("Africa/Monrovia")
   invoiceTemplate Json?
+  receiptTemplate Json?
   policyConfig    Json?
   emailConfig     Json?
   isActive        Boolean      @default(true)

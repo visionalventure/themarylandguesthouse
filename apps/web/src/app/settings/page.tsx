@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { format } from 'date-fns';
-import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard, AlignLeft, AlignCenter, AlignRight, Users, Star, Clock, BookOpen, ShoppingCart, Gift, Bell, CalendarDays, UserCheck, Moon, Search, Copy, Check, AlertTriangle, Mail, Send, Eye } from 'lucide-react';
+import { Loader2, Plus, Shield, ClipboardList, Upload, X, ImageIcon, FileText, Building, CreditCard, AlignLeft, AlignCenter, AlignRight, Users, Star, Clock, BookOpen, ShoppingCart, Gift, Bell, CalendarDays, UserCheck, Moon, Search, Copy, Check, AlertTriangle, Mail, Send, Eye, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -1061,7 +1061,8 @@ function InvoiceTemplateTab() {
       <div className="lg:col-span-2 space-y-4">
         <p className="text-xs text-muted-foreground -mt-1">
           Company, colour, logo and footer note here apply to every system email (booking
-          confirmations, invoices, payment receipts, password resets) — not just invoices.
+          confirmations, invoices, password resets) — not just invoices. Payment receipts have
+          their own <strong>Receipt Template</strong> tab.
         </p>
         <Card>
           <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Building className="w-4 h-4" />Company</CardTitle></CardHeader>
@@ -1270,6 +1271,192 @@ function InvoiceTemplateTab() {
             {tmpl.footerNote && (
               <p className="text-center text-[9px] font-medium" style={{ color: accent }}>{tmpl.footerNote}</p>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const DEFAULT_RECEIPT_TEMPLATE = {
+  companyHeader: '',
+  tagline: '',
+  primaryColor: '#D4AF37',
+  footerNote: 'Thank you for staying with us!',
+};
+
+function ReceiptTemplateTab() {
+  const propertyId = useAuthStore((s) => s.propertyId);
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+
+  const { data: propData } = useQuery({
+    queryKey: ['settings-property', propertyId],
+    queryFn: () => settingsApi.getProperty(propertyId).then(r => r.data),
+  });
+
+  const [tmpl, setTmpl] = useState(DEFAULT_RECEIPT_TEMPLATE);
+  useEffect(() => {
+    if (propData?.receiptTemplate) {
+      setTmpl({ ...DEFAULT_RECEIPT_TEMPLATE, ...(propData.receiptTemplate as any) });
+    } else if (propData) {
+      setTmpl(t => ({ ...t, companyHeader: propData.name || '' }));
+    }
+  }, [propData]);
+
+  const set = (k: keyof typeof DEFAULT_RECEIPT_TEMPLATE, v: string) =>
+    setTmpl(prev => ({ ...prev, [k]: v as any }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await settingsApi.updateProperty(propertyId, { receiptTemplate: tmpl });
+      toast({ title: 'Receipt template saved' });
+    } catch {
+      toast({ variant: 'destructive', title: 'Failed to save template' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const accent = tmpl.primaryColor || '#D4AF37';
+
+  return (
+    <div className="mt-4 grid grid-cols-1 lg:grid-cols-5 gap-6">
+      {/* ── Form ───────────────────────────────────── */}
+      <div className="lg:col-span-2 space-y-4">
+        <p className="text-xs text-muted-foreground -mt-1">
+          Formatting for the payment receipt guests receive — the printed/PDF receipt and the
+          "Payment Received" email. Independent from the <strong>Invoice Template</strong> tab,
+          so you can give receipts their own colour and message.
+        </p>
+        <Card>
+          <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Building className="w-4 h-4" />Company</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Company Header</Label>
+              <Input value={tmpl.companyHeader} onChange={e => set('companyHeader', e.target.value)}
+                placeholder={propData?.name || 'Maryland Guesthouse'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tagline / Subtitle</Label>
+              <Input value={tmpl.tagline} onChange={e => set('tagline', e.target.value)}
+                placeholder="Premier Guesthouse in Monrovia, Liberia" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Brand Colour</Label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={accent} onChange={e => set('primaryColor', e.target.value)}
+                  className="h-9 w-12 cursor-pointer rounded border border-border p-0.5 bg-background" />
+                <Input value={accent} onChange={e => set('primaryColor', e.target.value)}
+                  placeholder="#D4AF37" className="flex-1 font-mono text-xs" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Logo</Label>
+              {(propData?.logo || propData?.logoUrl) ? (
+                <div className="flex items-center gap-2 p-2 rounded-lg border border-border bg-muted/30">
+                  <img
+                    src={propData.logo || propData.logoUrl}
+                    alt="Property logo"
+                    className="h-10 w-auto max-w-[80px] object-contain rounded"
+                  />
+                  <span className="text-xs text-muted-foreground">From Property settings</span>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">
+                  No logo uploaded yet. Go to the <strong>Property</strong> tab to upload one.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-sm flex items-center gap-2"><FileText className="w-4 h-4" />Text</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Footer / Thank-You Note</Label>
+              <Textarea rows={2} value={tmpl.footerNote} onChange={e => set('footerNote', e.target.value)} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Button onClick={handleSave} disabled={saving} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+          {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          Save Template
+        </Button>
+      </div>
+
+      {/* ── Live Preview ────────────────────────────── */}
+      <div className="lg:col-span-3">
+        <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">Preview</p>
+        <div className="border border-border rounded-xl overflow-hidden bg-white text-[#111] shadow-md text-[11px]">
+          {/* Header bar */}
+          <div className="px-6 py-4" style={{ backgroundColor: accent }}>
+            {(propData?.logo || propData?.logoUrl) && (
+              <div className="mb-2 flex justify-start">
+                <img
+                  src={propData.logo || propData.logoUrl}
+                  alt="Logo"
+                  className="h-10 max-w-[120px] object-contain"
+                />
+              </div>
+            )}
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="font-bold text-white text-sm leading-tight">
+                  {tmpl.companyHeader || propData?.name || 'Maryland Guesthouse'}
+                </p>
+                {tmpl.tagline && <p className="text-white/80 text-[10px]">{tmpl.tagline}</p>}
+              </div>
+              <div className="text-right text-white">
+                <p className="text-[9px] opacity-70">RECEIPT</p>
+                <p className="font-bold text-sm">RCP-2026-000123</p>
+                <p className="text-white/80 text-[10px]">22 September 2026, 12:18</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Guest + Reservation */}
+          <div className="px-6 py-3 grid grid-cols-2 gap-4 border-b border-gray-100">
+            <div>
+              <p className="text-[9px] uppercase font-semibold text-gray-400 mb-1">Guest</p>
+              <p className="font-semibold">James Wilson</p>
+              <p className="text-gray-500">james.wilson@example.com</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[9px] uppercase font-semibold text-gray-400 mb-1">Reservation</p>
+              <p className="font-semibold">RES-2026-0006</p>
+              <p className="text-gray-500">Room 101 · 01 Oct – 04 Oct 2026</p>
+            </div>
+          </div>
+
+          {/* Payment details */}
+          <div className="px-6 py-3">
+            <table className="w-full text-[10px]">
+              <tbody>
+                <tr className="border-b border-gray-100">
+                  <td className="py-1.5 text-gray-500">Payment Method</td>
+                  <td className="text-right py-1.5 font-medium">Visa Card</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-1.5 text-gray-500">Amount Paid</td>
+                  <td className="text-right py-1.5 font-bold text-sm" style={{ color: accent }}>$180.00</td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 font-semibold">Outstanding Balance</td>
+                  <td className="text-right py-1.5 font-bold text-green-600">$0.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 text-center">
+            <p className="text-[9px] font-medium" style={{ color: accent }}>
+              {tmpl.footerNote || `Thank you for staying at ${propData?.name ?? 'us'}!`}
+            </p>
           </div>
         </div>
       </div>
@@ -1998,6 +2185,15 @@ function EmailTab() {
     logoAlign: propData?.invoiceTemplate?.logoAlign,
     footerNote: propData?.invoiceTemplate?.footerNote,
   };
+  // The "Payment Receipt" preview reflects the separate Receipt Template
+  // tab's branding instead — receipts are formatted independently of invoices.
+  const receiptPreviewBranding: PreviewBranding = {
+    companyHeader: propData?.receiptTemplate?.companyHeader,
+    tagline: propData?.receiptTemplate?.tagline,
+    primaryColor: propData?.receiptTemplate?.primaryColor,
+    logoUrl: propData?.logoUrl,
+    footerNote: propData?.receiptTemplate?.footerNote,
+  };
 
   const { register, handleSubmit, reset } = useForm({
     defaultValues: { fromName: '', fromEmail: '', replyTo: '' },
@@ -2100,9 +2296,10 @@ function EmailTab() {
         <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Eye className="w-4 h-4" />Email Templates</CardTitle></CardHeader>
         <CardContent>
           <p className="text-xs text-muted-foreground mb-3">
-            Preview the built-in email templates sent by the system. All of them share the same
-            branding (company name, tagline, colour, logo, footer note) — edit it once on the{' '}
-            <strong>Invoice Template</strong> tab and it applies here too.
+            Preview the built-in email templates sent by the system. Booking Confirmation,
+            Invoice and Password Reset share the branding set on the{' '}
+            <strong>Invoice Template</strong> tab; Payment Receipt uses its own{' '}
+            <strong>Receipt Template</strong> tab.
           </p>
           <div className="grid grid-cols-2 gap-3">
             {EMAIL_TEMPLATE_PREVIEWS.map(t => (
@@ -2130,7 +2327,7 @@ function EmailTab() {
             </DialogHeader>
             <div className="rounded-md border border-border overflow-hidden">
               <iframe
-                srcDoc={previewTemplate.html(previewProp, previewBranding)}
+                srcDoc={previewTemplate.html(previewProp, previewTemplate.key === 'payment' ? receiptPreviewBranding : previewBranding)}
                 className="w-full h-[480px]"
                 sandbox="allow-same-origin"
                 title={`${previewTemplate.label} template preview`}
@@ -2162,6 +2359,7 @@ export default function SettingsPage() {
           <TabsTrigger value="departments">Departments</TabsTrigger>
           <TabsTrigger value="tax">Tax Rates</TabsTrigger>
           <TabsTrigger value="invoice">Invoice Template</TabsTrigger>
+          <TabsTrigger value="receipt">Receipt Template</TabsTrigger>
           <TabsTrigger value="booking">Booking Policy</TabsTrigger>
           <TabsTrigger value="nightaudit">Night Audit</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
@@ -2178,6 +2376,7 @@ export default function SettingsPage() {
         <TabsContent value="departments"><DepartmentsTab /></TabsContent>
         <TabsContent value="tax"><TaxRatesTab /></TabsContent>
         <TabsContent value="invoice"><InvoiceTemplateTab /></TabsContent>
+        <TabsContent value="receipt"><ReceiptTemplateTab /></TabsContent>
         <TabsContent value="booking"><BookingPolicyTab /></TabsContent>
         <TabsContent value="nightaudit"><NightAuditSettingsTab /></TabsContent>
         <TabsContent value="attendance"><AttendancePolicyTab /></TabsContent>
