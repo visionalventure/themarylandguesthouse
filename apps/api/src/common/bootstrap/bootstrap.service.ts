@@ -256,24 +256,30 @@ export class BootstrapService implements OnApplicationBootstrap {
       });
     }
 
-    const roomSeeds = [
-      { id: 'room-101', roomNumber: '101', floor: 1, categoryId: 'cat-standard' },
-      { id: 'room-102', roomNumber: '102', floor: 1, categoryId: 'cat-standard' },
-      { id: 'room-103', roomNumber: '103', floor: 1, categoryId: 'cat-double'   },
-      { id: 'room-201', roomNumber: '201', floor: 2, categoryId: 'cat-twin'     },
-      { id: 'room-202', roomNumber: '202', floor: 2, categoryId: 'cat-double'   },
-      { id: 'room-301', roomNumber: '301', floor: 3, categoryId: 'cat-suite'    },
-      { id: 'room-302', roomNumber: '302', floor: 3, categoryId: 'cat-family'   },
-    ];
-    for (const room of roomSeeds) {
-      await this.prisma.room.upsert({
-        where: { id: room.id },
-        update: {},
-        create: { id: room.id, propertyId: property.id, roomNumber: room.roomNumber, floor: room.floor, categoryId: room.categoryId },
-      });
+    // Only seed the demo rooms into a property that has none at all - once
+    // any room exists (whether from this seed or created/deleted by a real
+    // user), never touch the room list again. Upserting these fixed IDs on
+    // every boot would otherwise resurrect a room a user intentionally
+    // hard-deleted, since the upsert can no longer find that id and falls
+    // through to re-creating it.
+    const existingRoomCount = await this.prisma.room.count({ where: { propertyId: property.id } });
+    if (existingRoomCount === 0) {
+      const roomSeeds = [
+        { id: 'room-101', roomNumber: '101', floor: 1, categoryId: 'cat-standard' },
+        { id: 'room-102', roomNumber: '102', floor: 1, categoryId: 'cat-standard' },
+        { id: 'room-103', roomNumber: '103', floor: 1, categoryId: 'cat-double'   },
+        { id: 'room-201', roomNumber: '201', floor: 2, categoryId: 'cat-twin'     },
+        { id: 'room-202', roomNumber: '202', floor: 2, categoryId: 'cat-double'   },
+        { id: 'room-301', roomNumber: '301', floor: 3, categoryId: 'cat-suite'    },
+        { id: 'room-302', roomNumber: '302', floor: 3, categoryId: 'cat-family'   },
+      ];
+      for (const room of roomSeeds) {
+        await this.prisma.room.create({
+          data: { id: room.id, propertyId: property.id, roomNumber: room.roomNumber, floor: room.floor, categoryId: room.categoryId },
+        });
+      }
+      this.logger.log('Room seed complete ✓  7 rooms across 5 categories');
     }
-
-    this.logger.log('Room seed complete ✓  7 rooms across 5 categories');
   }
 
   private async seedDepartments() {
