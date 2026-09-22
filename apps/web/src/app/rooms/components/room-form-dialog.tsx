@@ -54,9 +54,10 @@ interface RoomFormDialogProps {
   mode: 'create' | 'edit';
   initialData?: any;
   propertyId: string;
+  categoryType?: string;
 }
 
-export function RoomFormDialog({ open, onOpenChange, mode, initialData, propertyId }: RoomFormDialogProps) {
+export function RoomFormDialog({ open, onOpenChange, mode, initialData, propertyId, categoryType }: RoomFormDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [pricePerNight, setPricePerNight] = useState('');
@@ -66,8 +67,8 @@ export function RoomFormDialog({ open, onOpenChange, mode, initialData, property
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
 
   const { data: categories } = useQuery({
-    queryKey: ['room-categories', propertyId],
-    queryFn: () => roomsApi.categories(propertyId).then((r) => r.data),
+    queryKey: ['room-categories', propertyId, categoryType],
+    queryFn: () => roomsApi.categories(propertyId, categoryType).then((r) => r.data),
     enabled: open,
   });
 
@@ -385,12 +386,14 @@ export function RoomFormDialog({ open, onOpenChange, mode, initialData, property
         open={categoryDialogOpen}
         onOpenChange={setCategoryDialogOpen}
         propertyId={propertyId}
+        defaultType={categoryType}
       />
       <CategoryFormDialog
         open={!!editingCategory}
         onOpenChange={(v) => { if (!v) setEditingCategory(null); }}
         propertyId={propertyId}
         category={editingCategory}
+        defaultType={categoryType}
       />
     </>
   );

@@ -151,7 +151,8 @@ export const roomsApi = {
   create: (data: any) => api.post('/v1/rooms', data),
   update: (id: string, data: any) => api.put(`/v1/rooms/${id}`, data),
   updateStatus: (id: string, status: string) => api.patch(`/v1/rooms/${id}/status`, { status }),
-  categories: (propertyId: string) => api.get(`/v1/rooms/categories?propertyId=${propertyId}`),
+  categories: (propertyId: string, type?: string) =>
+    api.get('/v1/rooms/categories', { params: { propertyId, ...(type ? { type } : {}) } }),
   createCategory: (data: any) => api.post('/v1/rooms/categories', data),
   updateCategory: (id: string, data: any) => api.put(`/v1/rooms/categories/${id}`, data),
   getPricing: (roomId: string) => api.get(`/v1/rooms/${roomId}/pricing`),

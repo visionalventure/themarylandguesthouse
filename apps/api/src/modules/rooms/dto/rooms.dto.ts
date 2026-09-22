@@ -28,6 +28,7 @@ export enum RoomTypeEnum {
   PRESIDENTIAL_SUITE = 'PRESIDENTIAL_SUITE',
   FAMILY_ROOM = 'FAMILY_ROOM',
   CONFERENCE_ROOM = 'CONFERENCE_ROOM',
+  APARTMENT = 'APARTMENT',
 }
 
 export class RoomsQueryDto {

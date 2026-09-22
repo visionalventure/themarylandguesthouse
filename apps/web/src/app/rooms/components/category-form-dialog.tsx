@@ -39,6 +39,7 @@ const ROOM_TYPES: { value: string; label: string }[] = [
   { value: 'PRESIDENTIAL_SUITE', label: 'Presidential Suite' },
   { value: 'FAMILY_ROOM', label: 'Family Room' },
   { value: 'CONFERENCE_ROOM', label: 'Conference Room' },
+  { value: 'APARTMENT', label: 'Apartment' },
 ];
 
 const categorySchema = z.object({
@@ -59,6 +60,7 @@ interface CategoryFormDialogProps {
   onOpenChange: (open: boolean) => void;
   propertyId: string;
   category?: any | null;
+  defaultType?: string;
 }
 
 const blankCategoryDefaults: CategoryForm = {
@@ -66,7 +68,7 @@ const blankCategoryDefaults: CategoryForm = {
   hourlyRate: '', isShortStayEligible: false,
 };
 
-export function CategoryFormDialog({ open, onOpenChange, propertyId, category }: CategoryFormDialogProps) {
+export function CategoryFormDialog({ open, onOpenChange, propertyId, category, defaultType }: CategoryFormDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isEdit = !!category?.id;
@@ -90,9 +92,9 @@ export function CategoryFormDialog({ open, onOpenChange, propertyId, category }:
         isShortStayEligible: category.isShortStayEligible ?? false,
       });
     } else {
-      form.reset(blankCategoryDefaults);
+      form.reset({ ...blankCategoryDefaults, type: defaultType ?? '' });
     }
-  }, [open, category, form]);
+  }, [open, category, defaultType, form]);
 
   const mutation = useMutation({
     mutationFn: (data: CategoryForm) => {

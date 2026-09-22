@@ -88,10 +88,10 @@ export class RoomsService {
     return this.prisma.room.update({ where: { id }, data, include: { category: true } });
   }
 
-  async getCategories(propertyId: string, tenantId: string) {
+  async getCategories(propertyId: string, tenantId: string, type?: string) {
     const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
     if (!property) return [];
-    return this.prisma.roomCategory.findMany({ where: { propertyId } });
+    return this.prisma.roomCategory.findMany({ where: { propertyId, ...(type ? { type: type as any } : {}) } });
   }
 
   async createCategory(dto: any, tenantId: string) {

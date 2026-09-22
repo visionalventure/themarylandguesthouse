@@ -70,6 +70,7 @@ enum RoomType {
   PRESIDENTIAL_SUITE
   FAMILY_ROOM
   CONFERENCE_ROOM
+  APARTMENT
 }
 
 enum ReservationStatus {

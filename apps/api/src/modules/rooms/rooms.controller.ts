@@ -30,8 +30,8 @@ export class RoomsController {
 
   @Get('categories')
   @ApiOperation({ summary: 'Get room categories/types' })
-  getCategories(@Query('propertyId') propertyId: string, @Request() req: any) {
-    return this.service.getCategories(propertyId, req.user.tenantId);
+  getCategories(@Query('propertyId') propertyId: string, @Query('type') type: string, @Request() req: any) {
+    return this.service.getCategories(propertyId, req.user.tenantId, type);
   }
 
   @Post('categories')
