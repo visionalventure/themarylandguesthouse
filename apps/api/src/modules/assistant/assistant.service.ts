@@ -59,8 +59,15 @@ export class AssistantService {
 
   constructor() {
     const apiKey = process.env.ANTHROPIC_API_KEY;
+    // Only needed for an organization-level key that isn't scoped to a
+    // workspace - Anthropic then requires the workspace to use on every
+    // request. A workspace-scoped key doesn't need this at all.
+    const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID;
     if (apiKey) {
-      this.client = new Anthropic({ apiKey });
+      this.client = new Anthropic({
+        apiKey,
+        ...(workspaceId ? { defaultHeaders: { 'anthropic-workspace-id': workspaceId } } : {}),
+      });
     } else {
       logger.warn('ANTHROPIC_API_KEY is not set — Maryland Assistant will not function until it is configured');
     }
