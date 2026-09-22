@@ -96,9 +96,21 @@ export class AssistantService {
         throw new InternalServerErrorException('Assistant is temporarily busy. Please try again in a moment.');
       }
       if (err?.status === 401) {
-        throw new InternalServerErrorException('Assistant configuration error. Please contact support.');
+        throw new InternalServerErrorException('Assistant configuration error: ANTHROPIC_API_KEY was rejected by Anthropic. Please check the key.');
       }
-      throw new InternalServerErrorException('Unable to reach the assistant. Please try again.');
+      if (err?.status === 400) {
+        // Anthropic's 400 message is safe to show as-is - most commonly this
+        // is "Your credit balance is too low..." which is directly actionable.
+        const detail = err?.error?.error?.message ?? err?.message;
+        throw new InternalServerErrorException(`Assistant request failed: ${detail ?? 'invalid request'}`);
+      }
+      if (err?.status === 404) {
+        throw new InternalServerErrorException('Assistant configuration error: the configured model is not available for this API key.');
+      }
+      if (err?.status === 529 || err?.status === 503) {
+        throw new InternalServerErrorException('Assistant is temporarily overloaded. Please try again shortly.');
+      }
+      throw new InternalServerErrorException(`Unable to reach the assistant (${err?.status ?? 'unknown error'}). Please try again.`);
     }
   }
 
