@@ -6,10 +6,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus, Minus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { restaurantApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { cn, getCategoryAccent } from '@/lib/utils';
 
 interface OrderItem { menuItemId: string; name: string; price: number; quantity: number; }
 interface Props { open: boolean; onOpenChange: (v: boolean) => void; restaurantId: string; }
@@ -55,13 +57,14 @@ export function OrderDialog({ open, onOpenChange, restaurantId }: Props) {
 
   const total = items.reduce((s, i) => s + i.price * i.quantity, 0);
 
-  const renderItemRow = (item: any) => {
+  const renderItemRow = (item: any, dotClass?: string) => {
     const inOrder = items.find(i => i.menuItemId === item.id);
     return (
       <div key={item.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/70">
-        <div>
+        <div className="flex items-center gap-2">
+          {dotClass && <span className={cn('w-2 h-2 rounded-full shrink-0', dotClass)} />}
           <span className="text-sm font-medium">{item.name}</span>
-          <span className="ml-2 text-xs text-muted-foreground">${Number(item.price).toFixed(2)}</span>
+          <span className="text-xs text-muted-foreground">${Number(item.price).toFixed(2)}</span>
         </div>
         {inOrder ? (
           <div className="flex items-center gap-2">
@@ -117,19 +120,22 @@ export function OrderDialog({ open, onOpenChange, restaurantId }: Props) {
           <div>
             <Label className="mb-2 block">Add Items</Label>
             <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-              {categories.map((cat: any) => (
-                <div key={cat.id}>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">{cat.name}</p>
-                  <div className="grid grid-cols-1 gap-1">
-                    {cat.items?.filter((i: any) => i.isAvailable).map(renderItemRow)}
+              {categories.map((cat: any) => {
+                const accent = getCategoryAccent(cat.id);
+                return (
+                  <div key={cat.id}>
+                    <Badge variant="outline" className={cn('text-xs font-semibold mb-1', accent.badge)}>{cat.name}</Badge>
+                    <div className="grid grid-cols-1 gap-1">
+                      {cat.items?.filter((i: any) => i.isAvailable).map((item: any) => renderItemRow(item, accent.dot))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {uncategorised.filter((i: any) => i.isAvailable).length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Other</p>
+                  <Badge variant="outline" className="text-xs font-semibold text-muted-foreground mb-1">Other</Badge>
                   <div className="grid grid-cols-1 gap-1">
-                    {uncategorised.filter((i: any) => i.isAvailable).map(renderItemRow)}
+                    {uncategorised.filter((i: any) => i.isAvailable).map((item: any) => renderItemRow(item))}
                   </div>
                 </div>
               )}
