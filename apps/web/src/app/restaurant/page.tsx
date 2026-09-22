@@ -21,7 +21,7 @@ import { StaggerGrid, StaggerItem } from '@/components/ui/stagger-grid';
 import { AnimatedCounter } from '@/components/ui/animated-counter';
 import { restaurantApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { cn, getCategoryAccent } from '@/lib/utils';
 import { useChartColors } from '@/hooks/use-chart-colors';
 import { OrderDialog } from './components/order-dialog';
 import { MenuItemDialog } from './components/menu-item-dialog';
@@ -320,51 +320,63 @@ export default function RestaurantPage() {
         {/* Menu */}
         <TabsContent value="menu">
           <div className="mt-4 space-y-4">
-            {(menuData?.categories ?? []).filter((cat: any) => cat.items?.length).map((cat: any) => (
-              <Card key={cat.id}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">{cat.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <table className="w-full text-sm">
-                    <tbody>
-                      {cat.items?.map((item: any) => (
-                        <tr key={item.id} className="border-t border-border hover:bg-muted/30">
-                          <td className="px-4 py-2 font-medium text-foreground">{item.name}</td>
-                          <td className="px-4 py-2 text-xs text-muted-foreground max-w-[200px] truncate">{item.description}</td>
-                          <td className="px-4 py-2 text-right font-semibold text-foreground">${Number(item.price).toFixed(2)}</td>
-                          <td className="px-4 py-2">
-                            <Badge variant="outline" className={cn('text-xs', item.isAvailable ? 'text-green-600' : 'text-red-600')}>
-                              {item.isAvailable ? 'Available' : 'Unavailable'}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-2">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingMenuItem(item)}>
-                                <Pencil className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-red-600 hover:text-red-700"
-                                disabled={deleteMenuItemMutation.isPending}
-                                onClick={() => { if (confirm(`Delete "${item.name}"?`)) deleteMenuItemMutation.mutate(item.id); }}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </CardContent>
-              </Card>
-            ))}
+            {(menuData?.categories ?? []).filter((cat: any) => cat.items?.length).map((cat: any) => {
+              const accent = getCategoryAccent(cat.id);
+              return (
+                <Card key={cat.id} className={cn('border-l-4', accent.leftBorder)}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">
+                      <Badge variant="outline" className={cn('text-xs font-semibold', accent.badge)}>{cat.name}</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {cat.items?.map((item: any) => (
+                          <tr key={item.id} className="border-t border-border hover:bg-muted/30">
+                            <td className="px-4 py-2">
+                              <div className="flex items-center gap-2">
+                                <span className={cn('w-2 h-2 rounded-full shrink-0', accent.dot)} title={cat.name} />
+                                <span className="font-medium text-foreground">{item.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2 text-xs text-muted-foreground max-w-[200px] truncate">{item.description}</td>
+                            <td className="px-4 py-2 text-right font-semibold text-foreground">${Number(item.price).toFixed(2)}</td>
+                            <td className="px-4 py-2">
+                              <Badge variant="outline" className={cn('text-xs', item.isAvailable ? 'text-green-600' : 'text-red-600')}>
+                                {item.isAvailable ? 'Available' : 'Unavailable'}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-2">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingMenuItem(item)}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-red-600 hover:text-red-700"
+                                  disabled={deleteMenuItemMutation.isPending}
+                                  onClick={() => { if (confirm(`Delete "${item.name}"?`)) deleteMenuItemMutation.mutate(item.id); }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </CardContent>
+                </Card>
+              );
+            })}
             {(menuData?.uncategorised ?? []).length > 0 && (
-              <Card>
+              <Card className="border-l-4 border-muted-foreground/30">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Uncategorised</CardTitle>
+                  <CardTitle className="text-sm">
+                    <Badge variant="outline" className="text-xs font-semibold text-muted-foreground">Uncategorised</Badge>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <table className="w-full text-sm">
