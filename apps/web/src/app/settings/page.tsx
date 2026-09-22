@@ -51,9 +51,10 @@ const TIMEZONES = [
   { value: 'UTC',                  label: 'UTC (GMT+0)' },
 ];
 
-const ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK', 'HOUSEKEEPING', 'MAINTENANCE', 'ACCOUNTANT'];
+const ROLES = ['SUPER_ADMIN', 'OWNER', 'ADMIN', 'MANAGER', 'FRONT_DESK', 'HOUSEKEEPING', 'MAINTENANCE', 'ACCOUNTANT'];
 const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400',
+  OWNER:       'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400',
   ADMIN:       'bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-400',
   MANAGER:     'bg-primary/15 text-primary border-primary/40',
   FRONT_DESK:  'bg-blue-100 text-blue-700 border-blue-200 dark:bg-primary/20 dark:text-primary',
@@ -404,7 +405,7 @@ function ManageUserDialog({ user, open, onClose, currentUser, queryClient, toast
 
   const isSelf = currentUser?.id === user.id;
   const canManageSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
-  const targetIsSuperAdmin = user.role === 'SUPER_ADMIN';
+  const targetIsSuperAdmin = user.role === 'SUPER_ADMIN' || user.role === 'OWNER';
   const restricted = targetIsSuperAdmin && !canManageSuperAdmin;
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['settings-users'] });
@@ -464,7 +465,7 @@ function ManageUserDialog({ user, open, onClose, currentUser, queryClient, toast
         {restricted && (
           <div className="flex items-center gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
             <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-            Only SUPER_ADMIN can manage other SUPER_ADMIN users. Actions are disabled.
+            Only SUPER_ADMIN can manage other SUPER_ADMIN or OWNER users. Actions are disabled.
           </div>
         )}
 

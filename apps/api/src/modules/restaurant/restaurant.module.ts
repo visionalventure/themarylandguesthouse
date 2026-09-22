@@ -3,5 +3,5 @@ import { FolioModule } from '../folio/folio.module';
 import { RestaurantController } from './restaurant.controller';
 import { RestaurantService } from './restaurant.service';
 
-@Module({ imports: [FolioModule], controllers: [RestaurantController], providers: [RestaurantService] })
+@Module({ imports: [FolioModule], controllers: [RestaurantController], providers: [RestaurantService], exports: [RestaurantService] })
 export class RestaurantModule {}

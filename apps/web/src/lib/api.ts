@@ -483,6 +483,21 @@ export const reportsExportApi = {
   },
 };
 
+export const ownerApi = {
+  overview: (propertyId: string) => api.get('/v1/owner/overview', { params: { propertyId } }),
+};
+
+export const ownerExportApi = {
+  export: (params: { section: string; propertyId: string }) => {
+    const url = new URL('/api/v1/owner/overview/export', typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001');
+    Object.entries(params).forEach(([k, v]) => v && url.searchParams.set(k, v));
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    return fetch(url.toString(), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  },
+};
+
 export const notificationsApi = {
   list: (params?: { unread?: boolean }) =>
     api.get('/v1/notifications', { params }),

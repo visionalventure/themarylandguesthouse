@@ -22,6 +22,7 @@ datasource db {
 
 enum UserRole {
   SUPER_ADMIN
+  OWNER
   ADMIN
   MANAGER
   FRONT_DESK
