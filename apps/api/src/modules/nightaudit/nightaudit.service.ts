@@ -1,10 +1,18 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { ReportsService } from '../reports/reports.service';
+import { RestaurantService } from '../restaurant/restaurant.service';
+import { HrService } from '../hr/hr.service';
 import { startOfDay, endOfDay, addDays, format } from 'date-fns';
 
 @Injectable()
 export class NightAuditService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reportsService: ReportsService,
+    private readonly restaurantService: RestaurantService,
+    private readonly hrService: HrService,
+  ) {}
 
   private async assertPropertyInTenant(propertyId: string, tenantId: string) {
     const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
@@ -183,6 +191,51 @@ export class NightAuditService {
         totalPayments: Number(paymentData._sum.amount ?? 0),
         nightlyChargesPosted: wouldPostCharges,
       },
+    };
+  }
+
+  async getDailyReport(propertyId: string, dateStr: string, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true, name: true } });
+    if (!property) throw new NotFoundException('Property not found');
+
+    const date = new Date(dateStr);
+    const dayStart = startOfDay(date);
+    const dayEnd = endOfDay(date);
+    const dateParams = { startDate: dayStart.toISOString(), endDate: dayEnd.toISOString() };
+
+    const [{ summary: nightAudit }, housekeeping, maintenance, restaurants, attendanceRecords] = await Promise.all([
+      this.previewAudit(propertyId, dateStr, tenantId),
+      this.reportsService.getHousekeepingReport(propertyId, tenantId, dateParams),
+      this.reportsService.getMaintenanceReport(propertyId, tenantId, dateParams),
+      this.restaurantService.getRestaurants(propertyId, tenantId),
+      this.hrService.getAttendanceReport(propertyId, tenantId, dayStart, dayEnd),
+    ]);
+
+    const restaurant = restaurants[0];
+    const restaurantRevenue = restaurant
+      ? await this.restaurantService.getRevenue(restaurant.id, tenantId, { startDate: dayStart.toISOString(), endDate: dayEnd.toISOString() })
+      : null;
+
+    const staffAttendance = {
+      present: attendanceRecords.filter((a: any) => a.status === 'PRESENT').length,
+      absent: attendanceRecords.filter((a: any) => a.status === 'ABSENT').length,
+      late: attendanceRecords.filter((a: any) => a.status === 'LATE').length,
+      halfDay: attendanceRecords.filter((a: any) => a.status === 'HALF_DAY').length,
+      onLeave: attendanceRecords.filter((a: any) => a.status === 'ON_LEAVE').length,
+      total: attendanceRecords.length,
+      records: attendanceRecords,
+    };
+
+    return {
+      date: dateStr,
+      property,
+      nightAudit,
+      housekeeping,
+      maintenance,
+      restaurant: restaurantRevenue
+        ? { total: restaurantRevenue.total, orderCount: restaurantRevenue.orderCount, topItems: restaurantRevenue.topItems }
+        : null,
+      staffAttendance,
     };
   }
 
