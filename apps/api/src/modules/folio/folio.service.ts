@@ -202,7 +202,7 @@ export class FolioService {
         include: {
           guest: true,
           rooms: { include: { room: true } },
-          property: { select: { name: true, address: true, phone: true, email: true, logoUrl: true, currency: true } },
+          property: { select: { name: true, address: true, phone: true, email: true, logoUrl: true, currency: true, invoiceTemplate: true } },
         },
       }),
       this.prisma.payment.findFirst({ where: { id: paymentId, reservationId, tenantId } }),
