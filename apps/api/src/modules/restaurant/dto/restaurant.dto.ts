@@ -14,6 +14,19 @@ export enum OrderStatusEnum {
   VOID = 'VOID',
 }
 
+export enum OrderPaymentMethodEnum {
+  CASH = 'CASH',
+  VISA = 'VISA',
+  MASTERCARD = 'MASTERCARD',
+  PAYPAL = 'PAYPAL',
+  STRIPE = 'STRIPE',
+  ORANGE_MONEY = 'ORANGE_MONEY',
+  MTN_MOBILE_MONEY = 'MTN_MOBILE_MONEY',
+  BANK_TRANSFER = 'BANK_TRANSFER',
+  CHECK = 'CHECK',
+  LOYALTY_POINTS = 'LOYALTY_POINTS',
+}
+
 export class CreateMenuItemDto {
   @ApiProperty() @IsString() @MaxLength(150) name: string;
   @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
@@ -51,6 +64,9 @@ export class CreateOrderDto {
 
 export class UpdateOrderStatusDto {
   @ApiProperty({ enum: OrderStatusEnum }) @IsEnum(OrderStatusEnum) status: OrderStatusEnum;
+  // Required when status is SERVED - that's the moment the bill is closed
+  // and the sale needs to actually post to Accounting.
+  @ApiPropertyOptional({ enum: OrderPaymentMethodEnum }) @IsOptional() @IsEnum(OrderPaymentMethodEnum) paymentMethod?: OrderPaymentMethodEnum;
 }
 
 export class MoveTableDto {

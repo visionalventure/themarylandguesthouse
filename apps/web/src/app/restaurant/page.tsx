@@ -2,21 +2,30 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, UtensilsCrossed, ShoppingBag, DollarSign, TrendingUp, X, ArrowRightLeft, CheckCircle, Pencil, Trash2 } from 'lucide-react';
+import {
+  Plus, UtensilsCrossed, ShoppingBag, DollarSign, TrendingUp, X, ArrowRightLeft, CheckCircle, Pencil, Trash2,
+  BarChart3, Award,
+} from 'lucide-react';
 import { format } from 'date-fns';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FadeIn } from '@/components/ui/fade-in';
 import { StaggerGrid, StaggerItem } from '@/components/ui/stagger-grid';
 import { AnimatedCounter } from '@/components/ui/animated-counter';
 import { restaurantApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useChartColors } from '@/hooks/use-chart-colors';
 import { OrderDialog } from './components/order-dialog';
 import { MenuItemDialog } from './components/menu-item-dialog';
+import { CloseBillDialog } from './components/close-bill-dialog';
 
 import { usePageTitle } from '@/hooks/use-page-title';
 import { useAuthStore } from '@/store/auth';
@@ -50,8 +59,11 @@ export default function RestaurantPage() {
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
   const [selectedTable, setSelectedTable] = useState<any | null>(null);
   const [moveTableMode, setMoveTableMode] = useState(false);
+  const [closingOrder, setClosingOrder] = useState<any | null>(null);
+  const [reportRange, setReportRange] = useState<'today' | '7d' | '30d' | 'all'>('7d');
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const chartColors = useChartColors();
 
   const { data: restaurants } = useQuery({
     queryKey: ['restaurants', propertyId],
@@ -81,6 +93,27 @@ export default function RestaurantPage() {
     enabled: !!restaurantId,
   });
 
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const { data: todaySales } = useQuery({
+    queryKey: ['restaurant-revenue-today', restaurantId],
+    queryFn: () => restaurantApi.revenue(restaurantId, { startDate: todayStart.toISOString() }).then(r => r.data),
+    enabled: !!restaurantId,
+    refetchInterval: 60_000,
+  });
+
+  const reportRangeStart = (() => {
+    const d = new Date();
+    if (reportRange === 'today') { d.setHours(0, 0, 0, 0); return d; }
+    if (reportRange === '7d') { d.setDate(d.getDate() - 7); return d; }
+    if (reportRange === '30d') { d.setDate(d.getDate() - 30); return d; }
+    return null; // all time
+  })();
+  const { data: salesReport, isLoading: reportLoading } = useQuery({
+    queryKey: ['restaurant-sales-report', restaurantId, reportRange],
+    queryFn: () => restaurantApi.revenue(restaurantId, reportRangeStart ? { startDate: reportRangeStart.toISOString() } : {}).then(r => r.data),
+    enabled: !!restaurantId,
+  });
+
   const tables: any[] = Array.isArray(tablesData) ? tablesData : [];
   const orders: any[] = ordersData?.data ?? [];
   const activeOrders = orders.filter(o => ['PENDING', 'PREPARING', 'READY'].includes(o.status));
@@ -88,7 +121,7 @@ export default function RestaurantPage() {
   const stats = {
     tablesOccupied: tables.filter(t => t.status === 'OCCUPIED').length,
     activeOrders: activeOrders.length,
-    todayRevenue: orders.filter(o => o.status === 'SERVED').reduce((s, o) => s + Number(o.totalAmount), 0),
+    todayRevenue: todaySales?.total ?? 0,
     avgOrder: activeOrders.length > 0
       ? activeOrders.reduce((s, o) => s + Number(o.totalAmount), 0) / activeOrders.length
       : 0,
@@ -196,6 +229,7 @@ export default function RestaurantPage() {
           <TabsTrigger value="tables">Table View</TabsTrigger>
           <TabsTrigger value="orders">Active Orders</TabsTrigger>
           <TabsTrigger value="menu">Menu</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
         {/* Table Grid */}
@@ -267,7 +301,9 @@ export default function RestaurantPage() {
                         <td className="px-4 py-3">
                           {STATUS_NEXT[order.status] && (
                             <Button size="sm" variant="outline" className="h-7 text-xs"
-                              onClick={() => statusMutation.mutate({ id: order.id, status: STATUS_NEXT[order.status] })}>
+                              onClick={() => STATUS_NEXT[order.status] === 'SERVED'
+                                ? setClosingOrder(order)
+                                : statusMutation.mutate({ id: order.id, status: STATUS_NEXT[order.status] })}>
                               → {STATUS_NEXT[order.status]}
                             </Button>
                           )}
@@ -373,6 +409,121 @@ export default function RestaurantPage() {
             )}
           </div>
         </TabsContent>
+
+        {/* Reports */}
+        <TabsContent value="reports">
+          <div className="mt-4 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <p className="text-sm text-muted-foreground">Every served order posts a real sale to Accounting — this is that sales history.</p>
+              <Select value={reportRange} onValueChange={(v: any) => setReportRange(v)}>
+                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="7d">Last 7 days</SelectItem>
+                  <SelectItem value="30d">Last 30 days</SelectItem>
+                  <SelectItem value="all">All time</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <p className="text-2xl font-bold text-foreground">${Number(salesReport?.total ?? 0).toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground">Revenue ({salesReport?.orderCount ?? 0} orders)</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-4">
+                  <p className="text-2xl font-bold text-foreground">
+                    ${salesReport?.orderCount ? (Number(salesReport.total) / salesReport.orderCount).toFixed(2) : '0.00'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Average order value</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Revenue by day chart */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="w-4 h-4 text-primary" /> Revenue by Day</CardTitle></CardHeader>
+              <CardContent>
+                {(salesReport?.dailyRevenue ?? []).length === 0 ? (
+                  <div className="py-10 text-center text-muted-foreground text-sm">No served orders in this period yet.</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={salesReport.dailyRevenue}>
+                      <defs>
+                        <linearGradient id="restaurantRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={chartColors.primary} stopOpacity={0.25} />
+                          <stop offset="95%" stopColor={chartColors.primary} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} opacity={0.5} />
+                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: chartColors.muted }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: chartColors.muted }} tickLine={false} axisLine={false} width={40} />
+                      <Tooltip formatter={(v: any) => `$${Number(v).toFixed(2)}`} />
+                      <Area type="monotone" dataKey="revenue" stroke={chartColors.primary} fill="url(#restaurantRevenueGradient)" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Top selling items */}
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Award className="w-4 h-4 text-primary" /> Top Selling Items</CardTitle></CardHeader>
+                <CardContent className="p-0">
+                  {(salesReport?.topItems ?? []).length === 0 ? (
+                    <div className="py-8 text-center text-muted-foreground text-sm">No sales yet.</div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {salesReport.topItems.map((item: any) => (
+                          <tr key={item.name} className="border-t border-border">
+                            <td className="px-4 py-2 text-foreground">{item.name}</td>
+                            <td className="px-4 py-2 text-xs text-muted-foreground text-center">{item.quantity} sold</td>
+                            <td className="px-4 py-2 text-right font-medium">${Number(item.revenue).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Sales history */}
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Sales History</CardTitle></CardHeader>
+                <CardContent className="p-0 max-h-80 overflow-y-auto">
+                  {reportLoading ? (
+                    <div className="py-8 text-center text-muted-foreground text-sm">Loading…</div>
+                  ) : (salesReport?.orders ?? []).length === 0 ? (
+                    <div className="py-8 text-center text-muted-foreground text-sm">No served orders in this period yet.</div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {salesReport.orders.map((order: any) => (
+                          <tr key={order.id} className="border-t border-border">
+                            <td className="px-4 py-2">
+                              <p className="font-mono text-xs text-primary">{order.orderNumber}</p>
+                              <p className="text-[10px] text-muted-foreground">{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : order.orderType}</p>
+                            </td>
+                            <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                              {order.servedAt ? format(new Date(order.servedAt), 'MMM d, HH:mm') : '—'}
+                            </td>
+                            <td className="px-4 py-2 text-xs text-muted-foreground">{order.payments?.[0]?.method?.replace(/_/g, ' ') ?? '—'}</td>
+                            <td className="px-4 py-2 text-right font-medium">${Number(order.totalAmount).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
       </Tabs>
 
       <OrderDialog open={orderDialogOpen} onOpenChange={setOrderDialogOpen} restaurantId={restaurantId} />
@@ -382,6 +533,11 @@ export default function RestaurantPage() {
         onOpenChange={(v) => { if (!v) setEditingMenuItem(null); }}
         restaurantId={restaurantId}
         item={editingMenuItem}
+      />
+      <CloseBillDialog
+        order={closingOrder}
+        onOpenChange={(v) => { if (!v) setClosingOrder(null); }}
+        onClosed={() => { setSelectedTable(null); setClosingOrder(null); }}
       />
 
       {/* Bill Detail Dialog */}
@@ -468,8 +624,7 @@ export default function RestaurantPage() {
                 </Button>
                 <Button
                   className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
-                  disabled={statusMutation.isPending}
-                  onClick={() => statusMutation.mutate({ id: activeOrder.id, status: 'SERVED' })}
+                  onClick={() => setClosingOrder(activeOrder)}
                 >
                   <CheckCircle className="w-3.5 h-3.5" />
                   Close Bill

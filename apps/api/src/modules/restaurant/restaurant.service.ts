@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { FolioService } from '../folio/folio.service';
 
 @Injectable()
 export class RestaurantService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly folioService: FolioService,
+  ) {}
 
   async getRestaurants(propertyId: string, tenantId: string) {
     return this.prisma.restaurant.findMany({
@@ -187,9 +191,18 @@ export class RestaurantService {
     return order;
   }
 
-  async updateOrderStatus(id: string, status: string, tenantId: string) {
-    const order = await this.prisma.restaurantOrder.findFirst({ where: { id, restaurant: { property: { tenantId } } } });
+  async updateOrderStatus(id: string, status: string, tenantId: string, paymentMethod?: string) {
+    const order = await this.prisma.restaurantOrder.findFirst({
+      where: { id, restaurant: { property: { tenantId } } },
+      include: { restaurant: { select: { propertyId: true } } },
+    });
     if (!order) throw new NotFoundException('Order not found');
+
+    // Closing the bill is the moment the sale actually happens - it must be
+    // paid for, so accounting has something real to post.
+    if (status === 'SERVED' && !paymentMethod) {
+      throw new BadRequestException('A payment method is required to close the bill');
+    }
 
     const data: any = { status };
     if (status === 'PREPARING') data.preparedAt = new Date();
@@ -203,7 +216,30 @@ export class RestaurantService {
       }
     }
 
-    return this.prisma.restaurantOrder.update({ where: { id }, data });
+    const updated = await this.prisma.restaurantOrder.update({ where: { id }, data });
+
+    if (status === 'SERVED' && paymentMethod) {
+      const receiptNumber = await this.folioService.generateReceiptNumber();
+      const payment = await this.prisma.payment.create({
+        data: {
+          tenantId,
+          restaurantOrderId: order.id,
+          amount: order.totalAmount,
+          method: paymentMethod as any,
+          status: 'COMPLETED',
+          receiptNumber,
+          processedAt: new Date(),
+        },
+      });
+      await this.folioService
+        .createPaymentJournalEntry(payment, order.restaurant.propertyId, tenantId, {
+          revenueAccountCode: '4100',
+          revenueLabel: 'Food & Beverage revenue',
+        })
+        .catch(() => null);
+    }
+
+    return updated;
   }
 
   async moveTable(orderId: string, newTableId: string, tenantId: string) {
@@ -235,15 +271,45 @@ export class RestaurantService {
     await this.assertRestaurantInTenant(restaurantId, tenantId);
     const { startDate, endDate } = params;
     const where: any = { restaurantId, status: 'SERVED' };
-    if (startDate) where.createdAt = { gte: new Date(startDate) };
-    if (endDate) where.createdAt = { ...where.createdAt, lte: new Date(endDate) };
+    if (startDate) where.servedAt = { gte: new Date(startDate) };
+    if (endDate) where.servedAt = { ...where.servedAt, lte: new Date(endDate) };
 
     const orders = await this.prisma.restaurantOrder.findMany({
       where,
-      select: { totalAmount: true, createdAt: true },
+      orderBy: { servedAt: 'desc' },
+      include: {
+        table: { select: { tableNumber: true } },
+        items: { include: { menuItem: { select: { name: true } } } },
+        payments: { select: { method: true, amount: true } },
+      },
     });
 
     const total = orders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
-    return { total, orderCount: orders.length, orders };
+
+    const itemTotals = new Map<string, { quantity: number; revenue: number }>();
+    for (const order of orders) {
+      for (const item of order.items) {
+        const key = item.menuItem?.name ?? 'Unknown item';
+        const current = itemTotals.get(key) ?? { quantity: 0, revenue: 0 };
+        current.quantity += item.quantity;
+        current.revenue += Number(item.totalPrice);
+        itemTotals.set(key, current);
+      }
+    }
+    const topItems = [...itemTotals.entries()]
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10);
+
+    const dayTotals = new Map<string, number>();
+    for (const order of orders) {
+      const day = (order.servedAt ?? order.createdAt).toISOString().slice(0, 10);
+      dayTotals.set(day, (dayTotals.get(day) ?? 0) + Number(order.totalAmount));
+    }
+    const dailyRevenue = [...dayTotals.entries()]
+      .map(([date, revenue]) => ({ date, revenue }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return { total, orderCount: orders.length, orders, topItems, dailyRevenue };
   }
 }

@@ -250,13 +250,21 @@ export class FolioService {
     return `RCP-${year}-${String(count + 1).padStart(6, '0')}`;
   }
 
-  async createPaymentJournalEntry(payment: any, propertyId: string, tenantId: string) {
+  async createPaymentJournalEntry(
+    payment: any,
+    propertyId: string,
+    tenantId: string,
+    options?: { revenueAccountCode?: string; revenueLabel?: string },
+  ) {
+    const revenueAccountCode = options?.revenueAccountCode ?? '4000';
+    const revenueLabel = options?.revenueLabel ?? 'Room revenue';
+
     const [cashAccount, revenueAccount] = await Promise.all([
       this.prisma.account.findFirst({ where: { propertyId, code: '1000', isActive: true } }),
-      this.prisma.account.findFirst({ where: { propertyId, code: '4000', isActive: true } }),
+      this.prisma.account.findFirst({ where: { propertyId, code: revenueAccountCode, isActive: true } }),
     ]);
     if (!cashAccount || !revenueAccount) {
-      this.logger.warn(`Payment JE skipped for property ${propertyId}: GL accounts 1000/4000 not found. Set up Chart of Accounts to enable automatic journal entries.`);
+      this.logger.warn(`Payment JE skipped for property ${propertyId}: GL accounts 1000/${revenueAccountCode} not found. Set up Chart of Accounts to enable automatic journal entries.`);
       return;
     }
 
@@ -277,7 +285,7 @@ export class FolioService {
         lines: {
           create: [
             { accountId: cashAccount.id,    type: 'DEBIT',  amount: payment.amount, description: `Cash receipt ${payment.receiptNumber}` },
-            { accountId: revenueAccount.id, type: 'CREDIT', amount: payment.amount, description: `Room revenue ${payment.receiptNumber}` },
+            { accountId: revenueAccount.id, type: 'CREDIT', amount: payment.amount, description: `${revenueLabel} ${payment.receiptNumber}` },
           ],
         },
       },

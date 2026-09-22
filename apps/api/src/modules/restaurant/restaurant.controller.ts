@@ -76,7 +76,7 @@ export class RestaurantController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FRONT_DESK', 'RESTAURANT_STAFF')
   @ApiOperation({ summary: 'Update order status' })
   updateOrderStatus(@Param('id') id: string, @Body() body: UpdateOrderStatusDto, @Request() req: any) {
-    return this.service.updateOrderStatus(id, body.status, req.user.tenantId);
+    return this.service.updateOrderStatus(id, body.status, req.user.tenantId, body.paymentMethod);
   }
 
   @Patch('orders/:id/move-table')

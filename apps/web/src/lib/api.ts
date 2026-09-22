@@ -375,7 +375,7 @@ export const restaurantApi = {
   deleteMenuItem: (id: string) => api.delete(`/v1/restaurant/menu-items/${id}`),
   orders: (restaurantId: string, params?: any) => api.get(`/v1/restaurant/${restaurantId}/orders`, { params }),
   createOrder: (restaurantId: string, data: any) => api.post(`/v1/restaurant/${restaurantId}/orders`, data),
-  updateOrderStatus: (id: string, status: string) => api.patch(`/v1/restaurant/orders/${id}`, { status }),
+  updateOrderStatus: (id: string, status: string, paymentMethod?: string) => api.patch(`/v1/restaurant/orders/${id}`, { status, paymentMethod }),
   moveTable: (id: string, tableId: string) => api.patch(`/v1/restaurant/orders/${id}/move-table`, { tableId }),
   revenue: (restaurantId: string, params?: any) => api.get(`/v1/restaurant/${restaurantId}/revenue`, { params }),
 };

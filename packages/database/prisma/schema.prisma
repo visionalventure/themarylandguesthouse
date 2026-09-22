@@ -976,6 +976,7 @@ model Payment {
   reservationId   String?
   invoiceId       String?
   shortStayBookingId String?
+  restaurantOrderId String?
   guestId         String?
   amount          Decimal       @db.Decimal(12,2)
   currency        String        @default("USD")
@@ -996,6 +997,7 @@ model Payment {
   reservation     Reservation?  @relation(fields: [reservationId], references: [id])
   invoice         Invoice?      @relation(fields: [invoiceId], references: [id])
   shortStayBooking ShortStayBooking? @relation(fields: [shortStayBookingId], references: [id])
+  restaurantOrder RestaurantOrder? @relation(fields: [restaurantOrderId], references: [id])
 
   @@map("payments")
 }
@@ -1185,6 +1187,7 @@ model RestaurantOrder {
   restaurant    Restaurant   @relation(fields: [restaurantId], references: [id])
   table         RestaurantTable? @relation(fields: [tableId], references: [id])
   items         OrderItem[]
+  payments      Payment[]
 
   @@map("restaurant_orders")
 }
