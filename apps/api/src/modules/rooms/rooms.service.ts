@@ -88,6 +88,33 @@ export class RoomsService {
     return this.prisma.room.update({ where: { id }, data, include: { category: true } });
   }
 
+  async deleteRoom(id: string, tenantId: string) {
+    const existing = await this.prisma.room.findFirst({
+      where: { id, property: { tenantId } },
+      select: {
+        id: true,
+        _count: { select: { reservations: true, shortStayBookings: true, housekeepingTasks: true, maintenanceWorkOrders: true } },
+      },
+    });
+    if (!existing) throw new NotFoundException('Room not found');
+
+    // A room with real operational history (bookings, housekeeping,
+    // maintenance) can't be hard-deleted without breaking those past
+    // records - hide it from the active room list instead, same pattern
+    // as deleting a menu item that's already been ordered.
+    const hasHistory = existing._count.reservations > 0 || existing._count.shortStayBookings > 0
+      || existing._count.housekeepingTasks > 0 || existing._count.maintenanceWorkOrders > 0;
+
+    if (hasHistory) {
+      await this.prisma.room.update({ where: { id }, data: { isActive: false } });
+      return { deleted: false, hidden: true };
+    }
+
+    await this.prisma.roomPricing.deleteMany({ where: { roomId: id } });
+    await this.prisma.room.delete({ where: { id } });
+    return { deleted: true, hidden: false };
+  }
+
   async getCategories(propertyId: string, tenantId: string, type?: string) {
     const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
     if (!property) return [];

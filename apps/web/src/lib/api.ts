@@ -150,6 +150,7 @@ export const roomsApi = {
   get: (id: string) => api.get(`/v1/rooms/${id}`),
   create: (data: any) => api.post('/v1/rooms', data),
   update: (id: string, data: any) => api.put(`/v1/rooms/${id}`, data),
+  delete: (id: string) => api.delete(`/v1/rooms/${id}`),
   updateStatus: (id: string, status: string) => api.patch(`/v1/rooms/${id}/status`, { status }),
   categories: (propertyId: string, type?: string) =>
     api.get('/v1/rooms/categories', { params: { propertyId, ...(type ? { type } : {}) } }),
