@@ -17,6 +17,7 @@ import { useAuthStore } from '@/store/auth';
 import { FadeIn } from '@/components/ui/fade-in';
 import { cn } from '@/lib/utils';
 import { usePageTitle } from '@/hooks/use-page-title';
+import { SupplierDialog } from '@/app/procurement/components/supplier-dialog';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   DRAFT:          { label: 'Draft',    color: 'border-white/10 bg-white/5 text-muted-foreground' },
@@ -44,6 +45,7 @@ export default function BillsPage() {
   const [dueDate, setDueDate] = useState(format(addDays(new Date(), 30), 'yyyy-MM-dd'));
   const [supplierRef, setSupplierRef] = useState('');
   const [lines, setLines] = useState([emptyLine()]);
+  const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
 
   const { data: billsData, isLoading } = useQuery({
     queryKey: ['bills', propertyId, statusFilter],
@@ -51,8 +53,8 @@ export default function BillsPage() {
   });
 
   const { data: suppliersData } = useQuery({
-    queryKey: ['suppliers-select'],
-    queryFn: () => procurementApi.suppliers({ tenantId: propertyId, limit: 100 }).then(r => r.data),
+    queryKey: ['suppliers', propertyId],
+    queryFn: () => procurementApi.suppliers({ propertyId, limit: 100 }).then(r => r.data),
     enabled: dialogOpen,
   });
 
@@ -201,10 +203,18 @@ export default function BillsPage() {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Supplier *</Label>
-              <Select value={supplierId} onValueChange={setSupplierId}>
-                <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                <SelectContent>{suppliers.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={supplierId} onValueChange={setSupplierId}>
+                  <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                  <SelectContent>{suppliers.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                </Select>
+                <Button type="button" variant="outline" onClick={() => setSupplierDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-1" /> New
+                </Button>
+              </div>
+              {suppliers.length === 0 && (
+                <p className="text-xs text-muted-foreground">No suppliers yet — add one to get started.</p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label>Bill Date</Label><Input type="date" value={billDate} onChange={e => setBillDate(e.target.value)} /></div>
@@ -252,6 +262,13 @@ export default function BillsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SupplierDialog
+        open={supplierDialogOpen}
+        onOpenChange={setSupplierDialogOpen}
+        propertyId={propertyId}
+        onSuccess={(supplier) => setSupplierId(supplier.id)}
+      />
 
       {/* Mark Paid Dialog */}
       <Dialog open={!!markPaidId} onOpenChange={(v) => { if (!v) { setMarkPaidId(null); setPayAmount(''); } }}>

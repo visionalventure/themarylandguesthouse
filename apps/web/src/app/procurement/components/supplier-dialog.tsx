@@ -18,9 +18,9 @@ const PAYMENT_TERMS_DAYS: Record<string, number> = {
   NET_7: 7, NET_15: 15, NET_30: 30, NET_60: 60, COD: 0, PREPAID: 0,
 };
 
-interface Props { open: boolean; onOpenChange: (v: boolean) => void; propertyId: string; }
+interface Props { open: boolean; onOpenChange: (v: boolean) => void; propertyId: string; onSuccess?: (supplier: any) => void; }
 
-export function SupplierDialog({ open, onOpenChange, propertyId }: Props) {
+export function SupplierDialog({ open, onOpenChange, propertyId, onSuccess }: Props) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { register, handleSubmit, watch, setValue, reset } = useForm({
@@ -37,10 +37,11 @@ export function SupplierDialog({ open, onOpenChange, propertyId }: Props) {
       propertyId,
       paymentTerms: PAYMENT_TERMS_DAYS[values.paymentTerms] ?? 30,
     }),
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       toast({ title: 'Supplier added' });
       onOpenChange(false);
+      onSuccess?.(res.data);
     },
     onError: (err: any) => toast({ variant: 'destructive', title: err.response?.data?.message || 'Failed' }),
   });
