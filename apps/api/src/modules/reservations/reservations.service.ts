@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { FolioService } from '../folio/folio.service';
 import { format } from 'date-fns';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class ReservationsService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private notificationsService: NotificationsService,
+    private folioService: FolioService,
   ) {}
 
   async findAll(propertyId: string, tenantId: string, query: any = {}) {
@@ -121,7 +123,7 @@ export class ReservationsService {
       const count = await this.prisma.payment.count({ where: { receiptNumber: { startsWith: `RCP-${year}-` } } });
       const receiptNumber = `RCP-${year}-${String(count + 1).padStart(6, '0')}`;
 
-      await this.prisma.payment.create({
+      const payment = await this.prisma.payment.create({
         data: {
           reservationId: reservation.id,
           guestId,
@@ -135,6 +137,10 @@ export class ReservationsService {
           notes: 'Deposit collected at booking',
         },
       });
+
+      // Auto-create accounting journal entry — deposits collected at booking
+      // time skipped this until now, unlike folio.service.ts's collectPayment().
+      await this.folioService.createPaymentJournalEntry(payment, propertyId, tenantId).catch(() => null);
 
       if (reservation.guest?.email) {
         const { propertyName, branding } = await this.emailService.getBranding(propertyId, tenantId);
