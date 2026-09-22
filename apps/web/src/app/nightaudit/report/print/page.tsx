@@ -85,7 +85,7 @@ function DailyReportPrintContent() {
     );
   }
 
-  const { property, nightAudit, housekeeping, maintenance, restaurant, staffAttendance } = data;
+  const { property, nightAudit, bookings, rooms, housekeeping, maintenance, restaurant, staffAttendance } = data;
 
   return (
     <>
@@ -134,10 +134,31 @@ function DailyReportPrintContent() {
               { label: 'No-Shows', value: nightAudit.noShows },
               { label: 'Occupancy', value: `${nightAudit.occupancyRate}%` },
               { label: 'Rooms Occupied', value: nightAudit.roomsOccupied },
+              { label: 'Rooms Available', value: nightAudit.roomsAvailable },
               { label: 'Revenue', value: `$${Number(nightAudit.totalRevenue).toFixed(2)}` },
               { label: 'Payments', value: `$${Number(nightAudit.totalPayments).toFixed(2)}` },
               { label: 'Room Charges to Post', value: nightAudit.nightlyChargesPosted },
             ]} />
+          </Section>
+
+          <Section title="Bookings">
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Arrivals</p>
+            <Table
+              headers={['Reservation #', 'Guest', 'Room(s)', 'Check-In', 'Status']}
+              rows={bookings.arrivals.map((r: any) => [r.reservationNo, r.guest, r.rooms, format(new Date(r.checkIn), 'dd MMM, HH:mm'), r.status])}
+            />
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '16px 0 6px' }}>Departures</p>
+            <Table
+              headers={['Reservation #', 'Guest', 'Room(s)', 'Check-Out', 'Status']}
+              rows={bookings.departures.map((r: any) => [r.reservationNo, r.guest, r.rooms, format(new Date(r.checkOut), 'dd MMM, HH:mm'), r.status])}
+            />
+          </Section>
+
+          <Section title="Room Status">
+            <Table
+              headers={['Room', 'Floor', 'Category', 'Status']}
+              rows={rooms.map((r: any) => [r.roomNumber, r.floor, r.category, r.status])}
+            />
           </Section>
 
           <Section title="Housekeeping & Maintenance">

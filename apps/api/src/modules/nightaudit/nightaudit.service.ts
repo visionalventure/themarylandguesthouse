@@ -203,12 +203,27 @@ export class NightAuditService {
     const dayEnd = endOfDay(date);
     const dateParams = { startDate: dayStart.toISOString(), endDate: dayEnd.toISOString() };
 
-    const [{ summary: nightAudit }, housekeeping, maintenance, restaurants, attendanceRecords] = await Promise.all([
+    const [{ summary: nightAudit }, housekeeping, maintenance, restaurants, attendanceRecords, arrivalsList, departuresList, roomsList] = await Promise.all([
       this.previewAudit(propertyId, dateStr, tenantId),
       this.reportsService.getHousekeepingReport(propertyId, tenantId, dateParams),
       this.reportsService.getMaintenanceReport(propertyId, tenantId, dateParams),
       this.restaurantService.getRestaurants(propertyId, tenantId),
       this.hrService.getAttendanceReport(propertyId, tenantId, dayStart, dayEnd),
+      this.prisma.reservation.findMany({
+        where: { propertyId, checkIn: { gte: dayStart, lte: dayEnd } },
+        include: { guest: { select: { firstName: true, lastName: true } }, rooms: { include: { room: { select: { roomNumber: true } } } } },
+        orderBy: { checkIn: 'asc' },
+      }),
+      this.prisma.reservation.findMany({
+        where: { propertyId, checkOut: { gte: dayStart, lte: dayEnd } },
+        include: { guest: { select: { firstName: true, lastName: true } }, rooms: { include: { room: { select: { roomNumber: true } } } } },
+        orderBy: { checkOut: 'asc' },
+      }),
+      this.prisma.room.findMany({
+        where: { propertyId, isActive: true },
+        select: { roomNumber: true, floor: true, status: true, category: { select: { name: true } } },
+        orderBy: [{ floor: 'asc' }, { roomNumber: 'asc' }],
+      }),
     ]);
 
     const restaurant = restaurants[0];
@@ -226,10 +241,36 @@ export class NightAuditService {
       records: attendanceRecords,
     };
 
+    const bookings = {
+      arrivals: arrivalsList.map((r: any) => ({
+        reservationNo: r.reservationNo,
+        guest: r.guest ? `${r.guest.firstName} ${r.guest.lastName}` : '—',
+        rooms: r.rooms.map((rr: any) => rr.room.roomNumber).join(', ') || '—',
+        checkIn: r.checkIn,
+        status: r.status,
+      })),
+      departures: departuresList.map((r: any) => ({
+        reservationNo: r.reservationNo,
+        guest: r.guest ? `${r.guest.firstName} ${r.guest.lastName}` : '—',
+        rooms: r.rooms.map((rr: any) => rr.room.roomNumber).join(', ') || '—',
+        checkOut: r.checkOut,
+        status: r.status,
+      })),
+    };
+
+    const rooms = roomsList.map((r: any) => ({
+      roomNumber: r.roomNumber,
+      floor: r.floor,
+      category: r.category?.name ?? '—',
+      status: r.status,
+    }));
+
     return {
       date: dateStr,
       property,
       nightAudit,
+      bookings,
+      rooms,
       housekeeping,
       maintenance,
       restaurant: restaurantRevenue
