@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsString, IsOptional, IsInt, IsNumber, IsEnum, IsDateString, Min, MaxLength,
+  IsString, IsOptional, IsInt, IsNumber, IsEnum, IsDateString, IsIn, IsBoolean, IsArray, Min, MaxLength,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
@@ -33,8 +33,7 @@ export class CreateShortStayDto {
   @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsString() guestId?: string;
   @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsString() @MaxLength(150) guestName?: string;
   @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsString() @MaxLength(30) guestPhone?: string;
-  @ApiProperty() @Type(() => Number) @IsInt() @Min(1) durationHours: number;
-  @ApiProperty() @Type(() => Number) @IsNumber() @Min(0) hourlyRate: number;
+  @ApiProperty({ description: 'Short stays are capped at 3 hours', enum: [1, 2, 3] }) @Type(() => Number) @IsIn([1, 2, 3]) durationHours: number;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() @Min(0) depositAmount?: number;
   @ApiPropertyOptional({ enum: ShortStayDepositMethodEnum }) @IsOptional() @IsEnum(ShortStayDepositMethodEnum) depositMethod?: ShortStayDepositMethodEnum;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
@@ -59,4 +58,19 @@ export class CheckOutShortStayDto {
 
 export class ConvertShortStayDto {
   @ApiProperty() @IsString() reservationId: string;
+}
+
+export class CreateShortStayOfferDto {
+  @ApiProperty() @IsString() @MaxLength(100) name: string;
+  @ApiProperty() @Type(() => Number) @IsNumber() @Min(0) hourlyRate: number;
+  @ApiPropertyOptional({ type: [String], description: 'Room IDs this offer is assigned to' })
+  @IsOptional() @IsArray() @IsString({ each: true }) roomIds?: string[];
+}
+
+export class UpdateShortStayOfferDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100) name?: string;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() @Min(0) hourlyRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+  @ApiPropertyOptional({ type: [String], description: 'Room IDs this offer is assigned to (replaces the current set)' })
+  @IsOptional() @IsArray() @IsString({ each: true }) roomIds?: string[];
 }

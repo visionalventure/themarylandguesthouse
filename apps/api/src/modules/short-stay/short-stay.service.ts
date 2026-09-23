@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { FolioService } from '../folio/folio.service';
-import { CreateShortStayDto, ShortStayQueryDto, CheckOutShortStayDto } from './dto/short-stay.dto';
+import {
+  CreateShortStayDto, ShortStayQueryDto, CheckOutShortStayDto, CreateShortStayOfferDto, UpdateShortStayOfferDto,
+} from './dto/short-stay.dto';
 
 @Injectable()
 export class ShortStayService {
@@ -31,28 +33,93 @@ export class ShortStayService {
     return { active, todaysRevenue, checkingOutSoon };
   }
 
-  // Rooms eligible for a new short stay: any AVAILABLE room, unless the
-  // property has flagged specific categories as short-stay eligible, in
-  // which case only those show up.
+  // Rooms eligible for a new short stay: AVAILABLE rooms that a super admin
+  // has assigned a Short Stay Offer to (offer = fixed hourly rate; front
+  // desk never sets one).
   async getEligibleRooms(propertyId: string, tenantId: string) {
     const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
     if (!property) throw new NotFoundException('Property not found');
-
-    const anyEligible = await this.prisma.roomCategory.findFirst({
-      where: { propertyId, isShortStayEligible: true },
-      select: { id: true },
-    });
 
     return this.prisma.room.findMany({
       where: {
         propertyId,
         status: 'AVAILABLE',
         isActive: true,
-        ...(anyEligible ? { category: { isShortStayEligible: true } } : {}),
+        shortStayOfferId: { not: null },
+        shortStayOffer: { isActive: true },
       },
-      include: { category: true },
+      include: { category: true, shortStayOffer: true },
       orderBy: [{ floor: 'asc' }, { roomNumber: 'asc' }],
     });
+  }
+
+  // --- Short Stay Offers (SUPER_ADMIN managed) ---
+
+  async getOffers(propertyId: string, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new NotFoundException('Property not found');
+
+    return this.prisma.shortStayOffer.findMany({
+      where: { propertyId },
+      include: { rooms: { select: { id: true, roomNumber: true } } },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async createOffer(propertyId: string, dto: CreateShortStayOfferDto, tenantId: string) {
+    const property = await this.prisma.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true } });
+    if (!property) throw new NotFoundException('Property not found');
+
+    return this.prisma.$transaction(async (tx) => {
+      const offer = await tx.shortStayOffer.create({
+        data: { propertyId, name: dto.name, hourlyRate: dto.hourlyRate },
+      });
+      if (dto.roomIds?.length) {
+        await tx.room.updateMany({
+          where: { id: { in: dto.roomIds }, propertyId },
+          data: { shortStayOfferId: offer.id },
+        });
+      }
+      return tx.shortStayOffer.findUnique({ where: { id: offer.id }, include: { rooms: { select: { id: true, roomNumber: true } } } });
+    });
+  }
+
+  async updateOffer(id: string, dto: UpdateShortStayOfferDto, tenantId: string) {
+    const offer = await this.prisma.shortStayOffer.findFirst({ where: { id, property: { tenantId } } });
+    if (!offer) throw new NotFoundException('Short stay offer not found');
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.shortStayOffer.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name }),
+          ...(dto.hourlyRate !== undefined && { hourlyRate: dto.hourlyRate }),
+          ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+        },
+      });
+      if (dto.roomIds !== undefined) {
+        // Replace the assigned room set: clear whoever currently points here, then reassign.
+        await tx.room.updateMany({ where: { shortStayOfferId: id }, data: { shortStayOfferId: null } });
+        if (dto.roomIds.length) {
+          await tx.room.updateMany({
+            where: { id: { in: dto.roomIds }, propertyId: offer.propertyId },
+            data: { shortStayOfferId: id },
+          });
+        }
+      }
+      return tx.shortStayOffer.findUnique({ where: { id }, include: { rooms: { select: { id: true, roomNumber: true } } } });
+    });
+  }
+
+  async deleteOffer(id: string, tenantId: string) {
+    const offer = await this.prisma.shortStayOffer.findFirst({ where: { id, property: { tenantId } } });
+    if (!offer) throw new NotFoundException('Short stay offer not found');
+
+    // Rooms just lose their assignment (never eligible for short stay again
+    // until reassigned) - the offer itself has no other history to preserve.
+    await this.prisma.room.updateMany({ where: { shortStayOfferId: id }, data: { shortStayOfferId: null } });
+    await this.prisma.shortStayOffer.delete({ where: { id } });
+    return { success: true };
   }
 
   async findAll(tenantId: string, query: ShortStayQueryDto) {
@@ -100,19 +167,16 @@ export class ShortStayService {
     // tenant-isolation convention.
     const room = await this.prisma.room.findFirst({
       where: { id: dto.roomId, property: { tenantId } },
-      include: { category: true },
+      include: { category: true, shortStayOffer: true },
     });
     if (!room) throw new NotFoundException('Room not found');
     if (room.status !== 'AVAILABLE') throw new BadRequestException('Room is not available');
     const propertyId = room.propertyId;
 
-    const anyEligible = await this.prisma.roomCategory.findFirst({
-      where: { propertyId, isShortStayEligible: true },
-      select: { id: true },
-    });
-    if (anyEligible && !room.category?.isShortStayEligible) {
-      throw new BadRequestException('This room\'s category is not eligible for short stay');
+    if (!room.shortStayOffer || !room.shortStayOffer.isActive) {
+      throw new BadRequestException('This room has no active short stay offer assigned - ask a super admin to set one up');
     }
+    const hourlyRate = Number(room.shortStayOffer.hourlyRate);
 
     if (dto.guestId) {
       const guest = await this.prisma.guest.findFirst({ where: { id: dto.guestId, tenantId }, select: { id: true } });
@@ -121,7 +185,7 @@ export class ShortStayService {
 
     const checkIn = dto.checkIn ? new Date(dto.checkIn) : new Date();
     const checkOutPlanned = new Date(checkIn.getTime() + dto.durationHours * 60 * 60 * 1000);
-    const totalAmount = dto.hourlyRate * dto.durationHours;
+    const totalAmount = hourlyRate * dto.durationHours;
 
     const booking = await this.prisma.$transaction(async (tx) => {
       const created = await tx.shortStayBooking.create({
@@ -134,7 +198,7 @@ export class ShortStayService {
           checkIn,
           checkOutPlanned,
           durationHours: dto.durationHours,
-          hourlyRate: dto.hourlyRate,
+          hourlyRate,
           totalAmount,
           notes: dto.notes,
           createdById,

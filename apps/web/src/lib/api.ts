@@ -132,6 +132,10 @@ export const shortStayApi = {
   cancel: (id: string) => api.post(`/v1/short-stay/${id}/cancel`),
   prepareUpgrade: (id: string) => api.post(`/v1/short-stay/${id}/prepare-upgrade`),
   upgrade: (id: string, reservationId: string) => api.post(`/v1/short-stay/${id}/upgrade`, { reservationId }),
+  offers: (propertyId: string) => api.get('/v1/short-stay/offers', { params: { propertyId } }),
+  createOffer: (propertyId: string, data: any) => api.post('/v1/short-stay/offers', data, { params: { propertyId } }),
+  updateOffer: (id: string, data: any) => api.put(`/v1/short-stay/offers/${id}`, data),
+  deleteOffer: (id: string) => api.delete(`/v1/short-stay/offers/${id}`),
 };
 
 export const guestsApi = {
