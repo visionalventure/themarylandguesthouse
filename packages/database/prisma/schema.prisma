@@ -494,6 +494,7 @@ model Property {
   purchaseOrders PurchaseOrder[]
   nightAudits   NightAudit[]
   shiftTypeConfigs ShiftTypeConfig[]
+  shortStayOffers ShortStayOffer[]
 
   @@unique([tenantId, code])
   @@map("properties")
@@ -700,8 +701,6 @@ model RoomCategory {
   bedCount     Int      @default(1)
   amenities    String[] @default([])
   images       String[] @default([])
-  hourlyRate   Decimal? @db.Decimal(10,2)
-  isShortStayEligible Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -710,10 +709,26 @@ model RoomCategory {
   @@map("room_categories")
 }
 
+model ShortStayOffer {
+  id          String   @id @default(cuid())
+  propertyId  String
+  name        String
+  hourlyRate  Decimal  @db.Decimal(10,2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  property    Property @relation(fields: [propertyId], references: [id])
+  rooms       Room[]
+
+  @@map("short_stay_offers")
+}
+
 model Room {
   id            String     @id @default(cuid())
   propertyId    String
   categoryId    String
+  shortStayOfferId String?
   roomNumber    String
   floor         Int?
   status        RoomStatus @default(AVAILABLE)
@@ -727,6 +742,7 @@ model Room {
 
   property      Property      @relation(fields: [propertyId], references: [id])
   category      RoomCategory  @relation(fields: [categoryId], references: [id])
+  shortStayOffer ShortStayOffer? @relation(fields: [shortStayOfferId], references: [id])
   reservations  ReservationRoom[]
   shortStayBookings ShortStayBooking[]
   housekeepingTasks HousekeepingTask[]

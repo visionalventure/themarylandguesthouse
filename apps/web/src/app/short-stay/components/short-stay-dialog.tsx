@@ -14,7 +14,7 @@ import { guestsApi, shortStayApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-const DURATION_PRESETS = [1, 3, 6, 12];
+const DURATION_PRESETS = [1, 2, 3];
 const DEPOSIT_METHODS = ['CASH', 'VISA', 'MASTERCARD', 'BANK_TRANSFER', 'ORANGE_MONEY', 'MTN_MOBILE_MONEY'];
 
 interface Props { open: boolean; onOpenChange: (v: boolean) => void; propertyId: string; }
@@ -25,13 +25,13 @@ export function ShortStayDialog({ open, onOpenChange, propertyId }: Props) {
 
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm({
     defaultValues: {
-      roomId: '', guestId: '', guestName: '', guestPhone: '', checkIn: '', durationHours: 3, hourlyRate: '',
+      roomId: '', guestId: '', guestName: '', guestPhone: '', checkIn: '', durationHours: 1,
       depositAmount: '', depositMethod: '', notes: '',
     },
   });
 
   useEffect(() => {
-    if (open) reset({ roomId: '', guestId: '', guestName: '', guestPhone: '', checkIn: '', durationHours: 3, hourlyRate: '', depositAmount: '', depositMethod: '', notes: '' });
+    if (open) reset({ roomId: '', guestId: '', guestName: '', guestPhone: '', checkIn: '', durationHours: 1, depositAmount: '', depositMethod: '', notes: '' });
   }, [open, reset]);
 
   const { data: roomsData } = useQuery({
@@ -49,17 +49,10 @@ export function ShortStayDialog({ open, onOpenChange, propertyId }: Props) {
   const guests: any[] = guestsData?.data ?? [];
 
   const roomId = watch('roomId');
-  useEffect(() => {
-    if (!roomId) return;
-    const room = rooms.find((r) => r.id === roomId);
-    if (room?.category?.hourlyRate && !watch('hourlyRate')) {
-      setValue('hourlyRate', String(room.category.hourlyRate));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId]);
+  const selectedRoom = rooms.find((r) => r.id === roomId);
+  const hourlyRate = Number(selectedRoom?.shortStayOffer?.hourlyRate) || 0;
 
   const durationHours = Number(watch('durationHours')) || 0;
-  const hourlyRate = Number(watch('hourlyRate')) || 0;
   const total = durationHours * hourlyRate;
   const checkInValue = watch('checkIn');
   const checkInBase = checkInValue ? new Date(checkInValue).getTime() : Date.now();
@@ -73,7 +66,6 @@ export function ShortStayDialog({ open, onOpenChange, propertyId }: Props) {
       guestName: values.guestName || undefined,
       guestPhone: values.guestPhone || undefined,
       durationHours: Number(values.durationHours),
-      hourlyRate: Number(values.hourlyRate),
       depositAmount: values.depositAmount ? Number(values.depositAmount) : undefined,
       depositMethod: values.depositAmount ? (values.depositMethod || 'CASH') : undefined,
       notes: values.notes || undefined,
@@ -102,13 +94,15 @@ export function ShortStayDialog({ open, onOpenChange, propertyId }: Props) {
                 <SelectTrigger><SelectValue placeholder="Select an available room…" /></SelectTrigger>
                 <SelectContent>
                   {rooms.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>Room {r.roomNumber} — {r.category?.name}</SelectItem>
+                    <SelectItem key={r.id} value={r.id}>
+                      Room {r.roomNumber} — {r.category?.name} (${Number(r.shortStayOffer?.hourlyRate).toFixed(2)}/hr — {r.shortStayOffer?.name})
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )} />
             {errors.roomId && <p className="text-xs text-destructive">Pick a room</p>}
-            {rooms.length === 0 && <p className="text-xs text-muted-foreground">No available rooms right now.</p>}
+            {rooms.length === 0 && <p className="text-xs text-muted-foreground">No rooms with a short stay offer assigned right now — ask a super admin to set one up.</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -146,7 +140,7 @@ export function ShortStayDialog({ open, onOpenChange, propertyId }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Duration</Label>
+            <Label className="text-xs">Duration (max 3 hours)</Label>
             <div className="flex flex-wrap gap-2">
               {DURATION_PRESETS.map((h) => (
                 <Button
@@ -160,21 +154,16 @@ export function ShortStayDialog({ open, onOpenChange, propertyId }: Props) {
                   {h}h
                 </Button>
               ))}
-              <Input
-                type="number"
-                min="1"
-                className="w-24 h-9"
-                placeholder="Custom"
-                {...register('durationHours', { required: true, min: 1 })}
-              />
             </div>
             <p className="text-xs text-muted-foreground">Checkout at ~{checkoutPreview}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Hourly Rate ($) *</Label>
-              <Input type="number" min="0" step="0.01" placeholder="15.00" {...register('hourlyRate', { required: true, min: 0 })} />
+              <Label className="text-xs">Hourly Rate</Label>
+              <div className="h-9 flex items-center px-3 rounded-md border bg-muted/40 text-sm">
+                {selectedRoom ? `$${hourlyRate.toFixed(2)} (${selectedRoom.shortStayOffer?.name})` : '— select a room —'}
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Total</Label>

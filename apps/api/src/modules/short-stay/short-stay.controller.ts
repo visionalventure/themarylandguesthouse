@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -6,6 +6,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { ShortStayService } from './short-stay.service';
 import {
   CreateShortStayDto, ShortStayQueryDto, ExtendShortStayDto, CheckOutShortStayDto, ConvertShortStayDto,
+  CreateShortStayOfferDto, UpdateShortStayOfferDto,
 } from './dto/short-stay.dto';
 
 @ApiTags('short-stay')
@@ -27,6 +28,34 @@ export class ShortStayController {
   @ApiOperation({ summary: 'Get rooms eligible for a new short stay booking' })
   getEligibleRooms(@Query('propertyId') propertyId: string, @Request() req: any) {
     return this.service.getEligibleRooms(propertyId, req.user.tenantId);
+  }
+
+  @Get('offers')
+  @Roles('SUPER_ADMIN')
+  @ApiOperation({ summary: 'List short stay offers for a property (super admin only)' })
+  getOffers(@Query('propertyId') propertyId: string, @Request() req: any) {
+    return this.service.getOffers(propertyId, req.user.tenantId);
+  }
+
+  @Post('offers')
+  @Roles('SUPER_ADMIN')
+  @ApiOperation({ summary: 'Create a short stay offer and assign it to rooms (super admin only)' })
+  createOffer(@Query('propertyId') propertyId: string, @Body() dto: CreateShortStayOfferDto, @Request() req: any) {
+    return this.service.createOffer(propertyId, dto, req.user.tenantId);
+  }
+
+  @Put('offers/:id')
+  @Roles('SUPER_ADMIN')
+  @ApiOperation({ summary: 'Update a short stay offer, including its assigned rooms (super admin only)' })
+  updateOffer(@Param('id') id: string, @Body() dto: UpdateShortStayOfferDto, @Request() req: any) {
+    return this.service.updateOffer(id, dto, req.user.tenantId);
+  }
+
+  @Delete('offers/:id')
+  @Roles('SUPER_ADMIN')
+  @ApiOperation({ summary: 'Delete a short stay offer (super admin only)' })
+  deleteOffer(@Param('id') id: string, @Request() req: any) {
+    return this.service.deleteOffer(id, req.user.tenantId);
   }
 
   @Get()

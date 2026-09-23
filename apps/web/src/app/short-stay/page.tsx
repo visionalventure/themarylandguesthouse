@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
   Plus, Clock, DollarSign, AlarmClock, BedDouble, Phone, Loader2, CheckCircle2, XCircle,
-  PlusCircle, ArrowUpCircle,
+  PlusCircle, ArrowUpCircle, Tag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,7 @@ import { useAuthStore } from '@/store/auth';
 import { ShortStayDialog } from './components/short-stay-dialog';
 import { ExtendStayDialog } from './components/extend-stay-dialog';
 import { CheckoutDialog } from './components/checkout-dialog';
+import { ManageOffersDialog } from './components/manage-offers-dialog';
 import { ReservationFormDialog } from '@/app/reservations/components/reservation-form-dialog';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -36,11 +37,13 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 export default function ShortStayPage() {
   usePageTitle('Short Stay');
   const propertyId = useAuthStore((s) => s.propertyId);
+  const currentUser = useAuthStore((s) => s.user);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('CHECKED_IN');
   const [newOpen, setNewOpen] = useState(false);
+  const [offersOpen, setOffersOpen] = useState(false);
   const [extendingBooking, setExtendingBooking] = useState<any | null>(null);
   const [checkoutBooking, setCheckoutBooking] = useState<any | null>(null);
   const [upgradePrefill, setUpgradePrefill] = useState<any | null>(null);
@@ -114,9 +117,16 @@ export default function ShortStayPage() {
           <h1 className="text-2xl font-bold text-foreground">Short Stay</h1>
           <p className="text-muted-foreground text-sm">Hourly / day-use guests — quick check-in, no name required</p>
         </div>
-        <Button onClick={() => setNewOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-          <Plus className="w-4 h-4 mr-2" /> New Short Stay
-        </Button>
+        <div className="flex items-center gap-2">
+          {currentUser?.role === 'SUPER_ADMIN' && (
+            <Button variant="outline" onClick={() => setOffersOpen(true)}>
+              <Tag className="w-4 h-4 mr-2" /> Manage Offers
+            </Button>
+          )}
+          <Button onClick={() => setNewOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <Plus className="w-4 h-4 mr-2" /> New Short Stay
+          </Button>
+        </div>
       </div>
 
       <StaggerGrid className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -240,6 +250,9 @@ export default function ShortStayPage() {
       </Card>
 
       <ShortStayDialog open={newOpen} onOpenChange={setNewOpen} propertyId={propertyId} />
+      {currentUser?.role === 'SUPER_ADMIN' && (
+        <ManageOffersDialog open={offersOpen} onOpenChange={setOffersOpen} propertyId={propertyId} />
+      )}
       <ExtendStayDialog booking={extendingBooking} onOpenChange={(v) => { if (!v) setExtendingBooking(null); }} />
       <CheckoutDialog booking={checkoutBooking} onOpenChange={(v) => { if (!v) setCheckoutBooking(null); }} />
 

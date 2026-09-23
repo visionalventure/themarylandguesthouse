@@ -18,7 +18,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -49,8 +48,6 @@ const categorySchema = z.object({
   maxOccupancy: z.string().min(1, 'Max occupancy is required'),
   bedCount: z.string().optional(),
   description: z.string().optional(),
-  hourlyRate: z.string().optional(),
-  isShortStayEligible: z.boolean().optional(),
 });
 
 type CategoryForm = z.infer<typeof categorySchema>;
@@ -65,7 +62,6 @@ interface CategoryFormDialogProps {
 
 const blankCategoryDefaults: CategoryForm = {
   name: '', type: '', basePrice: '', maxOccupancy: '', bedCount: '1', description: '',
-  hourlyRate: '', isShortStayEligible: false,
 };
 
 export function CategoryFormDialog({ open, onOpenChange, propertyId, category, defaultType }: CategoryFormDialogProps) {
@@ -88,8 +84,6 @@ export function CategoryFormDialog({ open, onOpenChange, propertyId, category, d
         maxOccupancy: category.maxOccupancy != null ? String(category.maxOccupancy) : '',
         bedCount: category.bedCount != null ? String(category.bedCount) : '1',
         description: category.description ?? '',
-        hourlyRate: category.hourlyRate != null ? String(category.hourlyRate) : '',
-        isShortStayEligible: category.isShortStayEligible ?? false,
       });
     } else {
       form.reset({ ...blankCategoryDefaults, type: defaultType ?? '' });
@@ -105,8 +99,6 @@ export function CategoryFormDialog({ open, onOpenChange, propertyId, category, d
         maxOccupancy: Number(data.maxOccupancy),
         bedCount: Number(data.bedCount || 1),
         description: data.description || undefined,
-        hourlyRate: data.hourlyRate ? Number(data.hourlyRate) : undefined,
-        isShortStayEligible: !!data.isShortStayEligible,
       };
       return isEdit
         ? roomsApi.updateCategory(category.id, payload)
@@ -135,7 +127,7 @@ export function CategoryFormDialog({ open, onOpenChange, propertyId, category, d
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Room Category' : 'New Room Category'}</DialogTitle>
           <DialogDescription>
-            {isEdit ? 'Update this room type, including short-stay settings.' : 'Define a new room type for this property.'}
+            {isEdit ? 'Update this room type.' : 'Define a new room type for this property.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -220,33 +212,6 @@ export function CategoryFormDialog({ open, onOpenChange, propertyId, category, d
               placeholder="Optional description…"
               {...form.register('description')}
             />
-          </div>
-
-          <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="cat-short-stay"
-                checked={form.watch('isShortStayEligible')}
-                onCheckedChange={(v: boolean) => form.setValue('isShortStayEligible', v)}
-              />
-              <Label htmlFor="cat-short-stay" className="text-sm font-medium">Eligible for Short Stay</Label>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cat-hourly-rate">Hourly Rate</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-                <Input
-                  id="cat-hourly-rate"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="15.00"
-                  className="pl-7"
-                  {...form.register('hourlyRate')}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">Pre-fills the rate when this category's rooms are picked for a short stay.</p>
-            </div>
           </div>
 
           <DialogFooter>
