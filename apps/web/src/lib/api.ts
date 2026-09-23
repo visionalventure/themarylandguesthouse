@@ -95,6 +95,7 @@ export const nightAuditApi = {
   history: (propertyId: string) => api.get('/v1/nightaudit/history', { params: { propertyId } }),
   get:     (id: string) => api.get(`/v1/nightaudit/${id}`),
   close:   (id: string) => api.patch(`/v1/nightaudit/${id}/close`),
+  dailyReport: (propertyId: string, date: string) => api.get('/v1/nightaudit/daily-report', { params: { propertyId, date } }),
 };
 
 export const reservationsApi = {

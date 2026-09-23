@@ -37,6 +37,14 @@ export class NightAuditController {
     return this.service.getHistory(propertyId, req.user.tenantId);
   }
 
+  @Get('daily-report')
+  @UseGuards(RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')
+  @ApiOperation({ summary: 'Full day+night report: occupancy/revenue, housekeeping, maintenance, F&B, staff attendance' })
+  getDailyReport(@Query('propertyId') propertyId: string, @Query('date') date: string, @Request() req: any) {
+    return this.service.getDailyReport(propertyId, date, req.user.tenantId);
+  }
+
   @Get(':id')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTANT')

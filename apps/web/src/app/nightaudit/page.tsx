@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
-  Moon, Play, CheckCircle, Loader2, Eye,
+  Moon, Play, CheckCircle, Loader2, Eye, Printer,
   BedDouble, LogIn, LogOut, AlertTriangle, DollarSign, Users,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -141,9 +141,18 @@ export default function NightAuditPage() {
               {runAuditMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
               Run Night Audit
             </Button>
+            <Button
+              variant="outline"
+              disabled={!propertyId}
+              onClick={() => window.open(`/nightaudit/report/print?propertyId=${propertyId}&date=${auditDate}`, '_blank')}
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Full Report
+            </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
             Use <strong>Preview</strong> to see what will happen without posting charges. Then click <strong>Run Night Audit</strong> to confirm.
+            <strong> Full Report</strong> generates a printable day + night summary for the selected date without posting anything.
           </p>
         </CardContent>
       </Card>
