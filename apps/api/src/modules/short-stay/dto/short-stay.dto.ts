@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsString, IsOptional, IsInt, IsNumber, IsEnum, Min, MaxLength,
+  IsString, IsOptional, IsInt, IsNumber, IsEnum, IsDateString, Min, MaxLength,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
@@ -28,6 +28,8 @@ export enum ShortStayStatusEnum {
 
 export class CreateShortStayDto {
   @ApiProperty() @IsString() roomId: string;
+  @ApiPropertyOptional({ description: 'Backdate the check-in time for late entries; defaults to now' })
+  @IsOptional() @Transform(emptyToUndefined) @IsDateString() checkIn?: string;
   @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsString() guestId?: string;
   @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsString() @MaxLength(150) guestName?: string;
   @ApiPropertyOptional() @IsOptional() @Transform(emptyToUndefined) @IsString() @MaxLength(30) guestPhone?: string;

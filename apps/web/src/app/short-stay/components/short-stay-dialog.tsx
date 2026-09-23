@@ -25,13 +25,13 @@ export function ShortStayDialog({ open, onOpenChange, propertyId }: Props) {
 
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm({
     defaultValues: {
-      roomId: '', guestId: '', guestName: '', guestPhone: '', durationHours: 3, hourlyRate: '',
+      roomId: '', guestId: '', guestName: '', guestPhone: '', checkIn: '', durationHours: 3, hourlyRate: '',
       depositAmount: '', depositMethod: '', notes: '',
     },
   });
 
   useEffect(() => {
-    if (open) reset({ roomId: '', guestId: '', guestName: '', guestPhone: '', durationHours: 3, hourlyRate: '', depositAmount: '', depositMethod: '', notes: '' });
+    if (open) reset({ roomId: '', guestId: '', guestName: '', guestPhone: '', checkIn: '', durationHours: 3, hourlyRate: '', depositAmount: '', depositMethod: '', notes: '' });
   }, [open, reset]);
 
   const { data: roomsData } = useQuery({
@@ -61,11 +61,14 @@ export function ShortStayDialog({ open, onOpenChange, propertyId }: Props) {
   const durationHours = Number(watch('durationHours')) || 0;
   const hourlyRate = Number(watch('hourlyRate')) || 0;
   const total = durationHours * hourlyRate;
-  const checkoutPreview = durationHours > 0 ? format(new Date(Date.now() + durationHours * 60 * 60 * 1000), 'h:mm a') : '—';
+  const checkInValue = watch('checkIn');
+  const checkInBase = checkInValue ? new Date(checkInValue).getTime() : Date.now();
+  const checkoutPreview = durationHours > 0 ? format(new Date(checkInBase + durationHours * 60 * 60 * 1000), 'MMM d, h:mm a') : '—';
 
   const mutation = useMutation({
     mutationFn: (values: any) => shortStayApi.create({
       roomId: values.roomId,
+      checkIn: values.checkIn ? new Date(values.checkIn).toISOString() : undefined,
       guestId: values.guestId || undefined,
       guestName: values.guestName || undefined,
       guestPhone: values.guestPhone || undefined,
@@ -135,6 +138,12 @@ export function ShortStayDialog({ open, onOpenChange, propertyId }: Props) {
               <p className="text-xs text-muted-foreground">Linking a guest enables loyalty points on checkout.</p>
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Check-in Time (optional)</Label>
+            <Input type="datetime-local" {...register('checkIn')} />
+            <p className="text-xs text-muted-foreground">Leave blank to use the current time. Set this when logging a stay that already started.</p>
+          </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs">Duration</Label>

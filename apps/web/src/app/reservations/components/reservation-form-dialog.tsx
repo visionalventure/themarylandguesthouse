@@ -96,8 +96,8 @@ export function ReservationFormDialog({ open, onOpenChange, propertyId, initialD
         form.reset({
           guestId: initialData.guest?.id ?? initialData.guestId ?? '',
           roomId: initialData.rooms?.[0]?.roomId ?? '',
-          checkIn: initialData.checkIn?.slice(0, 10) ?? '',
-          checkOut: initialData.checkOut?.slice(0, 10) ?? '',
+          checkIn: initialData.checkIn?.slice(0, 16) ?? '',
+          checkOut: initialData.checkOut?.slice(0, 16) ?? '',
           adults: String(initialData.adults ?? 1),
           children: String(initialData.children ?? 0),
           source: initialData.source ?? 'DIRECT',
@@ -227,14 +227,14 @@ export function ReservationFormDialog({ open, onOpenChange, propertyId, initialD
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="checkIn">Check-in</Label>
-              <Input id="checkIn" type="date" {...form.register('checkIn')} />
+              <Input id="checkIn" type="datetime-local" {...form.register('checkIn')} />
               {form.formState.errors.checkIn && (
                 <p className="text-destructive text-xs">{form.formState.errors.checkIn.message}</p>
               )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="checkOut">Check-out</Label>
-              <Input id="checkOut" type="date" {...form.register('checkOut')} />
+              <Input id="checkOut" type="datetime-local" {...form.register('checkOut')} />
               {form.formState.errors.checkOut && (
                 <p className="text-destructive text-xs">{form.formState.errors.checkOut.message}</p>
               )}

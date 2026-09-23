@@ -119,7 +119,7 @@ export class ShortStayService {
       if (!guest) throw new NotFoundException('Guest not found');
     }
 
-    const checkIn = new Date();
+    const checkIn = dto.checkIn ? new Date(dto.checkIn) : new Date();
     const checkOutPlanned = new Date(checkIn.getTime() + dto.durationHours * 60 * 60 * 1000);
     const totalAmount = dto.hourlyRate * dto.durationHours;
 
