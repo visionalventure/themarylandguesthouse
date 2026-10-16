@@ -535,6 +535,7 @@ model User {
   createdReservations Reservation[] @relation("CreatedBy")
   createdInquiries Inquiry[]
   createdShortStays ShortStayBooking[]
+  createdMenusOfTheDay MenuOfTheDay[]
   assignedHousekeeping HousekeepingTask[] @relation("AssignedTo")
   createdJournalEntries JournalEntry[] @relation("JournalCreatedBy")
   approvedPurchaseOrders PurchaseOrder[] @relation("POApprovedBy")
@@ -1129,6 +1130,7 @@ model Restaurant {
   tables      RestaurantTable[]
   menuItems   MenuItem[]
   orders      RestaurantOrder[]
+  menusOfTheDay MenuOfTheDay[]
 
   @@map("restaurants")
 }
@@ -1181,8 +1183,45 @@ model MenuItem {
   restaurant   Restaurant   @relation(fields: [restaurantId], references: [id])
   category     MenuCategory? @relation(fields: [categoryId], references: [id])
   orderItems   OrderItem[]
+  menuOfTheDayEntries MenuOfTheDayEntry[]
 
   @@map("menu_items")
+}
+
+model MenuOfTheDay {
+  id           String   @id @default(cuid())
+  restaurantId String
+  date         DateTime
+  notes        String?
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant   Restaurant          @relation(fields: [restaurantId], references: [id])
+  createdBy    User?               @relation(fields: [createdById], references: [id])
+  entries      MenuOfTheDayEntry[]
+
+  @@unique([restaurantId, date])
+  @@map("menu_of_the_day")
+}
+
+model MenuOfTheDayEntry {
+  id             String   @id @default(cuid())
+  menuOfTheDayId String
+  menuItemId     String?
+  name           String
+  description    String?
+  price          Decimal  @db.Decimal(10,2)
+  allergens      String[] @default([])
+  isVegetarian   Boolean  @default(false)
+  isVegan        Boolean  @default(false)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  menuOfTheDay   MenuOfTheDay @relation(fields: [menuOfTheDayId], references: [id])
+  menuItem       MenuItem?    @relation(fields: [menuItemId], references: [id])
+
+  @@map("menu_of_the_day_entries")
 }
 
 model RestaurantOrder {

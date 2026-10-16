@@ -15,6 +15,7 @@ import { GuestsModule } from './modules/guests/guests.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { HousekeepingModule } from './modules/housekeeping/housekeeping.module';
 import { RestaurantModule } from './modules/restaurant/restaurant.module';
+import { MenuOfTheDayModule } from './modules/menu-of-the-day/menu-of-the-day.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { ProcurementModule } from './modules/procurement/procurement.module';
 import { HrModule } from './modules/hr/hr.module';
@@ -32,6 +33,7 @@ import { SearchModule } from './modules/search/search.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
 import { StorageModule } from './common/storage/storage.module';
 import { EmailModule } from './modules/email/email.module';
+import { WhatsAppModule } from './modules/whatsapp/whatsapp.module';
 import { OwnerModule } from './modules/owner/owner.module';
 
 @Module({
@@ -55,6 +57,7 @@ import { OwnerModule } from './modules/owner/owner.module';
     RoomsModule,
     HousekeepingModule,
     RestaurantModule,
+    MenuOfTheDayModule,
     InventoryModule,
     ProcurementModule,
     HrModule,
@@ -71,6 +74,7 @@ import { OwnerModule } from './modules/owner/owner.module';
     AssistantModule,
     StorageModule,
     EmailModule,
+    WhatsAppModule,
     OwnerModule,
   ],
 })
