@@ -392,6 +392,15 @@ export const restaurantApi = {
   revenue: (restaurantId: string, params?: any) => api.get(`/v1/restaurant/${restaurantId}/revenue`, { params }),
 };
 
+export const menuOfTheDayApi = {
+  get: (restaurantId: string, date?: string) => api.get(`/v1/menu-of-the-day/${restaurantId}`, { params: date ? { date } : {} }),
+  upsert: (restaurantId: string, data: { date: string; notes?: string }) => api.put(`/v1/menu-of-the-day/${restaurantId}`, data),
+  addEntry: (menuOfTheDayId: string, data: any) => api.post(`/v1/menu-of-the-day/${menuOfTheDayId}/entries`, data),
+  updateEntry: (entryId: string, data: any) => api.put(`/v1/menu-of-the-day/entries/${entryId}`, data),
+  removeEntry: (entryId: string) => api.delete(`/v1/menu-of-the-day/entries/${entryId}`),
+  send: (menuOfTheDayId: string) => api.post(`/v1/menu-of-the-day/${menuOfTheDayId}/send`),
+};
+
 export const procurementApi = {
   suppliers: (params: any) => api.get('/v1/procurement/suppliers', { params }),
   createSupplier: (data: any) => api.post('/v1/procurement/suppliers', data),

@@ -27,6 +27,7 @@ import { OrderDialog } from './components/order-dialog';
 import { MenuItemDialog } from './components/menu-item-dialog';
 import { CloseBillDialog } from './components/close-bill-dialog';
 import { TableFormDialog } from './components/table-form-dialog';
+import { MenuOfTheDayTab } from './components/menu-of-the-day-tab';
 
 import { usePageTitle } from '@/hooks/use-page-title';
 import { useAuthStore } from '@/store/auth';
@@ -235,6 +236,7 @@ export default function RestaurantPage() {
           <TabsTrigger value="tables">Table View</TabsTrigger>
           <TabsTrigger value="orders">Active Orders</TabsTrigger>
           <TabsTrigger value="menu">Menu</TabsTrigger>
+          <TabsTrigger value="motd">Menu of the Day</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
@@ -435,6 +437,11 @@ export default function RestaurantPage() {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        {/* Menu of the Day */}
+        <TabsContent value="motd">
+          <MenuOfTheDayTab restaurantId={restaurantId} />
         </TabsContent>
 
         {/* Reports */}

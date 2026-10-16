@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api, reservationsApi } from '@/lib/api';
+import { MenuOfTheDayCard } from './components/menu-of-the-day-card';
 import { useAuthStore } from '@/store/auth';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -195,6 +196,8 @@ export default function FrontDeskPage() {
           </CardContent>
         </Card>
       </div>
+
+      <MenuOfTheDayCard propertyId={propertyId} />
 
       {/* Room Status Board */}
       <Card>
